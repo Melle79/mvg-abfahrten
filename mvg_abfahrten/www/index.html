@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.2.1 – Cache: 2026-06-12-02 */
+  /* Anzeigetafel v1.3.0 – Cache: 2026-06-12-03 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -265,6 +265,34 @@
       .map(c => c.dataset.type).join(",");
   }
 
+  // Filterauswahl für den Favoriten: alle Chips an = kein Filter
+  function filterForSave() {
+    const chips = [...document.querySelectorAll(".chip")];
+    const on = chips.filter(c => c.getAttribute("aria-pressed") === "true");
+    return on.length === chips.length ? "" : on.map(c => c.dataset.type).join(",");
+  }
+
+  // Gespeicherten Favoriten-Filter auf die Chips anwenden
+  function applyFilterChips(filterTypes) {
+    const set = new Set((filterTypes || "").split(",").filter(Boolean));
+    document.querySelectorAll(".chip").forEach(c => {
+      if (!set.size) { c.setAttribute("aria-pressed", "true"); return; }
+      const match = c.dataset.type.split(",").some(t => set.has(t));
+      c.setAttribute("aria-pressed", match ? "true" : "false");
+    });
+  }
+
+  const TYPE_NAMES = {
+    UBAHN:"U-Bahn", SBAHN:"S-Bahn", TRAM:"Tram",
+    BUS:"Bus", REGIONAL_BUS:"Bus", BAHN:"Bahn"
+  };
+  function typesLabel(filterTypes) {
+    const names = [...new Set(
+      (filterTypes || "").split(",").filter(Boolean).map(t => TYPE_NAMES[t] || t)
+    )];
+    return names.join("/");
+  }
+
   // ---------- Suche ----------
   qInput.addEventListener("input", () => {
     clearTimeout(debounceTimer);
@@ -370,6 +398,7 @@
     const chip = e.target.closest(".chip");
     if (!chip) return;
     chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
+    updateStar();
     loadDepartures(true);
   });
 
@@ -384,10 +413,12 @@
     for (const f of favorites) {
       const el = document.createElement("button");
       el.className = "fav";
-      el.innerHTML = `★ ${esc(f.name)} <span class="x" title="Favorit entfernen">✕</span>`;
+      const tag = f.filterTypes ? ` · ${esc(typesLabel(f.filterTypes))}` : "";
+      el.innerHTML = `★ ${esc(f.name)}${tag} <span class="x" title="Favorit entfernen">✕</span>`;
       el.addEventListener("click", (e) => {
-        if (e.target.classList.contains("x")) { removeFavorite(f.globalId); return; }
+        if (e.target.classList.contains("x")) { removeFavorite(f); return; }
         qInput.value = f.name;
+        applyFilterChips(f.filterTypes || "");
         selectStation(f);
       });
       favsEl.appendChild(el);
@@ -395,27 +426,33 @@
     updateStar();
   }
 
-  function isFavorite() {
-    return current && favorites.some(f => f.globalId === current.globalId);
+  function findFavorite() {
+    if (!current) return null;
+    const ft = filterForSave();
+    return favorites.find(f =>
+      f.globalId === current.globalId && (f.filterTypes || "") === ft) || null;
   }
   function updateStar() {
-    starBtn.classList.toggle("on", isFavorite());
-    starBtn.title = isFavorite() ? "Favorit entfernen" : "Als Favorit speichern";
+    const fav = findFavorite();
+    starBtn.classList.toggle("on", !!fav);
+    starBtn.title = fav ? "Favorit entfernen" : "Als Favorit speichern (mit aktueller Filterauswahl)";
   }
 
   starBtn.addEventListener("click", async () => {
     if (!current) return;
-    if (isFavorite()) { removeFavorite(current.globalId); return; }
+    const existing = findFavorite();
+    if (existing) { removeFavorite(existing); return; }
     favorites = await fetch("./api/favorites", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(current)
+      body: JSON.stringify(Object.assign({}, current, { filterTypes: filterForSave() }))
     }).then(r => r.json());
     renderFavorites();
   });
 
-  async function removeFavorite(globalId) {
-    favorites = await fetch("./api/favorites/" + encodeURIComponent(globalId), { method: "DELETE" })
-      .then(r => r.json());
+  async function removeFavorite(fav) {
+    const url = "./api/favorites/" + encodeURIComponent(fav.globalId) +
+      "?types=" + encodeURIComponent(fav.filterTypes || "");
+    favorites = await fetch(url, { method: "DELETE" }).then(r => r.json());
     renderFavorites();
   }
 

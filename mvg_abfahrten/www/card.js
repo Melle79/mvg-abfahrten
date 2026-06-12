@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.2.1
+/* MVG Abfahrten – Lovelace-Karte v1.3.0
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -35,6 +35,14 @@
     "Lufthansa Express Bus": "LH Bus",
     "ERSATZVERKEHR": "SEV"
   };
+  const TYPE_NAMES = {
+    UBAHN:"U-Bahn", SBAHN:"S-Bahn", TRAM:"Tram",
+    BUS:"Bus", REGIONAL_BUS:"Bus", BAHN:"Bahn"
+  };
+  const typesLabel = (ft) => [...new Set(
+    (ft || "").split(",").filter(Boolean).map(t => TYPE_NAMES[t] || t)
+  )].join("/");
+  const favKey = (f) => f.globalId + "|" + (f.filterTypes || "");
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -84,6 +92,14 @@
     .cancelled .min { color: #E5443B; font-size: 13px; }
     .note { padding: 18px 16px; color: #7E92AB; font-size: 13px; border-top: 1px solid #1E2E44; }
     .note.err { color: #E5443B; }
+    .section-head {
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 13px 16px 7px; border-top: 2px solid #1E2E44;
+    }
+    .section-head:first-child { border-top: 0; }
+    .section-head h3 { margin: 0; font-size: 14px; font-weight: 700; }
+    .section-head .tag { color: #FFB300; font-size: 11.5px; font-weight: 700; }
+    .section-head .place2 { color: #7E92AB; font-size: 11.5px; }
     @media (max-width: 420px) { .platform { display: none; } }
   `;
 
@@ -135,7 +151,7 @@
       this._init();
       const refresh = Math.max(20, Number(this._config.refresh) || 30);
       this._timer = setInterval(() => {
-        if (!document.hidden) this._loadDepartures();
+        if (!document.hidden) this._refresh();
       }, refresh * 1000);
       this._clockTimer = setInterval(() => this._tick(), 1000);
       this._tick();
@@ -144,6 +160,11 @@
     disconnectedCallback() {
       clearInterval(this._timer);
       clearInterval(this._clockTimer);
+    }
+
+    _refresh() {
+      if (this._config.layout === "list" && !this._config.global_id) this._loadAll();
+      else this._loadDepartures();
     }
 
     _tick() {
@@ -159,6 +180,7 @@
           globalId: this._config.global_id,
           name: this._config.title || this._config.global_id,
           place: "",
+          filterTypes: this._config.types || "",
         };
         this._renderHead();
         this._loadDepartures();
@@ -176,8 +198,15 @@
         this._error("Keine Favoriten vorhanden – im Add-on eine Haltestelle suchen und mit ★ speichern.");
         return;
       }
-      const savedId = localStorage.getItem(this._storageKey);
-      this._current = this._favorites.find(f => f.globalId === savedId) || this._favorites[0];
+      if (this._config.layout === "list") {
+        this._els.name.textContent = "MVG Abfahrten";
+        this._els.place.textContent = "";
+        this._els.chips.hidden = true;
+        this._loadAll();
+        return;
+      }
+      const savedKey = localStorage.getItem(this._storageKey);
+      this._current = this._favorites.find(f => favKey(f) === savedKey) || this._favorites[0];
       this._renderChips();
       this._renderHead();
       this._loadDepartures();
@@ -192,11 +221,11 @@
       this._els.chips.innerHTML = "";
       for (const f of this._favorites) {
         const b = document.createElement("button");
-        b.className = "chip" + (f.globalId === this._current.globalId ? " on" : "");
-        b.textContent = f.name;
+        b.className = "chip" + (favKey(f) === favKey(this._current) ? " on" : "");
+        b.textContent = f.name + (f.filterTypes ? " · " + typesLabel(f.filterTypes) : "");
         b.addEventListener("click", () => {
           this._current = f;
-          localStorage.setItem(this._storageKey, f.globalId);
+          localStorage.setItem(this._storageKey, favKey(f));
           this._renderChips();
           this._renderHead();
           this._els.rows.innerHTML = '<div class="note">Lade …</div>';
@@ -207,23 +236,49 @@
     }
 
     _renderHead() {
-      this._els.name.textContent = this._current.name;
+      const tag = this._current.filterTypes ? " · " + typesLabel(this._current.filterTypes) : "";
+      this._els.name.textContent = this._current.name + tag;
       this._els.place.textContent = this._current.place || "";
+    }
+
+    async _fetchDepartures(globalId, types) {
+      const params = new URLSearchParams({ limit: this._config.limit });
+      if (types) params.set("types", types);
+      const resp = await fetch(this._apiUrl + "/api/departures/" +
+        encodeURIComponent(globalId) + "?" + params);
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const data = await resp.json();
+      return data.departures || [];
     }
 
     async _loadDepartures() {
       if (!this._current) return;
-      const params = new URLSearchParams({ limit: this._config.limit });
-      if (this._config.types) params.set("types", this._config.types);
+      const types = this._current.filterTypes || this._config.types || "";
       try {
-        const resp = await fetch(this._apiUrl + "/api/departures/" +
-          encodeURIComponent(this._current.globalId) + "?" + params);
-        if (!resp.ok) throw new Error("HTTP " + resp.status);
-        const data = await resp.json();
-        this._renderRows(data.departures || []);
+        const deps = await this._fetchDepartures(this._current.globalId, types);
+        this._els.rows.innerHTML = this._rowsHtml(deps);
       } catch (err) {
         this._error("MVG-Daten nicht erreichbar – nächster Versuch beim Refresh.");
       }
+    }
+
+    // Listen-Layout: alle Favoriten untereinander
+    async _loadAll() {
+      const results = await Promise.allSettled(
+        this._favorites.map(f =>
+          this._fetchDepartures(f.globalId, f.filterTypes || this._config.types || ""))
+      );
+      this._els.rows.innerHTML = this._favorites.map((f, i) => {
+        const tag = f.filterTypes
+          ? `<span class="tag">${esc(typesLabel(f.filterTypes))}</span>` : "";
+        const head = `<div class="section-head"><h3>${esc(f.name)}</h3>${tag}
+          <span class="place2">${esc(f.place || "")}</span></div>`;
+        const res = results[i];
+        const body = (res.status === "fulfilled")
+          ? this._rowsHtml(res.value)
+          : '<div class="note err">MVG-Daten nicht erreichbar.</div>';
+        return head + body;
+      }).join("");
     }
 
     _badge(label, type) {
@@ -235,13 +290,12 @@
       return `<span class="${cls}" style="background:${bg};color:${fg}" title="${esc(label || "")}">${esc(shown)}</span>`;
     }
 
-    _renderRows(deps) {
+    _rowsHtml(deps) {
       if (!deps.length) {
-        this._els.rows.innerHTML = '<div class="note">Keine Abfahrten.</div>';
-        return;
+        return '<div class="note">Keine Abfahrten.</div>';
       }
       const now = Date.now();
-      this._els.rows.innerHTML = deps.map(d => {
+      return deps.map(d => {
         const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
         const planned = new Date(d.planned).toLocaleTimeString("de-DE",
           { hour: "2-digit", minute: "2-digit" });
@@ -267,7 +321,11 @@
     }
 
     getCardSize() {
-      return 1 + Math.ceil((Number(this._config?.limit) || 8) / 2);
+      const perStation = 1 + Math.ceil((Number(this._config?.limit) || 8) / 2);
+      if (this._config?.layout === "list" && !this._config?.global_id) {
+        return perStation * Math.max(1, (this._favorites || []).length || 2);
+      }
+      return perStation;
     }
   }
 
@@ -286,15 +344,21 @@
 
   const LABELS = {
     station: "Haltestelle",
+    layout: "Darstellung der Favoriten",
     limit: "Anzahl Abfahrten",
     types: "Verkehrsmittel (leer = alle)",
     refresh: "Aktualisierung",
     api_url: "API-URL (leer = Standard)",
   };
   const HELPERS_TXT = {
-    station: "Favoriten verwaltest du im Add-on (★).",
+    station: "Favoriten verwaltest du im Add-on (★) – inkl. Beförderungsart.",
+    layout: "Tabs: eine Haltestelle, umschaltbar. Untereinander: alle Favoriten als eigene Blöcke.",
     api_url: "Standard: http://<ha-host>:8099",
   };
+  const LAYOUT_OPTIONS = [
+    { value: "tabs", label: "Tabs (umschaltbar)" },
+    { value: "list", label: "Untereinander" },
+  ];
 
   class MvgAbfahrtenCardEditor extends HTMLElement {
 
@@ -320,30 +384,46 @@
       this._render();
     }
 
+    _currentStationValue() {
+      if (!this._config.global_id) return "__favs__";
+      return this._config.global_id + "|" + (this._config.types || "");
+    }
+
     _schema() {
+      const current = this._currentStationValue();
       const stationOptions = [
-        { value: "__favs__", label: "★ Alle Favoriten (umschaltbare Chips)" },
+        { value: "__favs__", label: "★ Alle Favoriten" },
         ...(this._favorites || []).map(f => ({
-          value: f.globalId,
-          label: f.name + (f.place ? ` (${f.place})` : ""),
+          value: favKey(f),
+          label: f.name
+            + (f.filterTypes ? ` · ${typesLabel(f.filterTypes)}` : "")
+            + (f.place ? ` (${f.place})` : ""),
         })),
       ];
+      if (current !== "__favs__" && !stationOptions.some(o => o.value === current)) {
+        stationOptions.push({ value: current, label: "Aktuell: " + (this._config.title || this._config.global_id) });
+      }
       const stationField = this._favError
         ? { name: "global_id", selector: { text: {} } } // Fallback: Global ID tippen
         : { name: "station", selector: { select: { mode: "dropdown", options: stationOptions } } };
-      return [
-        stationField,
+      const fields = [stationField];
+      if (current === "__favs__" && !this._favError) {
+        fields.push({ name: "layout", selector: { select: { mode: "dropdown", options: LAYOUT_OPTIONS } } });
+      }
+      fields.push(
         { name: "limit",   selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
         { name: "types",   selector: { select: { multiple: true, mode: "list", options: TYPE_OPTIONS } } },
         { name: "refresh", selector: { number: { min: 20, max: 300, step: 5, mode: "box", unit_of_measurement: "s" } } },
         { name: "api_url", selector: { text: {} } },
-      ];
+      );
+      return fields;
     }
 
     _formData() {
       return {
-        station: this._config.global_id || "__favs__",
+        station: this._currentStationValue(),
         global_id: this._config.global_id || "",
+        layout: this._config.layout || "tabs",
         limit: Number(this._config.limit) || 8,
         types: (this._config.types || "").split(",").map(s => s.trim()).filter(Boolean),
         refresh: Number(this._config.refresh) || 30,
@@ -370,26 +450,39 @@
       e.stopPropagation();
       const v = e.detail.value || {};
       const cfg = Object.assign({}, this._config);
+      const prevStation = this._currentStationValue();
+      const stationChanged = !this._favError && v.station !== prevStation;
 
-      // Haltestelle: Favoriten-Modus oder feste Global ID
+      // Haltestelle: Favoriten-Modus oder fester Favorit (inkl. Beförderungsart)
       if (this._favError) {
         if ((v.global_id || "").trim()) cfg.global_id = v.global_id.trim();
         else { delete cfg.global_id; delete cfg.title; }
       } else if (v.station && v.station !== "__favs__") {
-        cfg.global_id = v.station;
-        const fav = (this._favorites || []).find(f => f.globalId === v.station);
-        if (fav) cfg.title = fav.name; else delete cfg.title;
+        const [gid, ftypes] = v.station.split("|");
+        cfg.global_id = gid;
+        const fav = (this._favorites || []).find(f => favKey(f) === v.station);
+        cfg.title = fav ? fav.name : (this._config.title || gid);
+        if (stationChanged) {
+          if (ftypes) cfg.types = ftypes; else delete cfg.types;
+        }
       } else {
         delete cfg.global_id;
         delete cfg.title;
+        if (stationChanged) delete cfg.types;
       }
+
+      if (v.layout && v.layout !== "tabs") cfg.layout = v.layout;
+      else delete cfg.layout;
 
       cfg.limit = Number(v.limit) || 8;
       cfg.refresh = Number(v.refresh) || 30;
 
-      const types = Array.isArray(v.types) ? v.types.filter(Boolean) : [];
-      if (types.length) cfg.types = types.join(",");
-      else delete cfg.types;
+      // Verkehrsmittel nur übernehmen, wenn nicht gerade die Haltestelle gewechselt wurde
+      if (!stationChanged) {
+        const types = Array.isArray(v.types) ? v.types.filter(Boolean) : [];
+        if (types.length) cfg.types = types.join(",");
+        else delete cfg.types;
+      }
 
       if ((v.api_url || "").trim()) cfg.api_url = v.api_url.trim();
       else delete cfg.api_url;
@@ -398,6 +491,7 @@
       this.dispatchEvent(new CustomEvent("config-changed", {
         detail: { config: cfg }, bubbles: true, composed: true,
       }));
+      this._render();
     }
   }
 
