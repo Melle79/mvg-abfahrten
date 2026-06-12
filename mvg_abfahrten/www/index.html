@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.0 – Cache: 2026-06-12-01 */
+  /* Anzeigetafel v1.2.1 – Cache: 2026-06-12-02 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -116,17 +116,19 @@
 
   .row {
     display: grid; align-items: center;
-    grid-template-columns: 58px 1fr auto auto;
+    grid-template-columns: minmax(58px, auto) 1fr auto auto;
     gap: 12px; padding: 11px 16px;
     border-bottom: 1px solid var(--line);
   }
   .row:last-child { border-bottom: 0; }
   .badge {
     display: inline-flex; align-items: center; justify-content: center;
-    min-width: 46px; padding: 4px 6px; border-radius: 6px;
+    min-width: 46px; max-width: 112px; padding: 4px 7px; border-radius: 6px;
     font-weight: 800; font-size: 15px; color: #fff;
     font-variant-numeric: tabular-nums;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  .badge.long { font-size: 11px; letter-spacing: -0.01em; }
   .dest { min-width: 0; }
   .dest .to { font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dest .meta { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
@@ -146,7 +148,7 @@
   footer { margin-top: 14px; color: var(--muted); font-size: 12px; text-align: center; }
 
   @media (max-width: 520px) {
-    .row { grid-template-columns: 50px 1fr auto; }
+    .row { grid-template-columns: minmax(50px, auto) 1fr auto; }
     .platform { display: none; }
     .min { font-size: 19px; min-width: 64px; }
   }
@@ -240,11 +242,20 @@
     return r.json();
   });
 
+  // Bekannte Langnamen kürzen, damit das Badge kompakt bleibt
+  const SHORT_LABELS = {
+    "LUFTHANSA EXPRESS BUS": "LH Bus",
+    "Lufthansa Express Bus": "LH Bus",
+    "ERSATZVERKEHR": "SEV"
+  };
+
   function badgeHtml(label, type) {
+    const shown = SHORT_LABELS[label] || label || TYPE_SHORT[type] || "?";
     let bg = LINE_GRADIENTS[label] || LINE_COLORS[label] || TYPE_COLORS[type] || "#36428D";
     if (!LINE_GRADIENTS[label] && !LINE_COLORS[label] && /^X\d+/.test(label || "")) bg = EXPRESS_GREEN;
     const fg = (label === "S8") ? "#F8C300" : "#fff";
-    return `<span class="badge" style="background:${bg};color:${fg}">${esc(label || TYPE_SHORT[type] || "?")}</span>`;
+    const cls = shown.length > 4 ? "badge long" : "badge";
+    return `<span class="${cls}" style="background:${bg};color:${fg}" title="${esc(label || "")}">${esc(shown)}</span>`;
   }
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));

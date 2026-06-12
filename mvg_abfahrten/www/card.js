@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.2.0
+/* MVG Abfahrten – Lovelace-Karte v1.2.1
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -30,6 +30,11 @@
     UBAHN:"#0065B0", SBAHN:"#4C9046", TRAM:"#D82020",
     BUS:"#00586A", REGIONAL_BUS:"#0D5C70", BAHN:"#36397F", SEV:"#7A6A00"
   };
+  const SHORT_LABELS = {
+    "LUFTHANSA EXPRESS BUS": "LH Bus",
+    "Lufthansa Express Bus": "LH Bus",
+    "ERSATZVERKEHR": "SEV"
+  };
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -56,15 +61,17 @@
     .chip:focus-visible { outline: 2px solid #3D7BD9; outline-offset: 1px; }
     .row {
       display: grid; align-items: center;
-      grid-template-columns: 52px 1fr auto auto;
+      grid-template-columns: minmax(52px, auto) 1fr auto auto;
       gap: 10px; padding: 9px 16px;
       border-top: 1px solid #1E2E44;
     }
     .badge {
       display: inline-flex; align-items: center; justify-content: center;
-      min-width: 42px; padding: 3px 5px; border-radius: 6px;
+      min-width: 42px; max-width: 104px; padding: 3px 6px; border-radius: 6px;
       font-weight: 800; font-size: 13.5px; color: #fff;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    .badge.long { font-size: 10.5px; letter-spacing: -0.01em; }
     .dest { min-width: 0; }
     .to { font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .meta { color: #7E92AB; font-size: 11.5px; }
@@ -220,10 +227,12 @@
     }
 
     _badge(label, type) {
+      const shown = SHORT_LABELS[label] || label || "?";
       let bg = LINE_GRADIENTS[label] || LINE_COLORS[label] || TYPE_COLORS[type] || "#36428D";
       if (!LINE_GRADIENTS[label] && !LINE_COLORS[label] && /^X\d+/.test(label || "")) bg = EXPRESS_GREEN;
       const fg = (label === "S8") ? "#F8C300" : "#fff";
-      return `<span class="badge" style="background:${bg};color:${fg}">${esc(label || "?")}</span>`;
+      const cls = shown.length > 4 ? "badge long" : "badge";
+      return `<span class="${cls}" style="background:${bg};color:${fg}" title="${esc(label || "")}">${esc(shown)}</span>`;
     }
 
     _renderRows(deps) {
