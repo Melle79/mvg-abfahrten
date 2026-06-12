@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.1.0
+/* MVG Abfahrten – Lovelace-Karte v1.2.0
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -84,6 +84,16 @@
 
     static getStubConfig() {
       return { favorites: true, limit: 8 };
+    }
+
+    static async getConfigElement() {
+      // ha-form laden, indem kurz ein Core-Editor instanziiert wird
+      try {
+        const helpers = await window.loadCardHelpers();
+        const tmp = await helpers.createCardElement({ type: "entities", entities: [] });
+        await tmp.constructor.getConfigElement();
+      } catch (e) { /* ha-form ist meist ohnehin schon geladen */ }
+      return document.createElement("mvg-abfahrten-card-editor");
     }
 
     setConfig(config) {
@@ -253,6 +263,137 @@
   }
 
   customElements.define("mvg-abfahrten-card", MvgAbfahrtenCard);
+
+  /* ---------------------------------------------------------------- Editor */
+
+  const TYPE_OPTIONS = [
+    { value: "UBAHN",        label: "U-Bahn" },
+    { value: "SBAHN",        label: "S-Bahn" },
+    { value: "TRAM",         label: "Tram" },
+    { value: "BUS",          label: "Bus" },
+    { value: "REGIONAL_BUS", label: "Regionalbus" },
+    { value: "BAHN",         label: "Bahn" },
+  ];
+
+  const LABELS = {
+    station: "Haltestelle",
+    limit: "Anzahl Abfahrten",
+    types: "Verkehrsmittel (leer = alle)",
+    refresh: "Aktualisierung",
+    api_url: "API-URL (leer = Standard)",
+  };
+  const HELPERS_TXT = {
+    station: "Favoriten verwaltest du im Add-on (★).",
+    api_url: "Standard: http://<ha-host>:8099",
+  };
+
+  class MvgAbfahrtenCardEditor extends HTMLElement {
+
+    set hass(h) { this._hass = h; this._render(); }
+
+    setConfig(config) {
+      this._config = Object.assign({}, config);
+      if (!this._favorites) this._loadFavorites();
+      this._render();
+    }
+
+    async _loadFavorites() {
+      const apiUrl = (this._config.api_url ||
+        `${location.protocol}//${location.hostname}:8099`).replace(/\/+$/, "");
+      try {
+        const resp = await fetch(apiUrl + "/api/favorites");
+        this._favorites = await resp.json();
+        this._favError = false;
+      } catch (e) {
+        this._favorites = [];
+        this._favError = true;
+      }
+      this._render();
+    }
+
+    _schema() {
+      const stationOptions = [
+        { value: "__favs__", label: "★ Alle Favoriten (umschaltbare Chips)" },
+        ...(this._favorites || []).map(f => ({
+          value: f.globalId,
+          label: f.name + (f.place ? ` (${f.place})` : ""),
+        })),
+      ];
+      const stationField = this._favError
+        ? { name: "global_id", selector: { text: {} } } // Fallback: Global ID tippen
+        : { name: "station", selector: { select: { mode: "dropdown", options: stationOptions } } };
+      return [
+        stationField,
+        { name: "limit",   selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
+        { name: "types",   selector: { select: { multiple: true, mode: "list", options: TYPE_OPTIONS } } },
+        { name: "refresh", selector: { number: { min: 20, max: 300, step: 5, mode: "box", unit_of_measurement: "s" } } },
+        { name: "api_url", selector: { text: {} } },
+      ];
+    }
+
+    _formData() {
+      return {
+        station: this._config.global_id || "__favs__",
+        global_id: this._config.global_id || "",
+        limit: Number(this._config.limit) || 8,
+        types: (this._config.types || "").split(",").map(s => s.trim()).filter(Boolean),
+        refresh: Number(this._config.refresh) || 30,
+        api_url: this._config.api_url || "",
+      };
+    }
+
+    _render() {
+      if (!this._hass || !this._config) return;
+      if (!this._form) {
+        this.innerHTML = "";
+        this._form = document.createElement("ha-form");
+        this._form.addEventListener("value-changed", (e) => this._valueChanged(e));
+        this.appendChild(this._form);
+      }
+      this._form.hass = this._hass;
+      this._form.schema = this._schema();
+      this._form.data = this._formData();
+      this._form.computeLabel = (s) => LABELS[s.name] || (s.name === "global_id" ? "Global ID (z. B. de:09184:2400)" : s.name);
+      this._form.computeHelper = (s) => HELPERS_TXT[s.name] || "";
+    }
+
+    _valueChanged(e) {
+      e.stopPropagation();
+      const v = e.detail.value || {};
+      const cfg = Object.assign({}, this._config);
+
+      // Haltestelle: Favoriten-Modus oder feste Global ID
+      if (this._favError) {
+        if ((v.global_id || "").trim()) cfg.global_id = v.global_id.trim();
+        else { delete cfg.global_id; delete cfg.title; }
+      } else if (v.station && v.station !== "__favs__") {
+        cfg.global_id = v.station;
+        const fav = (this._favorites || []).find(f => f.globalId === v.station);
+        if (fav) cfg.title = fav.name; else delete cfg.title;
+      } else {
+        delete cfg.global_id;
+        delete cfg.title;
+      }
+
+      cfg.limit = Number(v.limit) || 8;
+      cfg.refresh = Number(v.refresh) || 30;
+
+      const types = Array.isArray(v.types) ? v.types.filter(Boolean) : [];
+      if (types.length) cfg.types = types.join(",");
+      else delete cfg.types;
+
+      if ((v.api_url || "").trim()) cfg.api_url = v.api_url.trim();
+      else delete cfg.api_url;
+
+      this._config = cfg;
+      this.dispatchEvent(new CustomEvent("config-changed", {
+        detail: { config: cfg }, bubbles: true, composed: true,
+      }));
+    }
+  }
+
+  customElements.define("mvg-abfahrten-card-editor", MvgAbfahrtenCardEditor);
+
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: "mvg-abfahrten-card",

@@ -34,7 +34,9 @@ Das Add-on liefert die Lovelace-Karte selbst aus (Port 8099 muss in der Add-on-K
 - URL: `http://<ha-host>:8099/card.js`
 - Typ: JavaScript-Modul
 
-**Karte einbinden** – Variante A, mit Favoriten-Chips aus dem Add-on:
+**Karte einbinden:** Dashboard → Karte hinzufügen → nach **„MVG Abfahrten"** suchen. Die Karte hat einen **visuellen Editor**: Haltestelle (Dropdown aus den Add-on-Favoriten oder „Alle Favoriten" als umschaltbare Chips), Anzahl der Abfahrten (Slider), Verkehrsmittel-Filter, Aktualisierungsintervall.
+
+Alternativ per YAML – Variante A, mit Favoriten-Chips aus dem Add-on:
 
 ```yaml
 type: custom:mvg-abfahrten-card
