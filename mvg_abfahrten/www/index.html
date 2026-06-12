@@ -197,10 +197,16 @@
   // Offizielle Linienfarben (Auswahl) + Fallbacks pro Verkehrsmittel
   const LINE_COLORS = {
     U1:"#438136", U2:"#C40C37", U3:"#F36E31", U4:"#0AB38D", U5:"#B8740E",
-    U6:"#006CB3", U7:"#438136", U8:"#C40C37",
+    U6:"#006CB3",
     S1:"#16BAE7", S2:"#76B82A", S3:"#951B81", S4:"#E30613", S5:"#005E82",
     S6:"#00975F", S7:"#943126", S8:"#262626", S20:"#ED6B83"
   };
+  // Zweifarbige Linien als CSS-Gradient (U7 = U1-Grün/U2-Rot, U8 = U2-Rot/U3-Orange)
+  const LINE_GRADIENTS = {
+    U7:"linear-gradient(135deg,#438136 50%,#C40C37 50%)",
+    U8:"linear-gradient(135deg,#C40C37 50%,#F36E31 50%)"
+  };
+  const EXPRESS_GREEN = "#009A3D"; // ExpressBus (X-Linien)
   const TYPE_COLORS = {
     UBAHN:"#0065B0", SBAHN:"#4C9046", TRAM:"#D82020",
     BUS:"#00586A", REGIONAL_BUS:"#0D5C70", BAHN:"#36397F", SEV:"#7A6A00"
@@ -235,9 +241,10 @@
   });
 
   function badgeHtml(label, type) {
-    const color = LINE_COLORS[label] || TYPE_COLORS[type] || "#36428D";
+    let bg = LINE_GRADIENTS[label] || LINE_COLORS[label] || TYPE_COLORS[type] || "#36428D";
+    if (!LINE_GRADIENTS[label] && !LINE_COLORS[label] && /^X\d+/.test(label || "")) bg = EXPRESS_GREEN;
     const fg = (label === "S8") ? "#F8C300" : "#fff";
-    return `<span class="badge" style="background:${color};color:${fg}">${esc(label || TYPE_SHORT[type] || "?")}</span>`;
+    return `<span class="badge" style="background:${bg};color:${fg}">${esc(label || TYPE_SHORT[type] || "?")}</span>`;
   }
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));

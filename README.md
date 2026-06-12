@@ -25,6 +25,34 @@ Abfahrtsmonitor für MVG/MVV mit Haltestellensuche (Live-Autocomplete), Verkehrs
 | `cache_ttl` | 45 | Cache-Dauer für Abfahrten in Sekunden (10–300) |
 | `default_limit` | 12 | Standardanzahl Abfahrten (1–80) |
 
+## Dashboard-Karte
+
+Das Add-on liefert die Lovelace-Karte selbst aus (Port 8099 muss in der Add-on-Konfiguration freigegeben sein, Standard).
+
+**Ressource registrieren** (einmalig): Einstellungen → Dashboards → ⋮ → Ressourcen → Hinzufügen:
+
+- URL: `http://<ha-host>:8099/card.js`
+- Typ: JavaScript-Modul
+
+**Karte einbinden** – Variante A, mit Favoriten-Chips aus dem Add-on:
+
+```yaml
+type: custom:mvg-abfahrten-card
+limit: 8
+```
+
+Variante B, feste Haltestelle:
+
+```yaml
+type: custom:mvg-abfahrten-card
+global_id: de:09184:2400
+title: Ottobrunn
+types: SBAHN,BUS
+limit: 6
+```
+
+Weitere Optionen: `api_url` (Standard: `http://<ha-host>:8099`), `refresh` (Sekunden, min. 20), `favorites: false` (Chips ausblenden).
+
 ## API-Endpunkte (intern, via Ingress)
 
 - `GET /api/search?q=ottobrunn` – Haltestellensuche

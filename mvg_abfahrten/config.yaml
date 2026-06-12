@@ -1,5 +1,5 @@
 name: MVG Abfahrten
-version: "1.0.0"
+version: "1.1.0"
 slug: mvg_abfahrten
 description: Abfahrtsmonitor für MVG/MVV mit Haltestellensuche, Favoriten und Echtzeitdaten
 url: https://github.com/Melle79/mvg-abfahrten
@@ -10,6 +10,10 @@ arch:
 init: false
 ingress: true
 ingress_port: 8099
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: API & Dashboard-Karte (LAN, ohne Auth – nur im Heimnetz nutzen)
 panel_icon: mdi:bus-clock
 panel_title: MVG
 options:

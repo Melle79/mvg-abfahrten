@@ -78,6 +78,23 @@ def _save_favorites(favs: list) -> None:
         )
 
 
+# ---------------------------------------------------------------- CORS
+# Die Dashboard-Karte läuft im HA-Frontend (Port 8123) und ruft die API
+# auf Port 8099 auf – dafür braucht es CORS-Freigaben.
+
+@app.after_request
+def add_cors_headers(resp):
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return resp
+
+
+@app.route("/api/<path:_any>", methods=["OPTIONS"])
+def cors_preflight(_any):
+    return "", 204
+
+
 # ---------------------------------------------------------------- Frontend
 
 @app.get("/")
