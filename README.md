@@ -103,6 +103,12 @@ limit: 6
 - `GET /api/departures/<globalId>?limit=15&types=SBAHN,BUS` – Abfahrten
 - `GET/POST /api/favorites`, `DELETE /api/favorites/<globalId>?types=...` – Favoriten
 
+## Unterstützung
+
+Wenn dir das Projekt gefällt und du die Weiterentwicklung unterstützen möchtest:
+
+<a href="https://buymeacoffee.com/melle79"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="44"></a>
+
 ## Haftungsausschluss
 
 Dies ist ein **privates Hobby-Projekt** ohne kommerziellen Hintergrund. Die Nutzung erfolgt auf eigene Gefahr – es gelten die Haftungsausschlüsse der [MIT-Lizenz](LICENSE); es besteht kein Anspruch auf Support oder Weiterentwicklung.
