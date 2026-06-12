@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.3.0 – Cache: 2026-06-12-03 */
+  /* Anzeigetafel v1.3.1 – Cache: 2026-06-12-04 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -47,7 +47,11 @@
   @media (prefers-reduced-motion: reduce) { #clock .tick { animation: none; } }
 
   /* ------- Suche ------- */
-  .search { position: relative; margin-bottom: 12px; }
+  .topbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    margin-bottom: 12px;
+  }
+  .search { position: relative; flex: 1 1 300px; min-width: 260px; }
   .search input {
     width: 100%; padding: 13px 44px 13px 14px;
     background: var(--panel); color: var(--ink);
@@ -80,7 +84,7 @@
   .dropdown .types { display: flex; gap: 4px; }
 
   /* ------- Filter & Favoriten ------- */
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
   .chip {
     padding: 6px 13px; border-radius: 999px; cursor: pointer;
     border: 1px solid var(--line); background: var(--panel);
@@ -88,7 +92,14 @@
   }
   .chip[aria-pressed="true"] { color: var(--ink); border-color: var(--amber); background: rgba(255,179,0,0.08); }
   .chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-  .favs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; min-height: 0; }
+  .favs {
+    display: flex; flex-wrap: wrap; gap: 8px; min-height: 0;
+    flex: 0 1 auto; max-width: 58%; justify-content: flex-end;
+  }
+  .favs:empty { display: none; }
+  @media (max-width: 640px) {
+    .favs { max-width: 100%; flex: 1 1 100%; justify-content: flex-start; }
+  }
   .fav {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 7px 12px; border-radius: 8px; cursor: pointer;
@@ -161,11 +172,14 @@
     <div id="clock" aria-hidden="true">--<span class="tick">:</span>--</div>
   </header>
 
-  <div class="search">
-    <input id="q" type="text" placeholder="Haltestelle suchen … (z. B. Ottobrunn)"
-           autocomplete="off" aria-label="Haltestelle suchen">
-    <div class="spin" id="spin"></div>
-    <div class="dropdown" id="dropdown" role="listbox"></div>
+  <div class="topbar">
+    <div class="search">
+      <input id="q" type="text" placeholder="Haltestelle suchen … (z. B. Ottobrunn)"
+             autocomplete="off" aria-label="Haltestelle suchen">
+      <div class="spin" id="spin"></div>
+      <div class="dropdown" id="dropdown" role="listbox"></div>
+    </div>
+    <div class="favs" id="favs"></div>
   </div>
 
   <div class="chips" id="chips" role="group" aria-label="Verkehrsmittel filtern">
@@ -175,8 +189,6 @@
     <button class="chip" data-type="BUS,REGIONAL_BUS" aria-pressed="true">Bus</button>
     <button class="chip" data-type="BAHN"         aria-pressed="true">Bahn</button>
   </div>
-
-  <div class="favs" id="favs"></div>
 
   <div class="board" id="board" hidden>
     <div class="board-head">
