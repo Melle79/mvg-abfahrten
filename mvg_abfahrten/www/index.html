@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MVG Abfahrten</title>
+<style>
+  /* Anzeigetafel v1.0 – Cache: 2026-06-12-01 */
+  :root {
+    --bg: #0C141F;
+    --panel: #131F30;
+    --panel-2: #0F1A29;
+    --ink: #EDF2F8;
+    --muted: #7E92AB;
+    --amber: #FFB300;
+    --red: #E5443B;
+    --line: #1E2E44;
+    --focus: #3D7BD9;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  /* ------- Kopf ------- */
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  header h1 {
+    font-size: 14px; font-weight: 700; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  header h1 b { color: var(--ink); }
+  #clock {
+    font-variant-numeric: tabular-nums;
+    font-size: 22px; font-weight: 600; color: var(--amber);
+  }
+  #clock .tick { animation: blink 2s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) { #clock .tick { animation: none; } }
+
+  /* ------- Suche ------- */
+  .search { position: relative; margin-bottom: 12px; }
+  .search input {
+    width: 100%; padding: 13px 44px 13px 14px;
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+    font-size: 16px; outline: none;
+  }
+  .search input:focus { border-color: var(--focus); }
+  .search input::placeholder { color: var(--muted); }
+  .search .spin {
+    position: absolute; right: 14px; top: 50%; translate: 0 -50%;
+    width: 16px; height: 16px; border: 2px solid var(--line);
+    border-top-color: var(--amber); border-radius: 50%;
+    animation: rot 0.8s linear infinite; display: none;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .dropdown {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    max-height: 320px; overflow-y: auto; display: none;
+  }
+  .dropdown button {
+    display: flex; width: 100%; align-items: center; gap: 10px;
+    padding: 11px 14px; background: none; border: 0; border-bottom: 1px solid var(--line);
+    color: var(--ink); font-size: 15px; text-align: left; cursor: pointer;
+  }
+  .dropdown button:last-child { border-bottom: 0; }
+  .dropdown button:hover, .dropdown button:focus-visible { background: var(--panel-2); outline: none; }
+  .dropdown .place { color: var(--muted); font-size: 13px; margin-left: auto; white-space: nowrap; }
+  .dropdown .types { display: flex; gap: 4px; }
+
+  /* ------- Filter & Favoriten ------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .chip {
+    padding: 6px 13px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--muted); font-size: 13px; font-weight: 600;
+  }
+  .chip[aria-pressed="true"] { color: var(--ink); border-color: var(--amber); background: rgba(255,179,0,0.08); }
+  .chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .favs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; min-height: 0; }
+  .fav {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--ink); font-size: 14px;
+  }
+  .fav:hover { border-color: var(--focus); }
+  .fav .x { color: var(--muted); font-size: 13px; padding: 0 2px; }
+  .fav .x:hover { color: var(--red); }
+
+  /* ------- Tafel ------- */
+  .board { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .board-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--line);
+  }
+  .board-head h2 { font-size: 17px; font-weight: 700; }
+  .board-head .sub { color: var(--muted); font-size: 13px; }
+  .board-head .star {
+    margin-left: auto; background: none; border: 0; cursor: pointer;
+    font-size: 20px; color: var(--muted); line-height: 1;
+  }
+  .board-head .star.on { color: var(--amber); }
+  .board-head .star:focus-visible { outline: 2px solid var(--focus); border-radius: 4px; }
+
+  .row {
+    display: grid; align-items: center;
+    grid-template-columns: 58px 1fr auto auto;
+    gap: 12px; padding: 11px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .row:last-child { border-bottom: 0; }
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 46px; padding: 4px 6px; border-radius: 6px;
+    font-weight: 800; font-size: 15px; color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+  .dest { min-width: 0; }
+  .dest .to { font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dest .meta { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .dest .meta .delay { color: var(--red); font-weight: 700; }
+  .dest .meta .sev { color: var(--amber); font-weight: 700; }
+  .cancelled .to { text-decoration: line-through; color: var(--muted); }
+  .cancelled .min { color: var(--red); font-size: 15px; }
+  .platform { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .min {
+    font-variant-numeric: tabular-nums; text-align: right;
+    color: var(--amber); font-size: 22px; font-weight: 700; min-width: 78px;
+  }
+  .min small { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 3px; }
+
+  .empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: 14.5px; }
+  .error { padding: 14px 16px; color: var(--red); font-size: 14px; }
+  footer { margin-top: 14px; color: var(--muted); font-size: 12px; text-align: center; }
+
+  @media (max-width: 520px) {
+    .row { grid-template-columns: 50px 1fr auto; }
+    .platform { display: none; }
+    .min { font-size: 19px; min-width: 64px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><b>MVG</b> Abfahrten</h1>
+    <div id="clock" aria-hidden="true">--<span class="tick">:</span>--</div>
+  </header>
+
+  <div class="search">
+    <input id="q" type="text" placeholder="Haltestelle suchen … (z. B. Ottobrunn)"
+           autocomplete="off" aria-label="Haltestelle suchen">
+    <div class="spin" id="spin"></div>
+    <div class="dropdown" id="dropdown" role="listbox"></div>
+  </div>
+
+  <div class="chips" id="chips" role="group" aria-label="Verkehrsmittel filtern">
+    <button class="chip" data-type="UBAHN"        aria-pressed="true">U-Bahn</button>
+    <button class="chip" data-type="SBAHN"        aria-pressed="true">S-Bahn</button>
+    <button class="chip" data-type="TRAM"         aria-pressed="true">Tram</button>
+    <button class="chip" data-type="BUS,REGIONAL_BUS" aria-pressed="true">Bus</button>
+    <button class="chip" data-type="BAHN"         aria-pressed="true">Bahn</button>
+  </div>
+
+  <div class="favs" id="favs"></div>
+
+  <div class="board" id="board" hidden>
+    <div class="board-head">
+      <div>
+        <h2 id="stationName"></h2>
+        <div class="sub" id="stationSub"></div>
+      </div>
+      <button class="star" id="star" title="Als Favorit speichern" aria-label="Als Favorit speichern">★</button>
+    </div>
+    <div id="rows"></div>
+  </div>
+
+  <footer>Daten: inoffizielle MVG-API · nur für private Nutzung · Auto-Aktualisierung alle 30 s</footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // Offizielle Linienfarben (Auswahl) + Fallbacks pro Verkehrsmittel
+  const LINE_COLORS = {
+    U1:"#438136", U2:"#C40C37", U3:"#F36E31", U4:"#0AB38D", U5:"#B8740E",
+    U6:"#006CB3", U7:"#438136", U8:"#C40C37",
+    S1:"#16BAE7", S2:"#76B82A", S3:"#951B81", S4:"#E30613", S5:"#005E82",
+    S6:"#00975F", S7:"#943126", S8:"#262626", S20:"#ED6B83"
+  };
+  const TYPE_COLORS = {
+    UBAHN:"#0065B0", SBAHN:"#4C9046", TRAM:"#D82020",
+    BUS:"#00586A", REGIONAL_BUS:"#0D5C70", BAHN:"#36397F", SEV:"#7A6A00"
+  };
+  const TYPE_SHORT = { UBAHN:"U", SBAHN:"S", TRAM:"T", BUS:"B", REGIONAL_BUS:"B", BAHN:"R" };
+
+  const $ = (id) => document.getElementById(id);
+  const qInput = $("q"), dropdown = $("dropdown"), spin = $("spin");
+  const board = $("board"), rowsEl = $("rows");
+  const favsEl = $("favs"), starBtn = $("star");
+
+  let current = null;          // { globalId, name, place, transportTypes }
+  let favorites = [];
+  let refreshTimer = null;
+  let debounceTimer = null;
+  let searchAbort = null;
+
+  // ---------- Uhr ----------
+  function tickClock() {
+    const d = new Date();
+    $("clock").innerHTML =
+      String(d.getHours()).padStart(2,"0") +
+      '<span class="tick">:</span>' +
+      String(d.getMinutes()).padStart(2,"0");
+  }
+  tickClock(); setInterval(tickClock, 1000);
+
+  // ---------- Hilfen ----------
+  const api = (path) => fetch("./api/" + path).then(r => {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  });
+
+  function badgeHtml(label, type) {
+    const color = LINE_COLORS[label] || TYPE_COLORS[type] || "#36428D";
+    const fg = (label === "S8") ? "#F8C300" : "#fff";
+    return `<span class="badge" style="background:${color};color:${fg}">${esc(label || TYPE_SHORT[type] || "?")}</span>`;
+  }
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  function activeTypes() {
+    return [...document.querySelectorAll('.chip[aria-pressed="true"]')]
+      .map(c => c.dataset.type).join(",");
+  }
+
+  // ---------- Suche ----------
+  qInput.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    const val = qInput.value.trim();
+    if (val.length < 2) { dropdown.style.display = "none"; return; }
+    debounceTimer = setTimeout(() => search(val), 300);
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search")) dropdown.style.display = "none";
+  });
+
+  async function search(query) {
+    if (searchAbort) searchAbort.abort();
+    searchAbort = new AbortController();
+    spin.style.display = "block";
+    try {
+      const r = await fetch("./api/search?q=" + encodeURIComponent(query), { signal: searchAbort.signal });
+      const list = await r.json();
+      renderDropdown(Array.isArray(list) ? list : []);
+    } catch (err) {
+      if (err.name !== "AbortError") renderDropdown([]);
+    } finally {
+      spin.style.display = "none";
+    }
+  }
+
+  function renderDropdown(list) {
+    dropdown.innerHTML = "";
+    if (!list.length) {
+      dropdown.innerHTML = '<button disabled style="color:var(--muted)">Keine Haltestelle gefunden</button>';
+    } else {
+      for (const st of list) {
+        const b = document.createElement("button");
+        b.setAttribute("role", "option");
+        b.innerHTML =
+          `<span class="types">${(st.transportTypes||[]).slice(0,4).map(t => badgeHtml(TYPE_SHORT[t]||"", t)).join("")}</span>
+           <span>${esc(st.name)}</span><span class="place">${esc(st.place||"")}</span>`;
+        b.addEventListener("click", () => {
+          dropdown.style.display = "none";
+          qInput.value = st.name;
+          selectStation(st);
+        });
+        dropdown.appendChild(b);
+      }
+    }
+    dropdown.style.display = "block";
+  }
+
+  // ---------- Station & Tafel ----------
+  function selectStation(st) {
+    current = st;
+    localStorage.setItem("mvg:last", JSON.stringify(st));
+    $("stationName").textContent = st.name;
+    $("stationSub").textContent = st.place || "";
+    board.hidden = false;
+    updateStar();
+    loadDepartures(true);
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => loadDepartures(false), 30000);
+  }
+
+  async function loadDepartures(showLoading) {
+    if (!current) return;
+    if (showLoading) rowsEl.innerHTML = '<div class="empty">Lade Abfahrten …</div>';
+    try {
+      const types = activeTypes();
+      const data = await api("departures/" + encodeURIComponent(current.globalId) +
+                             "?limit=15" + (types ? "&types=" + encodeURIComponent(types) : ""));
+      renderRows(data.departures || []);
+    } catch (err) {
+      rowsEl.innerHTML = '<div class="error">MVG-API nicht erreichbar – nächster Versuch in 30 s.</div>';
+    }
+  }
+
+  function renderRows(deps) {
+    if (!deps.length) {
+      rowsEl.innerHTML = '<div class="empty">Keine Abfahrten für die gewählten Filter.</div>';
+      return;
+    }
+    const now = Date.now();
+    rowsEl.innerHTML = deps.map(d => {
+      const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
+      const planned = new Date(d.planned).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+      const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
+      const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
+      const minHtml = d.cancelled
+        ? '<span class="min">entfällt</span>'
+        : `<span class="min">${mins}<small>min</small></span>`;
+      return `<div class="row${d.cancelled ? " cancelled" : ""}">
+        ${badgeHtml(d.label, d.transportType)}
+        <div class="dest">
+          <div class="to">${esc(d.destination)}</div>
+          <div class="meta">${planned}${delay}${sev}</div>
+        </div>
+        <span class="platform">${d.platform ? "Gleis " + esc(d.platform) : ""}</span>
+        ${minHtml}
+      </div>`;
+    }).join("");
+  }
+
+  // ---------- Filter ----------
+  $("chips").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
+    loadDepartures(true);
+  });
+
+  // ---------- Favoriten ----------
+  async function loadFavorites() {
+    try { favorites = await api("favorites"); } catch { favorites = []; }
+    renderFavorites();
+  }
+
+  function renderFavorites() {
+    favsEl.innerHTML = "";
+    for (const f of favorites) {
+      const el = document.createElement("button");
+      el.className = "fav";
+      el.innerHTML = `★ ${esc(f.name)} <span class="x" title="Favorit entfernen">✕</span>`;
+      el.addEventListener("click", (e) => {
+        if (e.target.classList.contains("x")) { removeFavorite(f.globalId); return; }
+        qInput.value = f.name;
+        selectStation(f);
+      });
+      favsEl.appendChild(el);
+    }
+    updateStar();
+  }
+
+  function isFavorite() {
+    return current && favorites.some(f => f.globalId === current.globalId);
+  }
+  function updateStar() {
+    starBtn.classList.toggle("on", isFavorite());
+    starBtn.title = isFavorite() ? "Favorit entfernen" : "Als Favorit speichern";
+  }
+
+  starBtn.addEventListener("click", async () => {
+    if (!current) return;
+    if (isFavorite()) { removeFavorite(current.globalId); return; }
+    favorites = await fetch("./api/favorites", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(current)
+    }).then(r => r.json());
+    renderFavorites();
+  });
+
+  async function removeFavorite(globalId) {
+    favorites = await fetch("./api/favorites/" + encodeURIComponent(globalId), { method: "DELETE" })
+      .then(r => r.json());
+    renderFavorites();
+  }
+
+  // ---------- Start ----------
+  loadFavorites();
+  const last = localStorage.getItem("mvg:last");
+  if (last) {
+    try { const st = JSON.parse(last); qInput.value = st.name; selectStation(st); } catch {}
+  }
+})();
+</script>
+</body>
+</html>
