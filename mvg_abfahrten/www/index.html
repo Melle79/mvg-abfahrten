@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.3.1 – Cache: 2026-06-12-04 */
+  /* Anzeigetafel v1.4.0 – Cache: 2026-06-12-05 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -48,10 +48,10 @@
 
   /* ------- Suche ------- */
   .topbar {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    display: flex; flex-wrap: nowrap; align-items: center; gap: 10px 14px;
     margin-bottom: 12px;
   }
-  .search { position: relative; flex: 1 1 300px; min-width: 260px; }
+  .search { position: relative; flex: 0 1 400px; min-width: 240px; }
   .search input {
     width: 100%; padding: 13px 44px 13px 14px;
     background: var(--panel); color: var(--ink);
@@ -93,12 +93,14 @@
   .chip[aria-pressed="true"] { color: var(--ink); border-color: var(--amber); background: rgba(255,179,0,0.08); }
   .chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .favs {
-    display: flex; flex-wrap: wrap; gap: 8px; min-height: 0;
-    flex: 0 1 auto; max-width: 58%; justify-content: flex-end;
+    display: flex; flex-wrap: wrap; gap: 8px; min-height: 0; min-width: 0;
+    flex: 1 1 auto; justify-content: flex-start;
   }
   .favs:empty { display: none; }
   @media (max-width: 640px) {
-    .favs { max-width: 100%; flex: 1 1 100%; justify-content: flex-start; }
+    .topbar { flex-wrap: wrap; }
+    .search { flex: 1 1 100%; }
+    .favs { flex: 1 1 100%; }
   }
   .fav {
     display: inline-flex; align-items: center; gap: 8px;

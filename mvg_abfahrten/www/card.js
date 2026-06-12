@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.3.0
+/* MVG Abfahrten – Lovelace-Karte v1.4.0
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -49,29 +49,49 @@
   const STYLE = `
     :host { display: block; }
     ha-card {
-      background: #0F1A29; color: #EDF2F8; overflow: hidden;
+      overflow: hidden;
+      color: var(--mvg-ink);
       font-variant-numeric: tabular-nums;
+      --mvg-ink: var(--primary-text-color, #212121);
+      --mvg-muted: var(--secondary-text-color, #727272);
+      --mvg-line: var(--divider-color, rgba(127,127,127,0.2));
+      --mvg-accent: var(--accent-color, #ff9800);
+      --mvg-red: var(--error-color, #db4437);
+      --mvg-chip-bg: var(--secondary-background-color, rgba(127,127,127,0.08));
+      --mvg-chip-on: rgba(var(--rgb-accent-color, 255,152,0), 0.12);
+    }
+    ha-card.board {
+      background: #0F1A29;
+      --mvg-ink: #EDF2F8;
+      --mvg-muted: #7E92AB;
+      --mvg-line: #1E2E44;
+      --mvg-accent: #FFB300;
+      --mvg-red: #E5443B;
+      --mvg-chip-bg: #131F30;
+      --mvg-chip-on: rgba(255,179,0,0.08);
     }
     .head {
       display: flex; align-items: center; gap: 10px;
       padding: 14px 16px 10px;
     }
+    .head[hidden] { display: none; }
     .head h2 { margin: 0; font-size: 16px; font-weight: 700; }
-    .head .place { color: #7E92AB; font-size: 12.5px; }
-    .head .clock { margin-left: auto; color: #FFB300; font-size: 16px; font-weight: 600; }
+    .head .place { color: var(--mvg-muted); font-size: 12.5px; }
+    .head .clock { margin-left: auto; color: var(--mvg-accent); font-size: 16px; font-weight: 600; }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+    .head[hidden] + .chips { padding-top: 14px; }
     .chip {
       padding: 4px 11px; border-radius: 999px; cursor: pointer;
-      border: 1px solid #1E2E44; background: #131F30;
-      color: #7E92AB; font-size: 12.5px; font-weight: 600; font-family: inherit;
+      border: 1px solid var(--mvg-line); background: var(--mvg-chip-bg);
+      color: var(--mvg-muted); font-size: 12.5px; font-weight: 600; font-family: inherit;
     }
-    .chip.on { color: #EDF2F8; border-color: #FFB300; background: rgba(255,179,0,0.08); }
-    .chip:focus-visible { outline: 2px solid #3D7BD9; outline-offset: 1px; }
+    .chip.on { color: var(--mvg-ink); border-color: var(--mvg-accent); background: var(--mvg-chip-on); }
+    .chip:focus-visible { outline: 2px solid var(--mvg-accent); outline-offset: 1px; }
     .row {
       display: grid; align-items: center;
       grid-template-columns: minmax(52px, auto) 1fr auto auto;
       gap: 10px; padding: 9px 16px;
-      border-top: 1px solid #1E2E44;
+      border-top: 1px solid var(--mvg-line);
     }
     .badge {
       display: inline-flex; align-items: center; justify-content: center;
@@ -82,24 +102,24 @@
     .badge.long { font-size: 10.5px; letter-spacing: -0.01em; }
     .dest { min-width: 0; }
     .to { font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .meta { color: #7E92AB; font-size: 11.5px; }
-    .meta .delay { color: #E5443B; font-weight: 700; }
-    .meta .sev { color: #FFB300; font-weight: 700; }
-    .platform { color: #7E92AB; font-size: 12px; white-space: nowrap; }
-    .min { text-align: right; color: #FFB300; font-size: 18px; font-weight: 700; min-width: 62px; }
-    .min small { font-size: 10.5px; font-weight: 600; color: #7E92AB; margin-left: 2px; }
-    .cancelled .to { text-decoration: line-through; color: #7E92AB; }
-    .cancelled .min { color: #E5443B; font-size: 13px; }
-    .note { padding: 18px 16px; color: #7E92AB; font-size: 13px; border-top: 1px solid #1E2E44; }
-    .note.err { color: #E5443B; }
+    .meta { color: var(--mvg-muted); font-size: 11.5px; }
+    .meta .delay { color: var(--mvg-red); font-weight: 700; }
+    .meta .sev { color: var(--mvg-accent); font-weight: 700; }
+    .platform { color: var(--mvg-muted); font-size: 12px; white-space: nowrap; }
+    .min { text-align: right; color: var(--mvg-accent); font-size: 18px; font-weight: 700; min-width: 62px; }
+    .min small { font-size: 10.5px; font-weight: 600; color: var(--mvg-muted); margin-left: 2px; }
+    .cancelled .to { text-decoration: line-through; color: var(--mvg-muted); }
+    .cancelled .min { color: var(--mvg-red); font-size: 13px; }
+    .note { padding: 18px 16px; color: var(--mvg-muted); font-size: 13px; border-top: 1px solid var(--mvg-line); }
+    .note.err { color: var(--mvg-red); }
     .section-head {
       display: flex; align-items: baseline; gap: 8px;
-      padding: 13px 16px 7px; border-top: 2px solid #1E2E44;
+      padding: 13px 16px 7px; border-top: 2px solid var(--mvg-line);
     }
     .section-head:first-child { border-top: 0; }
     .section-head h3 { margin: 0; font-size: 14px; font-weight: 700; }
-    .section-head .tag { color: #FFB300; font-size: 11.5px; font-weight: 700; }
-    .section-head .place2 { color: #7E92AB; font-size: 11.5px; }
+    .section-head .tag { color: var(--mvg-accent); font-size: 11.5px; font-weight: 700; }
+    .section-head .place2 { color: var(--mvg-muted); font-size: 11.5px; }
     @media (max-width: 420px) { .platform { display: none; } }
   `;
 
@@ -131,20 +151,31 @@
       this.shadowRoot.innerHTML = `
         <style>${STYLE}</style>
         <ha-card>
-          <div class="head">
-            <div><h2 id="name">MVG Abfahrten</h2><div class="place" id="place"></div></div>
+          <div class="head" id="head">
+            <div id="titleWrap"><h2 id="name">MVG Abfahrten</h2><div class="place" id="place"></div></div>
             <div class="clock" id="clock"></div>
           </div>
           <div class="chips" id="chips" hidden></div>
           <div id="rows"><div class="note">Lade …</div></div>
         </ha-card>`;
       this._els = {
+        card: this.shadowRoot.querySelector("ha-card"),
+        head: this.shadowRoot.getElementById("head"),
+        titleWrap: this.shadowRoot.getElementById("titleWrap"),
         name: this.shadowRoot.getElementById("name"),
         place: this.shadowRoot.getElementById("place"),
         clock: this.shadowRoot.getElementById("clock"),
         chips: this.shadowRoot.getElementById("chips"),
         rows: this.shadowRoot.getElementById("rows"),
       };
+      // Design: HA-Theme (Standard) oder dunkle Anzeigetafel
+      this._els.card.classList.toggle("board", this._config.design === "board");
+      // Titel und Uhr optional
+      this._showTitle = this._config.show_title !== false;
+      this._showClock = this._config.show_clock !== false;
+      this._els.titleWrap.style.display = this._showTitle ? "" : "none";
+      this._els.clock.style.display = this._showClock ? "" : "none";
+      this._els.head.hidden = !this._showTitle && !this._showClock;
     }
 
     connectedCallback() {
@@ -153,8 +184,10 @@
       this._timer = setInterval(() => {
         if (!document.hidden) this._refresh();
       }, refresh * 1000);
-      this._clockTimer = setInterval(() => this._tick(), 1000);
-      this._tick();
+      if (this._showClock) {
+        this._clockTimer = setInterval(() => this._tick(), 1000);
+        this._tick();
+      }
     }
 
     disconnectedCallback() {
@@ -345,6 +378,9 @@
   const LABELS = {
     station: "Haltestelle",
     layout: "Darstellung der Favoriten",
+    design: "Design",
+    show_title: "Titel (Haltestellenname) anzeigen",
+    show_clock: "Uhrzeit anzeigen",
     limit: "Anzahl Abfahrten",
     types: "Verkehrsmittel (leer = alle)",
     refresh: "Aktualisierung",
@@ -353,11 +389,16 @@
   const HELPERS_TXT = {
     station: "Favoriten verwaltest du im Add-on (★) – inkl. Beförderungsart.",
     layout: "Tabs: eine Haltestelle, umschaltbar. Untereinander: alle Favoriten als eigene Blöcke.",
+    design: "Dashboard-Theme passt sich deinem HA-Theme an.",
     api_url: "Standard: http://<ha-host>:8099",
   };
   const LAYOUT_OPTIONS = [
     { value: "tabs", label: "Tabs (umschaltbar)" },
     { value: "list", label: "Untereinander" },
+  ];
+  const DESIGN_OPTIONS = [
+    { value: "auto",  label: "Dashboard-Theme (Standard)" },
+    { value: "board", label: "Anzeigetafel (dunkel)" },
   ];
 
   class MvgAbfahrtenCardEditor extends HTMLElement {
@@ -411,6 +452,9 @@
         fields.push({ name: "layout", selector: { select: { mode: "dropdown", options: LAYOUT_OPTIONS } } });
       }
       fields.push(
+        { name: "design",     selector: { select: { mode: "dropdown", options: DESIGN_OPTIONS } } },
+        { name: "show_title", selector: { boolean: {} } },
+        { name: "show_clock", selector: { boolean: {} } },
         { name: "limit",   selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
         { name: "types",   selector: { select: { multiple: true, mode: "list", options: TYPE_OPTIONS } } },
         { name: "refresh", selector: { number: { min: 20, max: 300, step: 5, mode: "box", unit_of_measurement: "s" } } },
@@ -424,6 +468,9 @@
         station: this._currentStationValue(),
         global_id: this._config.global_id || "",
         layout: this._config.layout || "tabs",
+        design: this._config.design || "auto",
+        show_title: this._config.show_title !== false,
+        show_clock: this._config.show_clock !== false,
         limit: Number(this._config.limit) || 8,
         types: (this._config.types || "").split(",").map(s => s.trim()).filter(Boolean),
         refresh: Number(this._config.refresh) || 30,
@@ -473,6 +520,15 @@
 
       if (v.layout && v.layout !== "tabs") cfg.layout = v.layout;
       else delete cfg.layout;
+
+      if (v.design && v.design !== "auto") cfg.design = v.design;
+      else delete cfg.design;
+
+      if (v.show_title === false) cfg.show_title = false;
+      else delete cfg.show_title;
+
+      if (v.show_clock === false) cfg.show_clock = false;
+      else delete cfg.show_clock;
 
       cfg.limit = Number(v.limit) || 8;
       cfg.refresh = Number(v.refresh) || 30;
