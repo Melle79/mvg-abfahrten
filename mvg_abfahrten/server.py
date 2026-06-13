@@ -166,7 +166,7 @@ def api_search():
         for loc in data
         if loc.get("type") == "STATION" and loc.get("globalId")
     ]
-    return jsonify(results[:15])
+    return jsonify(results[:30])
 
 
 @app.get("/api/departures/<path:global_id>")

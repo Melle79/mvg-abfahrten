@@ -523,7 +523,7 @@
       timer = setTimeout(async () => {
         const res = await api("search?q=" + encodeURIComponent(q)).catch(()=>[]);
         drop.innerHTML = "";
-        (res||[]).slice(0,8).forEach(st => {
+        (res||[]).slice(0,30).forEach(st => {
           const b = document.createElement("button");
           b.innerHTML = `<span>${esc(st.name)}</span><span class="splace">${esc(st.place||"")}</span>`;
           b.addEventListener("mousedown", ev => {
