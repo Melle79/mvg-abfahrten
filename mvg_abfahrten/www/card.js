@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.6.2
+/* MVG Abfahrten – Lovelace-Karte v1.6.3
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -43,7 +43,7 @@
     (ft || "").split(",").filter(Boolean).map(t => TYPE_NAMES[t] || t)
   )].join("/");
   const favKey = (f) =>
-    f.globalId + "|" + (f.filterTypes || "") + "|" + (f.lineFilter || "") + "|" + (f.directionFilter || "");
+    (f.globalId ?? "") + "|" + (f.filterTypes ?? "") + "|" + (f.lineFilter ?? "") + "|" + (f.directionFilter ?? "");
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -248,7 +248,14 @@
         return;
       }
       const savedKey = localStorage.getItem(this._storageKey);
-      this._current = this._favorites.find(f => favKey(f) === savedKey) || this._favorites[0];
+      // Migration: alter Key hatte nur 2 Segmente (globalId|filterTypes)
+      // neuer Key hat 4 Segmente (globalId|filterTypes|lineFilter|directionFilter)
+      this._current =
+        this._favorites.find(f => favKey(f) === savedKey) ||
+        this._favorites.find(f => (f.globalId + "|" + (f.filterTypes ?? "")) === savedKey) ||
+        this._favorites[0];
+      // gespeicherten Key auf neues Format aktualisieren
+      if (this._current) localStorage.setItem(this._storageKey, favKey(this._current));
       this._renderChips();
       this._renderHead();
       this._loadDepartures();
@@ -263,8 +270,11 @@
       this._els.chips.innerHTML = "";
       for (const f of this._favorites) {
         const b = document.createElement("button");
-        b.className = "chip" + (favKey(f) === favKey(this._current) ? " on" : "");
-        b.textContent = f.name + (f.filterTypes ? " · " + typesLabel(f.filterTypes) : "");
+        b.className = "chip" + (favKey(f) === favKey(this._current || {}) ? " on" : "");
+        b.textContent = f.name
+          + (f.filterTypes    ? " · " + typesLabel(f.filterTypes) : "")
+          + (f.lineFilter     ? " · " + esc(f.lineFilter) : "")
+          + (f.directionFilter ? " → " + esc(f.directionFilter) : "");
         b.addEventListener("click", () => {
           this._current = f;
           localStorage.setItem(this._storageKey, favKey(f));
@@ -496,7 +506,8 @@
 
     _currentStationValue() {
       if (!this._config.global_id) return "__favs__";
-      return this._config.global_id + "|" + (this._config.types || "");
+      return (this._config.global_id) + "|" +
+        (this._config.types || "") + "||";
     }
 
     _schema() {
