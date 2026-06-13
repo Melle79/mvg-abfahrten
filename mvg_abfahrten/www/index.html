@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v2.1.0 – Cache: 2026-06-13-22 */
+  /* Anzeigetafel v2.1.0 – Cache: 2026-06-13-23 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -228,7 +228,11 @@
       const planned = new Date(d.planned).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
       const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
       const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
-      const hasInfo = (d.infos?.length > 0) || (d.messages?.length > 0);
+      const earlyTerm = (d.infos||[]).find(i => i.type === "EARLY_TERMINATION");
+      const destHtml = earlyTerm
+        ? `<span style="text-decoration:line-through;color:var(--red)">${esc(d.destination)}</span> <span style="color:var(--amber)">${esc(earlyTerm.message.replace(/^Fährt nur bis /i, ""))}</span>`
+        : esc(d.destination);
+      const hasInfo = (d.infos||[]).some(i => i.type !== "EARLY_TERMINATION") || (d.messages||[]).length > 0;
       const infoBadge = hasInfo ? `<button class="info-btn" data-idx="${i}">ⓘ</button>` : "";
       const occIcon = {"LOW":"🟢","MEDIUM":"🟡","HIGH":"🔴","FULL":"🔴"}[d.occupancy] || "";
       const platformTxt = d.platform != null ? (d.platformChanged ? `⚠ Gleis ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
@@ -236,7 +240,7 @@
       return `<div class="row${d.cancelled ? " cancelled" : ""}">
         ${badgeHtml(d.label, d.transportType)}
         <div class="dest">
-          <div class="to">${esc(d.destination)}${infoBadge}</div>
+          <div class="to">${destHtml}${infoBadge}</div>
           <div class="meta">${planned}${delay}${sev}${occIcon ? ' '+occIcon : ''}</div>
         </div>
         <span class="platform${d.platformChanged ? " platform-changed" : ""}">${platformTxt}</span>
