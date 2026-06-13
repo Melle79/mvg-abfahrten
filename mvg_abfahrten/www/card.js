@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.20
+/* MVG Abfahrten – Lovelace-Karte v2.2.21
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -103,9 +103,20 @@
     .badge.long { font-size: 10.5px; letter-spacing: -0.01em; }
     .dest { min-width: 0; }
     .to { font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .meta { color: var(--mvg-muted); font-size: 11.5px; }
+    .meta { color: var(--mvg-muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; }
     .meta .delay { color: var(--mvg-red); font-weight: 700; }
     .meta .sev { color: var(--mvg-accent); font-weight: 700; }
+    .meta .ticker {
+      display: inline-block;
+      color: var(--mvg-red);
+      padding-left: 100%;
+      animation: ticker 18s linear infinite;
+      white-space: nowrap;
+    }
+    @keyframes ticker {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
     .platform { color: var(--mvg-muted); font-size: 12px; white-space: nowrap; }
     .platform-changed { color: var(--mvg-accent); font-weight: 700; }
     .min { text-align: right; color: var(--mvg-accent); font-size: 18px; font-weight: 700; min-width: 62px; }
@@ -599,11 +610,17 @@
         const minHtml = d.cancelled ? '<span class="min">entfällt</span>' : `<span class="min">${mins}<small>min</small></span>`;
         const stationTxt = this._config.show_station !== false && d.stationName
           ? `${esc(d.stationName)} · ` : "";
+        const tickerText = this._config.show_ticker && hasInfo
+          ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
+          : "";
+        const metaHtml = tickerText
+          ? `<div class="meta"><span class="ticker">${esc(tickerText)}</span></div>`
+          : `<div class="meta">${stationTxt}${planned}${delay}${sev}</div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
             <div class="to">${destHtml}${infoBadge}</div>
-            <div class="meta">${stationTxt}${planned}${delay}${sev}</div>
+            ${metaHtml}
           </div>
           <span class="platform${d.platformChanged ? " platform-changed" : ""}">${platTxt}</span>
           ${minHtml}
@@ -665,11 +682,17 @@
         const minHtml = d.cancelled
           ? '<span class="min">entfällt</span>'
           : `<span class="min">${mins}<small>min</small></span>`;
+        const tickerText2 = this._config.show_ticker && hasInfo
+          ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
+          : "";
+        const metaHtml2 = tickerText2
+          ? `<div class="meta"><span class="ticker">${esc(tickerText2)}</span></div>`
+          : `<div class="meta">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
             <div class="to">${esc(d.destination)}${infoBadge}</div>
-            <div class="meta">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</div>
+            ${metaHtml2}
           </div>
           <span class="platform${d.platformChanged ? ' platform-changed' : ''}">${platformTxt}</span>
           ${minHtml}
@@ -713,6 +736,7 @@
     show_clock:   "Uhrzeit anzeigen",
     show_station: "Haltestellenname unter Ziel anzeigen",
     show_filter:  "Filter-Info unter Plan-Tabs anzeigen",
+    show_ticker:  "Störungstext als Laufschrift anzeigen",
     limit: "Anzahl Abfahrten",
     refresh: "Aktualisierung",
     api_url: "API-URL (leer = Standard)",
@@ -852,6 +876,7 @@
         { name: "show_clock",   selector: { boolean: {} } },
         { name: "show_station", selector: { boolean: {} } },
         { name: "show_filter",  selector: { boolean: {} } },
+        { name: "show_ticker",  selector: { boolean: {} } },
         { name: "limit",      selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
         { name: "refresh",    selector: { number: { min: 20, max: 300, step: 5, mode: "box", unit_of_measurement: "s" } } },
         { name: "api_url",    selector: { text: {} } },
@@ -869,6 +894,7 @@
         show_clock:   this._config.show_clock !== false,
         show_station: this._config.show_station !== false,
         show_filter:  this._config.show_filter !== false,
+        show_ticker:  this._config.show_ticker === true,
         limit: Number(this._config.limit) || 8,
         refresh: Number(this._config.refresh) || 60,
         api_url: this._config.api_url || "",
@@ -996,6 +1022,7 @@
       if (v.show_clock   === false) cfg.show_clock   = false; else delete cfg.show_clock;
       if (v.show_station === false) cfg.show_station = false; else delete cfg.show_station;
       if (v.show_filter  === false) cfg.show_filter  = false; else delete cfg.show_filter;
+      if (v.show_ticker  === true)  cfg.show_ticker  = true;  else delete cfg.show_ticker;
 
       cfg.limit   = Number(v.limit)   || 8;
       cfg.refresh = Number(v.refresh) || 60;
