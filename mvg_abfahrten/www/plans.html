@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MVG Abfahrtspläne</title>
+<style>
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-13-01 */
+  :root {
+    --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
+    --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
+    --red: #E5443B; --line: #1E2E44; --focus: #3D7BD9;
+    --green: #4CAF50;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 16px; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  /* Kopf */
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  header h1 { font-size: 14px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+  header h1 b { color: var(--ink); }
+  .btn-new { display: flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 10px; border: 0; background: var(--amber); color: #000; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .btn-new:hover { opacity: 0.9; }
+
+  /* Kacheln-Grid */
+  .plans-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .plan-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; cursor: pointer; transition: border-color 0.15s; }
+  .plan-card:hover { border-color: var(--amber); }
+  .plan-card-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; }
+  .plan-card-head h2 { font-size: 16px; font-weight: 700; }
+  .plan-card-actions { display: flex; gap: 8px; }
+  .icon-btn { background: none; border: 0; cursor: pointer; color: var(--muted); font-size: 16px; padding: 2px 5px; border-radius: 6px; }
+  .icon-btn:hover { color: var(--ink); background: rgba(255,255,255,0.07); }
+  .icon-btn.del:hover { color: var(--red); }
+  .plan-preview { padding: 0 0 8px; }
+  .preview-row { display: flex; align-items: center; gap: 10px; padding: 7px 16px; border-top: 1px solid var(--line); }
+  .preview-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 38px; padding: 2px 5px; border-radius: 5px; font-weight: 800; font-size: 12px; color: #fff; white-space: nowrap; }
+  .preview-dest { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+  .preview-dest b { color: var(--ink); }
+  .preview-min { font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 700; color: var(--amber); white-space: nowrap; }
+  .preview-min small { font-size: 10px; color: var(--muted); }
+  .plan-empty { padding: 14px 16px; color: var(--muted); font-size: 13px; font-style: italic; }
+  .no-plans { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .no-plans p { font-size: 15px; margin-bottom: 6px; }
+  .no-plans small { font-size: 13px; }
+
+  /* Vollansicht */
+  .fullview { display: none; }
+  .fullview.active { display: block; }
+  .plans-grid.hidden { display: none; }
+  .fullview-head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+  .btn-back { background: var(--panel); border: 1px solid var(--line); color: var(--ink); padding: 8px 14px; border-radius: 9px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .btn-back:hover { border-color: var(--focus); }
+  .fullview-head h2 { font-size: 20px; font-weight: 700; }
+  .fullview-head .timer { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .dept-board { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .dept-row { display: grid; grid-template-columns: minmax(52px,auto) 130px 1fr auto auto; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .dept-row:last-child { border-bottom: 0; }
+  .dept-station { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 42px; max-width: 104px; padding: 3px 6px; border-radius: 6px; font-weight: 800; font-size: 13.5px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge.long { font-size: 10.5px; }
+  .dept-dest { min-width: 0; }
+  .dept-dest .to { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dept-dest .meta { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dept-dest .delay { color: var(--red); font-weight: 700; }
+  .dept-dest .sev { color: var(--amber); font-weight: 700; }
+  .dept-platform { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .platform-changed { color: var(--amber); font-weight: 700; }
+  .dept-min { text-align: right; color: var(--amber); font-size: 20px; font-weight: 700; min-width: 68px; font-variant-numeric: tabular-nums; }
+  .dept-min small { font-size: 10px; color: var(--muted); margin-left: 2px; }
+  .cancelled .to { text-decoration: line-through; color: var(--muted); }
+  .cancelled .dept-min { color: var(--red); font-size: 13px; }
+  .info-btn { background: none; border: 0; cursor: pointer; padding: 0 2px; color: var(--red); font-size: 12px; vertical-align: middle; }
+  .dept-empty { padding: 30px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+  .dept-error { padding: 14px 16px; color: var(--red); font-size: 13px; }
+
+  /* Info-Popup */
+  .info-popup { position: fixed; z-index: 100; max-width: 320px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.5); font-size: 13px; color: var(--ink); display: none; }
+  .info-popup .info-title { font-weight: 700; margin-bottom: 6px; color: var(--amber); }
+  .info-popup .info-item { margin-bottom: 5px; color: var(--muted); }
+  .info-popup .info-item b { color: var(--ink); }
+
+  /* Sheet von unten – Plan erstellen/bearbeiten */
+  .sheet { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.65); display: flex; align-items: flex-end; justify-content: center; }
+  .sheet[hidden] { display: none; }
+  .sheet-box { background: var(--panel); border-radius: 18px 18px 0 0; width: min(640px,100%); max-height: 90vh; overflow-y: auto; padding: 0 0 32px; box-shadow: 0 -8px 40px rgba(0,0,0,0.5); }
+  .sheet-handle { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 12px auto 0; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .sheet-head h3 { font-size: 17px; font-weight: 700; }
+  .sheet-close { background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; padding: 0 4px; }
+  .sheet-section { padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .sheet-section-label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; display: block; }
+  .sheet-input { width: 100%; padding: 10px 13px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); font-size: 14px; font-family: inherit; outline: none; }
+  .sheet-input:focus { border-color: var(--amber); }
+  .search-drop-sheet { position: relative; }
+  .search-drop-sheet .drop { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 99; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.4); max-height: 220px; overflow-y: auto; display: none; }
+  .search-drop-sheet .drop button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 10px 14px; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 14px; text-align: left; cursor: pointer; }
+  .search-drop-sheet .drop button:last-child { border-bottom: 0; }
+  .search-drop-sheet .drop button:hover { background: var(--panel-2); }
+  .search-drop-sheet .drop .splace { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+  /* Einträge */
+  .entries-list { display: flex; flex-direction: column; gap: 10px; }
+  .entry-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .entry-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .entry-station { font-size: 14px; font-weight: 600; }
+  .entry-station small { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 4px; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .chip.on { border-color: var(--amber); color: var(--ink); background: rgba(255,179,0,0.1); }
+  .chip-label { color: var(--muted); font-size: 11px; margin-top: 6px; display: block; }
+  .line-input { display: flex; gap: 8px; margin-top: 8px; }
+  .line-input input { flex: 1; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-size: 13px; font-family: inherit; outline: none; }
+  .line-input input:focus { border-color: var(--amber); }
+  .line-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .line-chip { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--amber); background: rgba(255,179,0,0.1); color: var(--ink); font-size: 12px; font-weight: 600; }
+  .line-chip .rm { cursor: pointer; color: var(--muted); margin-left: 2px; }
+  .line-chip .rm:hover { color: var(--red); }
+  .btn-add-entry { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; border: 1px dashed var(--amber); background: transparent; color: var(--amber); font-size: 14px; cursor: pointer; font-family: inherit; width: 100%; justify-content: center; margin-top: 10px; }
+  .btn-add-entry:hover { background: rgba(255,179,0,0.06); }
+  .sheet-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 20px 0; }
+  .btn { padding: 9px 20px; border-radius: 9px; border: 0; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600; }
+  .btn-primary { background: var(--amber); color: #000; }
+  .btn-secondary { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); }
+
+  @media (max-width: 520px) {
+    .dept-row { grid-template-columns: minmax(42px,auto) 1fr auto; }
+    .dept-station, .dept-platform { display: none; }
+    .dept-min { font-size: 17px; min-width: 54px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><b>MVG</b> Abfahrtspläne</h1>
+    <button class="btn-new" id="btnNew">＋ Neuer Plan</button>
+  </header>
+
+  <!-- Kacheln -->
+  <div class="plans-grid" id="plansGrid">
+    <div class="no-plans" id="noPlans">
+      <p>Noch keine Abfahrtspläne vorhanden.</p>
+      <small>Klicke auf „＋ Neuer Plan" um einen zu erstellen.</small>
+    </div>
+  </div>
+
+  <!-- Vollansicht -->
+  <div class="fullview" id="fullview">
+    <div class="fullview-head">
+      <button class="btn-back" id="btnBack">← Pläne</button>
+      <h2 id="fullviewTitle"></h2>
+      <span class="timer" id="fullviewTimer"></span>
+    </div>
+    <div class="dept-board" id="deptBoard">
+      <div class="dept-empty">Lade …</div>
+    </div>
+  </div>
+</div>
+
+<div class="info-popup" id="infoPopup"></div>
+
+<!-- Plan-Assistent Sheet -->
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet-box">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <h3 id="sheetTitle">Neuer Abfahrtsplan</h3>
+      <button class="sheet-close" id="sheetClose">✕</button>
+    </div>
+    <div class="sheet-section">
+      <span class="sheet-section-label">Name des Plans</span>
+      <input class="sheet-input" id="planName" type="text" placeholder="z. B. Heimweg, Büro, Ausflug …">
+    </div>
+    <div class="sheet-section" id="entriesSection">
+      <span class="sheet-section-label">Haltestellen &amp; Filter</span>
+      <div class="entries-list" id="entriesList"></div>
+      <button class="btn-add-entry" id="btnAddEntry">＋ Haltestelle hinzufügen</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn btn-secondary" id="sheetCancel">Abbrechen</button>
+      <button class="btn btn-primary" id="sheetSave">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const LINE_COLORS = {
+    U1:"#438136",U2:"#C40C37",U3:"#F36E31",U4:"#0AB38D",U5:"#B8740E",U6:"#006CB3",
+    S1:"#16BAE7",S2:"#76B82A",S3:"#951B81",S4:"#E30613",S5:"#005E82",
+    S6:"#00975F",S7:"#943126",S8:"#262626",S20:"#ED6B83"
+  };
+  const LINE_GRADIENTS = { U7:"linear-gradient(135deg,#438136 50%,#C40C37 50%)", U8:"linear-gradient(135deg,#C40C37 50%,#F36E31 50%)" };
+  const EXPRESS_GREEN = "#009A3D";
+  const TYPE_COLORS = { UBAHN:"#0065B0",SBAHN:"#4C9046",TRAM:"#D82020",BUS:"#00586A",REGIONAL_BUS:"#0D5C70",BAHN:"#36397F",SEV:"#7A6A00" };
+  const TYPE_SHORT = { UBAHN:"U",SBAHN:"S",TRAM:"T",BUS:"B",REGIONAL_BUS:"B",BAHN:"R" };
+  const SHORT_LABELS = { "LUFTHANSA EXPRESS BUS":"LH Bus","Lufthansa Express Bus":"LH Bus","ERSATZVERKEHR":"SEV" };
+  const ALL_TYPES = [{v:"UBAHN",l:"U-Bahn"},{v:"SBAHN",l:"S-Bahn"},{v:"TRAM",l:"Tram"},{v:"BUS,REGIONAL_BUS",l:"Bus"},{v:"BAHN",l:"Bahn"}];
+  const TYPE_LABELS = { INCIDENT:"Störung",EARLY_TERMINATION:"Vorzeitige Endstation",DISRUPTION:"Betriebsstörung",INFORMATION:"Information" };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s??'').replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  const api = path => fetch("./api/" + path).then(r => { if (!r.ok) throw new Error("HTTP "+r.status); return r.json(); });
+
+  function badgeHtml(label, type, small = false) {
+    const shown = SHORT_LABELS[label] || label || TYPE_SHORT[type] || "?";
+    let bg = LINE_GRADIENTS[label] || LINE_COLORS[label] || TYPE_COLORS[type] || "#36428D";
+    if (!LINE_GRADIENTS[label] && !LINE_COLORS[label] && /^X\d+/.test(label||"")) bg = EXPRESS_GREEN;
+    const fg = label === "S8" ? "#F8C300" : "#fff";
+    const cls = (shown.length > 4 ? "badge long" : "badge") + (small ? " preview-badge" : "");
+    return `<span class="${cls}" style="background:${bg};color:${fg}">${esc(shown)}</span>`;
+  }
+
+  // ---------------------------------------------------------------- State
+  let plans = [];
+  let currentPlan = null;
+  let refreshTimer = null;
+  let timerCount = 60;
+  let editingPlanId = null;
+  let sheetEntries = []; // [{globalId, stationName, place, types, lines:Set, direction}]
+
+  // ---------------------------------------------------------------- Laden
+  async function loadPlans() {
+    plans = await api("plans");
+    renderGrid();
+  }
+
+  // ---------------------------------------------------------------- Grid
+  function renderGrid() {
+    const grid = $("plansGrid");
+    $("noPlans")?.remove();
+    // Alte Kacheln entfernen
+    grid.querySelectorAll(".plan-card").forEach(c => c.remove());
+
+    if (!plans.length) {
+      const np = document.createElement("div");
+      np.className = "no-plans"; np.id = "noPlans";
+      np.innerHTML = '<p>Noch keine Abfahrtspläne vorhanden.</p><small>Klicke auf + Neuer Plan, um einen zu erstellen.</small>';;
+      grid.appendChild(np);
+      return;
+    }
+
+    for (const plan of plans) {
+      const card = document.createElement("div");
+      card.className = "plan-card";
+      card.innerHTML = `
+        <div class="plan-card-head">
+          <h2>${esc(plan.name)}</h2>
+          <div class="plan-card-actions">
+            <button class="icon-btn edit" title="Bearbeiten">✎</button>
+            <button class="icon-btn del" title="Löschen">✕</button>
+          </div>
+        </div>
+        <div class="plan-preview" id="prev-${esc(plan.id)}">
+          <div class="plan-empty">Lade Vorschau …</div>
+        </div>`;
+      card.querySelector(".edit").addEventListener("click", e => { e.stopPropagation(); openSheet(plan); });
+      card.querySelector(".del").addEventListener("click", e => { e.stopPropagation(); deletePlan(plan.id); });
+      card.addEventListener("click", () => openFullview(plan));
+      grid.appendChild(card);
+      loadPreview(plan);
+    }
+  }
+
+  async function loadPreview(plan) {
+    const el = $("prev-" + plan.id);
+    if (!el) return;
+    try {
+      const data = await api("plans/" + plan.id + "/departures?limit=4");
+      const deps = data.departures || [];
+      if (!deps.length) { el.innerHTML = '<div class="plan-empty">Keine Abfahrten</div>'; return; }
+      const now = Date.now();
+      el.innerHTML = deps.map(d => {
+        const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
+        return `<div class="preview-row">
+          ${badgeHtml(d.label, d.transportType, true)}
+          <span class="preview-dest"><b>${esc(d.destination)}</b><br>${esc(d.stationName)}</span>
+          <span class="preview-min">${mins}<small>min</small></span>
+        </div>`;
+      }).join("");
+    } catch { el.innerHTML = '<div class="plan-empty">Fehler beim Laden</div>'; }
+  }
+
+  // ---------------------------------------------------------------- Vollansicht
+  function openFullview(plan) {
+    currentPlan = plan;
+    $("plansGrid").classList.add("hidden");
+    $("fullview").classList.add("active");
+    $("fullviewTitle").textContent = plan.name;
+    loadFullview();
+    startRefresh();
+  }
+
+  function closeFullview() {
+    $("plansGrid").classList.remove("hidden");
+    $("fullview").classList.remove("active");
+    clearInterval(refreshTimer);
+    currentPlan = null;
+  }
+
+  async function loadFullview() {
+    if (!currentPlan) return;
+    const board = $("deptBoard");
+    try {
+      const data = await api("plans/" + currentPlan.id + "/departures?limit=15");
+      const deps = data.departures || [];
+      if (!deps.length) { board.innerHTML = '<div class="dept-empty">Keine Abfahrten für diesen Plan.</div>'; return; }
+      const now = Date.now();
+      board.innerHTML = deps.map((d, i) => {
+        const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
+        const planned = new Date(d.planned).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+        const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
+        const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
+        const earlyTerm = (d.infos||[]).find(x => x.type === "EARLY_TERMINATION");
+        const destHtml = earlyTerm
+          ? `<span style="text-decoration:line-through;color:var(--red)">${esc(d.destination)}</span> <span style="color:var(--amber)">${esc(earlyTerm.message.replace(/^Fährt nur bis /i,""))}</span>`
+          : esc(d.destination);
+        const hasInfo = (d.infos||[]).some(x => x.type !== "EARLY_TERMINATION") || (d.messages||[]).length > 0;
+        const infoBadge = hasInfo ? `<button class="info-btn" data-idx="${i}">ⓘ</button>` : "";
+        const occIcon = {"LOW":"🟢","MEDIUM":"🟡","HIGH":"🔴","FULL":"🔴"}[d.occupancy] || "";
+        const platTxt = d.platform != null ? (d.platformChanged ? `⚠ Gleis ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
+        const minHtml = d.cancelled ? '<span class="dept-min">entfällt</span>' : `<span class="dept-min">${mins}<small>min</small></span>`;
+        return `<div class="dept-row${d.cancelled?" cancelled":""}">
+          ${badgeHtml(d.label, d.transportType)}
+          <span class="dept-station">${esc(d.stationName)}</span>
+          <div class="dept-dest">
+            <div class="to">${destHtml}${infoBadge}</div>
+            <div class="meta">${planned}${delay}${sev}${occIcon?" "+occIcon:""}</div>
+          </div>
+          <span class="dept-platform${d.platformChanged?" platform-changed":""}">${platTxt}</span>
+          ${minHtml}
+        </div>`;
+      }).join("");
+      // Info-Popup
+      board.querySelectorAll(".info-btn").forEach(btn => {
+        btn.addEventListener("click", e => { e.stopPropagation(); showInfoPopup(deps[parseInt(btn.dataset.idx)], btn); });
+      });
+    } catch(err) { board.innerHTML = `<div class="dept-error">Fehler: ${esc(String(err))}</div>`; }
+  }
+
+  function startRefresh() {
+    clearInterval(refreshTimer);
+    timerCount = 60;
+    updateTimer();
+    refreshTimer = setInterval(() => {
+      timerCount--;
+      updateTimer();
+      if (timerCount <= 0) { loadFullview(); timerCount = 60; }
+    }, 1000);
+  }
+
+  function updateTimer() {
+    $("fullviewTimer").textContent = `Aktualisierung in ${timerCount} s`;
+  }
+
+  $("btnBack").addEventListener("click", closeFullview);
+
+  // ---------------------------------------------------------------- Info-Popup
+  const infoPopup = $("infoPopup");
+  function showInfoPopup(dep, anchor) {
+    const items = (dep.infos||[]).map(i => `<div class="info-item"><b>${esc(TYPE_LABELS[i.type]||i.type)}:</b> ${esc(i.message)}</div>`).join("");
+    const msgs = (dep.messages||[]).filter(m => !(dep.infos||[]).some(i=>i.message===m)).map(m=>`<div class="info-item">${esc(m)}</div>`).join("");
+    infoPopup.innerHTML = `<div class="info-title">${esc(dep.label)} → ${esc(dep.destination)}</div>${items}${msgs}`;
+    infoPopup.style.display = "block";
+    const r = anchor.getBoundingClientRect();
+    let left = r.left, top = r.bottom + 6;
+    if (left + 320 > window.innerWidth - 8) left = window.innerWidth - 320 - 8;
+    if (top + 120 > window.innerHeight - 8) top = r.top - 120 - 6;
+    infoPopup.style.left = left + "px"; infoPopup.style.top = top + "px";
+  }
+  document.addEventListener("click", e => {
+    if (!e.target.closest(".info-btn") && !e.target.closest("#infoPopup")) infoPopup.style.display = "none";
+  });
+
+  // ---------------------------------------------------------------- Plan löschen
+  async function deletePlan(id) {
+    if (!confirm("Plan wirklich löschen?")) return;
+    await fetch("./api/plans/" + id, { method: "DELETE" });
+    plans = plans.filter(p => p.id !== id);
+    renderGrid();
+  }
+
+  // ---------------------------------------------------------------- Sheet (Erstellen/Bearbeiten)
+  const sheet = $("sheet");
+
+  function openSheet(plan = null) {
+    editingPlanId = plan?.id || null;
+    $("sheetTitle").textContent = plan ? "Plan bearbeiten" : "Neuer Abfahrtsplan";
+    $("planName").value = plan?.name || "";
+    sheetEntries = (plan?.entries || []).map(e => ({
+      globalId: e.globalId,
+      stationName: e.stationName,
+      place: e.place || "",
+      types: e.types || "",
+      lines: new Set((e.lines||"").split(",").filter(Boolean)),
+      direction: e.direction || "",
+      _lines: [],   // verfügbare Linien (nachladen)
+    }));
+    renderEntries();
+    sheet.hidden = false;
+  }
+
+  $("btnNew").addEventListener("click", () => openSheet());
+  $("sheetClose").addEventListener("click", () => { sheet.hidden = true; });
+  $("sheetCancel").addEventListener("click", () => { sheet.hidden = true; });
+  sheet.addEventListener("click", e => { if (e.target === sheet) sheet.hidden = true; });
+
+  // Haltestelle hinzufügen
+  $("btnAddEntry").addEventListener("click", () => {
+    sheetEntries.push({ globalId:"", stationName:"", place:"", types:"", lines: new Set(), direction:"", _lines:[] });
+    renderEntries();
+    // letzten Eintrag scrollen
+    const cards = $("entriesList").querySelectorAll(".entry-card");
+    cards[cards.length-1]?.scrollIntoView({behavior:"smooth", block:"nearest"});
+  });
+
+  function renderEntries() {
+    const list = $("entriesList");
+    list.innerHTML = "";
+    sheetEntries.forEach((entry, idx) => {
+      const card = document.createElement("div");
+      card.className = "entry-card";
+      card.innerHTML = `
+        <div class="entry-card-head">
+          <span class="entry-station">${entry.stationName ? esc(entry.stationName) + (entry.place ? `<small>${esc(entry.place)}</small>` : "") : '<span style="color:var(--muted)">Haltestelle wählen</span>'}</span>
+          <button class="icon-btn del" data-idx="${idx}" title="Eintrag entfernen">✕</button>
+        </div>
+        <!-- Haltestelle suchen -->
+        <div class="search-drop-sheet" data-idx="${idx}">
+          <input class="sheet-input station-search" type="text" placeholder="Haltestelle suchen …" value="${esc(entry.stationName)}" autocomplete="off">
+          <div class="drop"></div>
+        </div>
+        <!-- Verkehrsmittel -->
+        <span class="chip-label">Verkehrsmittel (leer = alle)</span>
+        <div class="chip-row types-row" data-idx="${idx}">
+          ${ALL_TYPES.map(t => `<button class="chip${entry.types.split(",").some(v=>v===t.v||(!entry.types&&true))&&entry.types?"":" "}${entry.types.split(",").includes(t.v)?" on":""}" data-type="${t.v}">${t.l}</button>`).join("")}
+        </div>
+        <!-- Linien -->
+        <span class="chip-label">Linien (leer = alle)</span>
+        <div class="line-input" data-idx="${idx}">
+          <input type="text" placeholder="Linie hinzufügen (z. B. S5, U3) …" class="line-add-input">
+          <button class="chip" style="border-radius:8px;padding:6px 12px" data-add="${idx}">＋</button>
+        </div>
+        <div class="line-chips" data-idx="${idx}">
+          ${[...entry.lines].map(l => `<span class="line-chip">${badgeHtml(l,"")}<span class="lname">${esc(l)}</span><span class="rm" data-line="${esc(l)}" data-idx="${idx}">✕</span></span>`).join("")}
+        </div>
+        <!-- Richtung -->
+        <span class="chip-label">Richtung (leer = beide)</span>
+        <div class="chip-row dir-row" data-idx="${idx}">
+          <button class="chip${entry.direction==="H"?" on":""}" data-dir="H">H · Hinfahrt</button>
+          <button class="chip${entry.direction==="R"?" on":""}" data-dir="R">R · Rückfahrt</button>
+        </div>`;
+      list.appendChild(card);
+
+      // Events
+      card.querySelector(".icon-btn.del").addEventListener("click", () => {
+        sheetEntries.splice(idx, 1); renderEntries();
+      });
+      _bindStationSearch(card.querySelector(".search-drop-sheet"), idx);
+      _bindTypeChips(card.querySelector(".types-row"), idx);
+      _bindLineInput(card.querySelector(".line-input"), card.querySelector(".line-chips"), idx);
+      _bindDirChips(card.querySelector(".dir-row"), idx);
+    });
+  }
+
+  function _bindStationSearch(wrap, idx) {
+    const input = wrap.querySelector(".station-search");
+    const drop = wrap.querySelector(".drop");
+    let timer;
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      const q = input.value.trim();
+      if (q.length < 2) { drop.style.display = "none"; return; }
+      timer = setTimeout(async () => {
+        const res = await api("search?q=" + encodeURIComponent(q)).catch(()=>[]);
+        drop.innerHTML = "";
+        (res||[]).slice(0,8).forEach(st => {
+          const b = document.createElement("button");
+          b.innerHTML = `<span>${esc(st.name)}</span><span class="splace">${esc(st.place||"")}</span>`;
+          b.addEventListener("mousedown", ev => {
+            ev.preventDefault();
+            drop.style.display = "none";
+            input.value = st.name;
+            sheetEntries[idx].globalId = st.globalId;
+            sheetEntries[idx].stationName = st.name;
+            sheetEntries[idx].place = st.place || "";
+            renderEntries();
+            // Verfügbare Linien nachladen
+            api("lines/" + encodeURIComponent(st.globalId)).then(d => {
+              sheetEntries[idx]._lines = d.lines || [];
+              // Linien-Input Autocomplete befüllen (einfach als Placeholder)
+              const lineInput = $("entriesList").querySelectorAll(".line-add-input")[idx];
+              if (lineInput) lineInput.placeholder = `z. B. ${(d.lines||[]).slice(0,3).join(", ")} …`;
+            }).catch(()=>{});
+          });
+          drop.appendChild(b);
+        });
+        drop.style.display = res?.length ? "block" : "none";
+      }, 300);
+    });
+    document.addEventListener("click", e => { if (!wrap.contains(e.target)) drop.style.display = "none"; });
+  }
+
+  function _bindTypeChips(row, idx) {
+    row.querySelectorAll(".chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("on");
+        const on = [...row.querySelectorAll(".chip.on")].map(b => b.dataset.type);
+        sheetEntries[idx].types = on.join(",");
+      });
+    });
+  }
+
+  function _bindLineInput(inputWrap, chipsEl, idx) {
+    const input = inputWrap.querySelector(".line-add-input");
+    const addBtn = inputWrap.querySelector("[data-add]");
+    const addLine = () => {
+      const val = input.value.trim().toUpperCase();
+      if (!val) return;
+      sheetEntries[idx].lines.add(val);
+      input.value = "";
+      renderEntries();
+    };
+    addBtn.addEventListener("click", addLine);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addLine(); } });
+    chipsEl.querySelectorAll(".rm").forEach(rm => {
+      rm.addEventListener("click", () => {
+        sheetEntries[idx].lines.delete(rm.dataset.line);
+        renderEntries();
+      });
+    });
+  }
+
+  function _bindDirChips(row, idx) {
+    row.querySelectorAll(".chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const dir = btn.dataset.dir;
+        if (sheetEntries[idx].direction === dir) {
+          sheetEntries[idx].direction = "";
+          btn.classList.remove("on");
+        } else {
+          sheetEntries[idx].direction = dir;
+          row.querySelectorAll(".chip").forEach(b => b.classList.remove("on"));
+          btn.classList.add("on");
+        }
+      });
+    });
+  }
+
+  // Speichern
+  $("sheetSave").addEventListener("click", async () => {
+    const name = $("planName").value.trim();
+    if (!name) { $("planName").style.borderColor = "var(--red)"; return; }
+    const entries = sheetEntries
+      .filter(e => e.globalId)
+      .map(e => ({
+        globalId: e.globalId,
+        stationName: e.stationName,
+        place: e.place,
+        types: e.types,
+        lines: [...e.lines].join(","),
+        direction: e.direction,
+      }));
+    const body = { name, entries };
+    if (editingPlanId) {
+      const updated = await fetch("./api/plans/" + editingPlanId, {
+        method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+      }).then(r => r.json());
+      plans = plans.map(p => p.id === editingPlanId ? updated : p);
+    } else {
+      const created = await fetch("./api/plans", {
+        method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+      }).then(r => r.json());
+      plans.push(created);
+    }
+    sheet.hidden = true;
+    renderGrid();
+  });
+
+  // ---------------------------------------------------------------- Start
+  loadPlans();
+})();
+</script>
+</body>
+</html>

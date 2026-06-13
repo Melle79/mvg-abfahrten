@@ -35,7 +35,28 @@ FAV_FILE = DATA_DIR / "favorites.json"
 WWW_DIR = os.environ.get("WWW_DIR", "/www")
 SEARCH_TTL = 3600  # Haltestellen ändern sich selten
 
-app = Flask(__name__, static_folder=WWW_DIR, static_url_path="")
+PLANS_FILE = DATA_DIR / "plans.json"
+
+
+def _load_plans() -> list:
+    try:
+        with _fav_lock:
+            return json.loads(PLANS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+
+
+def _save_plans(plans: list) -> None:
+    with _fav_lock:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        PLANS_FILE.write_text(
+            json.dumps(plans, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+
+def _new_id() -> str:
+    import secrets
+    return secrets.token_hex(8)
 
 _cache: dict[str, tuple[float, object]] = {}
 _cache_lock = threading.Lock()
@@ -252,6 +273,124 @@ def api_favorites_delete(global_id: str):
     ]
     _save_favorites(favs)
     return jsonify(favs)
+
+
+
+
+# ---------------------------------------------------------------- Plans
+
+@app.get("/plans")
+def plans_page():
+    resp = make_response(send_from_directory(WWW_DIR, "plans.html"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resp
+
+
+@app.get("/api/plans")
+def api_plans_get():
+    return jsonify(_load_plans())
+
+
+@app.post("/api/plans")
+def api_plans_create():
+    body = request.get_json(silent=True) or {}
+    name = (body.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name fehlt"}), 400
+    plans = _load_plans()
+    plan = {
+        "id":      _new_id(),
+        "name":    name,
+        "entries": body.get("entries", []),
+    }
+    plans.append(plan)
+    _save_plans(plans)
+    return jsonify(plan), 201
+
+
+@app.put("/api/plans/<plan_id>")
+def api_plans_update(plan_id: str):
+    body = request.get_json(silent=True) or {}
+    plans = _load_plans()
+    for i, p in enumerate(plans):
+        if p.get("id") == plan_id:
+            plans[i] = {
+                "id":      plan_id,
+                "name":    (body.get("name") or p["name"]).strip(),
+                "entries": body.get("entries", p.get("entries", [])),
+            }
+            _save_plans(plans)
+            return jsonify(plans[i])
+    return jsonify({"error": "Plan nicht gefunden"}), 404
+
+
+@app.delete("/api/plans/<plan_id>")
+def api_plans_delete(plan_id: str):
+    plans = [p for p in _load_plans() if p.get("id") != plan_id]
+    _save_plans(plans)
+    return jsonify(plans)
+
+
+@app.get("/api/plans/<plan_id>/departures")
+def api_plans_departures(plan_id: str):
+    """Liefert gefilterte Abfahrten für alle Einträge eines Plans."""
+    plans = _load_plans()
+    plan = next((p for p in plans if p.get("id") == plan_id), None)
+    if not plan:
+        return jsonify({"error": "Plan nicht gefunden"}), 404
+
+    limit = min(int(request.args.get("limit", DEFAULT_LIMIT)), 80)
+    results = []
+
+    for entry in plan.get("entries", []):
+        global_id = entry.get("globalId")
+        if not global_id:
+            continue
+        params = {"globalId": global_id, "limit": limit * 4}
+        if entry.get("types"):
+            params["transportTypes"] = entry["types"]
+        try:
+            raw = _cached_get("/departures", params, CACHE_TTL)
+        except requests.RequestException:
+            continue
+
+        lines = set((entry.get("lines") or "").split(",")) - {""}
+        direction = entry.get("direction") or ""  # "H", "R" oder ""
+
+        for dep in raw:
+            if lines and dep.get("label") not in lines:
+                continue
+            line_id = dep.get("lineId") or ""
+            if direction == "H" and ":H:" not in line_id:
+                continue
+            if direction == "R" and ":R:" not in line_id:
+                continue
+            results.append({
+                "stationName":   entry.get("stationName", global_id),
+                "globalId":      global_id,
+                "label":         dep.get("label"),
+                "destination":   dep.get("destination"),
+                "transportType": dep.get("transportType"),
+                "planned":       dep.get("plannedDepartureTime"),
+                "realtime":      dep.get("realtimeDepartureTime") or dep.get("plannedDepartureTime"),
+                "delay":         dep.get("delayInMinutes") or 0,
+                "platform":      dep.get("platform"),
+                "platformChanged": bool(dep.get("platformChanged")),
+                "cancelled":     bool(dep.get("cancelled")),
+                "sev":           bool(dep.get("sev")),
+                "occupancy":     dep.get("occupancy") or "UNKNOWN",
+                "direction":     1 if ":H:" in line_id else 2 if ":R:" in line_id else 0,
+                "infos":         dep.get("infos") or [],
+                "messages":      dep.get("messages") or [],
+            })
+
+    # Zeitlich sortieren, auf limit kürzen
+    results.sort(key=lambda d: d["realtime"])
+    return jsonify({
+        "plan": {"id": plan["id"], "name": plan["name"]},
+        "departures": results[:limit],
+        "fetchedAt": int(time.time() * 1000),
+    })
 
 
 if __name__ == "__main__":
