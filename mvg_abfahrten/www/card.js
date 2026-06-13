@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.16
+/* MVG Abfahrten – Lovelace-Karte v2.2.17
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -463,13 +463,30 @@
       }).join("");
     }
 
+    _planFilterLabel(plan) {
+      const entries = plan.entries || [];
+      if (!entries.length) return "";
+      const parts = entries.map(e => {
+        const bits = [];
+        if (e.stationName) bits.push(e.stationName);
+        if (e.lines) bits.push(...e.lines.split(",").filter(Boolean));
+        if (e.direction) bits.push(e.direction);
+        return bits.join(" · ");
+      });
+      return parts.join(" | ");
+    }
+
     _renderPlanChips() {
       this._els.chips.hidden = false;
       this._els.chips.innerHTML = "";
       this._plans.forEach((plan, i) => {
         const b = document.createElement("button");
         b.className = "chip" + (i === (this._currentPlanIdx ?? 0) ? " on" : "");
-        b.textContent = plan.name;
+        const filterLabel = this._config.show_filter !== false ? this._planFilterLabel(plan) : "";
+        b.innerHTML = filterLabel
+          ? `<span>${esc(plan.name)}</span><span style="display:block;font-size:10px;font-weight:400;color:inherit;opacity:0.7">${esc(filterLabel)}</span>`
+          : esc(plan.name);
+        b.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;padding:5px 11px;height:auto";
         b.addEventListener("click", () => {
           this._currentPlanIdx = i;
           this._els.name.textContent = this._config.title || plan.name;
@@ -491,7 +508,9 @@
             encodeURIComponent(p.id) + "/departures?limit=" + limit).then(r => r.json()))
         );
         this._els.rows.innerHTML = this._plans.map((plan, i) => {
-          const head = `<div class="section-head"><h3>${esc(plan.name)}</h3></div>`;
+          const filterLabel = this._config.show_filter !== false ? this._planFilterLabel(plan) : "";
+          const sub = filterLabel ? `<span class="place2">${esc(filterLabel)}</span>` : "";
+          const head = `<div class="section-head"><h3>${esc(plan.name)}</h3>${sub}</div>`;
           const res = results[i];
           if (res.status !== "fulfilled") return head + '<div class="note err">Nicht erreichbar.</div>';
           const deps = res.value.departures || [];
@@ -625,6 +644,7 @@
     show_title:   "Titel anzeigen",
     show_clock:   "Uhrzeit anzeigen",
     show_station: "Haltestellenname unter Ziel anzeigen",
+    show_filter:  "Filter-Info unter Plan-Tabs anzeigen",
     limit: "Anzahl Abfahrten",
     refresh: "Aktualisierung",
     api_url: "API-URL (leer = Standard)",
@@ -763,6 +783,7 @@
         { name: "show_title",   selector: { boolean: {} } },
         { name: "show_clock",   selector: { boolean: {} } },
         { name: "show_station", selector: { boolean: {} } },
+        { name: "show_filter",  selector: { boolean: {} } },
         { name: "limit",      selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
         { name: "refresh",    selector: { number: { min: 20, max: 300, step: 5, mode: "box", unit_of_measurement: "s" } } },
         { name: "api_url",    selector: { text: {} } },
@@ -779,6 +800,7 @@
         show_title:   this._config.show_title !== false,
         show_clock:   this._config.show_clock !== false,
         show_station: this._config.show_station !== false,
+        show_filter:  this._config.show_filter !== false,
         limit: Number(this._config.limit) || 8,
         refresh: Number(this._config.refresh) || 60,
         api_url: this._config.api_url || "",
@@ -905,6 +927,7 @@
       if (v.show_title   === false) cfg.show_title   = false; else delete cfg.show_title;
       if (v.show_clock   === false) cfg.show_clock   = false; else delete cfg.show_clock;
       if (v.show_station === false) cfg.show_station = false; else delete cfg.show_station;
+      if (v.show_filter  === false) cfg.show_filter  = false; else delete cfg.show_filter;
 
       cfg.limit   = Number(v.limit)   || 8;
       cfg.refresh = Number(v.refresh) || 60;
