@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-07 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-08 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -132,24 +132,28 @@
     padding: 9px 16px; border-bottom: 1px solid var(--line);
   }
   .dir-bar[hidden] { display: none; }
-  .dir-group { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
   .dir-label { color: var(--muted); font-size: 12px; white-space: nowrap; }
-  .dir-select {
-    flex: 1; min-width: 0; background: var(--panel); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 8px;
-    padding: 6px 10px; font-size: 13px; font-family: inherit;
-    cursor: pointer; outline: none;
+  .dir-chip {
+    display: flex; flex-direction: column; align-items: flex-start;
+    padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--muted); font-family: inherit; text-align: left;
+    transition: border-color 0.15s;
   }
-  .dir-select:focus { border-color: var(--focus); }
+  .dir-chip .gleis { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+  .dir-chip .dest-list { font-size: 12px; font-weight: 500; color: var(--muted); }
+  .dir-chip[aria-pressed="true"] {
+    border-color: var(--amber); background: rgba(255,179,0,0.08);
+    color: var(--ink);
+  }
+  .dir-chip[aria-pressed="true"] .dest-list { color: var(--ink); }
+  .dir-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .dir-clear {
     background: none; border: 0; color: var(--muted);
-    font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1;
-    border-radius: 6px; white-space: nowrap;
+    font-size: 13px; cursor: pointer; padding: 4px 8px; line-height: 1;
+    border-radius: 6px; white-space: nowrap; margin-left: auto;
   }
   .dir-clear:hover { color: var(--ink); background: rgba(255,255,255,0.05); }
-  @media (max-width: 520px) {
-    .dir-group { flex: 1 1 100%; }
-  }
 
   .row {
     display: grid; align-items: center;
@@ -225,19 +229,9 @@
       <button class="star" id="star" title="Als Favorit speichern" aria-label="Als Favorit speichern">★</button>
     </div>
     <div class="dir-bar" id="dirBar" hidden>
-      <div class="dir-group">
-        <span class="dir-label">Linie</span>
-        <select class="dir-select" id="lineSelect" aria-label="Linie filtern">
-          <option value="">Alle</option>
-        </select>
-      </div>
-      <div class="dir-group">
-        <span class="dir-label">Ziel</span>
-        <select class="dir-select" id="dirSelect" aria-label="Ziel filtern">
-          <option value="">Alle</option>
-        </select>
-      </div>
-      <button class="dir-clear" id="dirClear" title="Filter zurücksetzen" aria-label="Filter zurücksetzen">✕ Reset</button>
+      <span class="dir-label">Richtung</span>
+      <div id="platformChips" style="display:flex;flex-wrap:wrap;gap:8px;flex:1"></div>
+      <button class="dir-clear" id="dirClear" title="Richtungsfilter zurücksetzen">✕ Reset</button>
     </div>
     <div id="rows"></div>
   </div>
@@ -272,17 +266,16 @@
   const qInput = $("q"), dropdown = $("dropdown"), spin = $("spin");
   const board = $("board"), rowsEl = $("rows");
   const favsEl = $("favs"), starBtn = $("star");
-  const dirBar = $("dirBar"), dirSelect = $("dirSelect"), dirClear = $("dirClear");
-  const lineSelect = $("lineSelect");
+  const dirBar = $("dirBar"), dirClear = $("dirClear");
+  const platformChips = $("platformChips");
 
   let current = null;
   let favorites = [];
   let refreshTimer = null;
   let debounceTimer = null;
   let searchAbort = null;
-  let lineFilter = "";       // aktiver Linienfilter (z. B. "S7")
-  let dirFilter  = "";       // aktiver Zielfilter (z. B. "Wolfratshausen")
-  let lastDeps   = [];       // letzte Abfahrtsliste für Re-Filter ohne API-Call
+  let platformFilter = new Set(); // aktive Steig-Nummern (leer = alle)
+  let lastDeps = [];              // letzte Abfahrtsliste für Re-Filter ohne API-Call
 
   let DEFAULT_LIMIT = 10; // wird aus /api/config überschrieben
 
@@ -332,8 +325,8 @@
     return on.length === chips.length ? "" : on.map(c => c.dataset.type).join(",");
   }
 
-  function directionForSave() { return dirFilter || ""; }
-  function lineForSave()      { return lineFilter || ""; }
+  function directionForSave() { return ""; } // veraltet, nur für Rückwärtskompatibilität
+  function lineForSave()      { return ""; } // veraltet
 
   // Gespeicherten Favoriten-Filter auf die Chips anwenden
   function applyFilterChips(filterTypes) {
@@ -354,6 +347,9 @@
       (filterTypes || "").split(",").filter(Boolean).map(t => TYPE_NAMES[t] || t)
     )];
     return names.join("/");
+  }
+  function platformForSave() {
+    return platformFilter.size ? [...platformFilter].sort().join(",") : "";
   }
 
   // ---------- Suche ----------
@@ -407,15 +403,13 @@
   // ---------- Station & Tafel ----------
   function selectStation(st) {
     current = st;
-    lineFilter = st.lineFilter    || "";
-    dirFilter  = st.directionFilter || "";
+    platformFilter = new Set(st.platformFilter || []);
     localStorage.setItem("mvg:last", JSON.stringify(st));
     $("stationName").textContent = st.name;
     $("stationSub").textContent = st.place || "";
     board.hidden = false;
     dirBar.hidden = true;
-    lineSelect.innerHTML = '<option value="">Alle</option>';
-    dirSelect.innerHTML  = '<option value="">Alle</option>';
+    platformChips.innerHTML = "";
     updateStar();
     loadDepartures(true);
     clearInterval(refreshTimer);
@@ -432,40 +426,49 @@
       const data = await api("departures/" + encodeURIComponent(current.globalId) +
                              "?limit=" + raw + (types ? "&types=" + encodeURIComponent(types) : ""));
       lastDeps = data.departures || [];
-      updateDirOptions(lastDeps);
+      updatePlatformChips(lastDeps);
       renderRows(lastDeps);
     } catch (err) {
       rowsEl.innerHTML = '<div class="error">MVG-API nicht erreichbar – nächster Versuch in 30 s.</div>';
     }
   }
 
-  function updateDirOptions(deps) {
-    if (deps.length < 2) { dirBar.hidden = true; return; }
+  function updatePlatformChips(deps) {
+    // Pro Steig alle vorkommenden Ziele sammeln
+    const byPlatform = new Map();
+    for (const d of deps) {
+      const p = d.platform;
+      if (p == null) continue;
+      if (!byPlatform.has(p)) byPlatform.set(p, new Set());
+      byPlatform.get(p).add(d.destination);
+    }
+    if (byPlatform.size < 2) { dirBar.hidden = true; return; }
 
-    // Linie-Dropdown: alle vorkommenden Linien, mit Badge-Hintergrundfarbe als Swatch
-    const lines = [...new Set(deps.map(d => d.label).filter(Boolean))].sort((a, b) => {
-      const n = (s) => s.replace(/\D/g, "") ? parseInt(s.replace(/\D/g, "")) : 0;
-      return a.replace(/\d+/, "") < b.replace(/\d+/, "") ? -1 :
-             a.replace(/\d+/, "") > b.replace(/\d+/, "") ? 1 : n(a) - n(b);
-    });
-    const prevLine = lineSelect.value;
-    lineSelect.innerHTML = '<option value="">Alle Linien</option>' +
-      lines.map(l => `<option value="${esc(l)}"${l === prevLine ? " selected" : ""}>${esc(l)}</option>`).join("");
-
-    // Ziel-Dropdown: nach gewählter Linie gefiltert
-    const depsForDir = lineFilter ? deps.filter(d => d.label === lineFilter) : deps;
-    const destinations = [...new Set(depsForDir.map(d => d.destination).filter(Boolean))].sort();
-    const prevDir = dirSelect.value;
-    dirSelect.innerHTML = '<option value="">Alle Ziele</option>' +
-      destinations.map(d => `<option value="${esc(d)}"${d === prevDir ? " selected" : ""}>${esc(d)}</option>`).join("");
-
+    platformChips.innerHTML = "";
+    const sorted = [...byPlatform.keys()].sort((a, b) => a - b);
+    for (const p of sorted) {
+      const dests = [...byPlatform.get(p)].slice(0, 3).join(", ");
+      const btn = document.createElement("button");
+      btn.className = "dir-chip";
+      btn.setAttribute("aria-pressed", platformFilter.has(p) ? "true" : "false");
+      btn.innerHTML = `<span class="gleis">Steig ${esc(String(p))}</span>
+                       <span class="dest-list">${esc(dests)}</span>`;
+      btn.addEventListener("click", () => {
+        if (platformFilter.has(p)) platformFilter.delete(p);
+        else platformFilter.add(p);
+        btn.setAttribute("aria-pressed", platformFilter.has(p) ? "true" : "false");
+        updateStar();
+        renderRows(lastDeps);
+      });
+      platformChips.appendChild(btn);
+    }
     dirBar.hidden = false;
   }
 
   function renderRows(deps) {
-    let filtered = deps;
-    if (lineFilter) filtered = filtered.filter(d => d.label === lineFilter);
-    if (dirFilter)  filtered = filtered.filter(d => d.destination === dirFilter);
+    const filtered = platformFilter.size
+      ? deps.filter(d => platformFilter.has(d.platform))
+      : deps;
     const visible = filtered.slice(0, DEFAULT_LIMIT);
     if (!visible.length) {
       rowsEl.innerHTML = '<div class="empty">Keine Abfahrten für die gewählten Filter.</div>';
@@ -492,23 +495,10 @@
     }).join("");
   }
 
-  // ---------- Linie/Ziel-Filter ----------
-  lineSelect.addEventListener("change", () => {
-    lineFilter = lineSelect.value;
-    dirFilter  = "";              // Zielfilter zurücksetzen wenn Linie wechselt
-    updateDirOptions(lastDeps);   // Ziel-Dropdown neu befüllen
-    updateStar();
-    renderRows(lastDeps);
-  });
-  dirSelect.addEventListener("change", () => {
-    dirFilter = dirSelect.value;
-    updateStar();
-    renderRows(lastDeps);
-  });
+  // ---------- Richtungsfilter ----------
   dirClear.addEventListener("click", () => {
-    lineFilter = ""; dirFilter = "";
-    lineSelect.value = ""; dirSelect.value = "";
-    updateDirOptions(lastDeps);
+    platformFilter.clear();
+    platformChips.querySelectorAll(".dir-chip").forEach(c => c.setAttribute("aria-pressed", "false"));
     updateStar();
     renderRows(lastDeps);
   });
@@ -533,16 +523,16 @@
     for (const f of favorites) {
       const el = document.createElement("button");
       el.className = "fav";
-      const tag = f.filterTypes   ? ` · ${esc(typesLabel(f.filterTypes))}` : "";
-      const lin = f.lineFilter    ? ` · ${esc(f.lineFilter)}` : "";
-      const dir = f.directionFilter ? ` → ${esc(f.directionFilter)}` : "";
-      el.innerHTML = `★ ${esc(f.name)}${tag}${lin}${dir} <span class="x" title="Favorit entfernen">✕</span>`;
+      const tag = f.filterTypes    ? ` · ${esc(typesLabel(f.filterTypes))}` : "";
+      const plf = f.platformFilter ? ` · Steig ${esc(f.platformFilter.split(",").join("/"))}` : "";
+      el.innerHTML = `★ ${esc(f.name)}${tag}${plf} <span class="x" title="Favorit entfernen">✕</span>`;
       el.addEventListener("click", (e) => {
         if (e.target.classList.contains("x")) { removeFavorite(f); return; }
         qInput.value = f.name;
         applyFilterChips(f.filterTypes || "");
-        lineFilter = f.lineFilter      || "";
-        dirFilter  = f.directionFilter || "";
+        platformFilter = new Set(
+          (f.platformFilter || "").split(",").filter(Boolean).map(Number)
+        );
         selectStation(f);
       });
       favsEl.appendChild(el);
@@ -552,18 +542,17 @@
 
   function findFavorite() {
     if (!current) return null;
-    const ft = filterForSave(), df = directionForSave(), lf = lineForSave();
+    const ft = filterForSave(), pf = platformForSave();
     return favorites.find(f =>
       f.globalId === current.globalId &&
-      (f.filterTypes     || "") === ft &&
-      (f.directionFilter || "") === df &&
-      (f.lineFilter      || "") === lf
+      (f.filterTypes    || "") === ft &&
+      (f.platformFilter || "") === pf
     ) || null;
   }
   function updateStar() {
     const fav = findFavorite();
     starBtn.classList.toggle("on", !!fav);
-    starBtn.title = fav ? "Favorit entfernen" : "Als Favorit speichern (mit Linie, Ziel und Verkehrsmittel-Filter)";
+    starBtn.title = fav ? "Favorit entfernen" : "Als Favorit speichern (mit Verkehrsmittel- und Richtungsfilter)";
   }
 
   starBtn.addEventListener("click", async () => {
@@ -573,9 +562,8 @@
     favorites = await fetch("./api/favorites", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(Object.assign({}, current, {
-        filterTypes:     filterForSave(),
-        directionFilter: directionForSave(),
-        lineFilter:      lineForSave(),
+        filterTypes:    filterForSave(),
+        platformFilter: platformForSave(),
       }))
     }).then(r => r.json());
     renderFavorites();
@@ -583,9 +571,8 @@
 
   async function removeFavorite(fav) {
     const url = "./api/favorites/" + encodeURIComponent(fav.globalId) +
-      "?types="     + encodeURIComponent(fav.filterTypes     || "") +
-      "&direction=" + encodeURIComponent(fav.directionFilter || "") +
-      "&line="      + encodeURIComponent(fav.lineFilter      || "");
+      "?types="    + encodeURIComponent(fav.filterTypes    || "") +
+      "&platform=" + encodeURIComponent(fav.platformFilter || "");
     favorites = await fetch(url, { method: "DELETE" }).then(r => r.json());
     renderFavorites();
   }

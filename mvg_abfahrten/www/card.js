@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.6.4
+/* MVG Abfahrten – Lovelace-Karte v1.7.0
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -43,7 +43,7 @@
     (ft || "").split(",").filter(Boolean).map(t => TYPE_NAMES[t] || t)
   )].join("/");
   const favKey = (f) =>
-    (f.globalId ?? "") + "|" + (f.filterTypes ?? "") + "|" + (f.lineFilter ?? "") + "|" + (f.directionFilter ?? "");
+    (f.globalId ?? "") + "|" + (f.filterTypes ?? "") + "|" + (f.platformFilter ?? "");
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -293,8 +293,7 @@
       this._els.place.textContent = this._current.place || "";
     }
 
-    async _fetchDepartures(globalId, types, lineFilter, dirFilter) {
-      // Wir laden genug Rohdaten (mind. 4× limit) damit nach dem Filter noch genug übrig bleiben
+    async _fetchDepartures(globalId, types, platformFilter) {
       const raw = Math.min(80, Math.max(30, (this._config.limit || 8) * 4));
       const params = new URLSearchParams({ limit: raw });
       if (types) params.set("types", types);
@@ -303,28 +302,31 @@
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       const data = await resp.json();
       let deps = data.departures || [];
-      if (lineFilter) deps = deps.filter(d => d.label === lineFilter);
-      if (dirFilter)  deps = deps.filter(d => d.destination === dirFilter);
+      if (platformFilter?.size) deps = deps.filter(d => platformFilter.has(d.platform));
       return deps.slice(0, this._config.limit || 8);
     }
 
     async _loadDepartures() {
       if (!this._current) return;
-      const types  = this._current.filterTypes     || this._config.types || "";
-      const line   = this._current.lineFilter      || "";
-      const dir    = this._current.directionFilter || "";
+      const types = this._current.filterTypes || this._config.types || "";
+      const pf = this._parsePlatformFilter(this._current.platformFilter);
       try {
-        const deps = await this._fetchDepartures(this._current.globalId, types, line, dir);
+        const deps = await this._fetchDepartures(this._current.globalId, types, pf);
         this._els.rows.innerHTML = this._rowsHtml(deps);
-        if (deps.length === 0 && (line || dir)) {
-          this._els.rows.innerHTML = '<div class="note">Keine Abfahrten für Linie ' +
-            esc(line || "–") + (dir ? " → " + esc(dir) : "") +
-            '. Favorit im Add-on neu setzen?</div>';
+        if (deps.length === 0 && pf?.size) {
+          this._els.rows.innerHTML = '<div class="note">Keine Abfahrten für Steig ' +
+            esc([...pf].join("/")) + '. Favorit im Add-on neu setzen?</div>';
         }
       } catch (err) {
         this._error("Fehler beim Laden: " + esc(String(err)) +
           "<br><small>" + esc(this._current.globalId) + "</small>");
       }
+    }
+
+    _parsePlatformFilter(platformFilter) {
+      if (!platformFilter) return null;
+      const nums = String(platformFilter).split(",").map(Number).filter(Boolean);
+      return nums.length ? new Set(nums) : null;
     }
 
     // Listen-Layout: alle Favoriten untereinander
@@ -333,16 +335,14 @@
         this._favorites.map(f =>
           this._fetchDepartures(
             f.globalId,
-            f.filterTypes     || this._config.types || "",
-            f.lineFilter      || "",
-            f.directionFilter || ""
+            f.filterTypes || this._config.types || "",
+            this._parsePlatformFilter(f.platformFilter)
           ))
       );
       this._els.rows.innerHTML = this._favorites.map((f, i) => {
         const tag = f.filterTypes    ? `<span class="tag">${esc(typesLabel(f.filterTypes))}</span>` : "";
-        const lin = f.lineFilter     ? `<span class="tag">${esc(f.lineFilter)}</span>` : "";
-        const dir = f.directionFilter ? `<span class="tag">→ ${esc(f.directionFilter)}</span>` : "";
-        const head = `<div class="section-head"><h3>${esc(f.name)}</h3>${tag}${lin}${dir}
+        const plf = f.platformFilter ? `<span class="tag">Steig ${esc(f.platformFilter.split(",").join("/"))}</span>` : "";
+        const head = `<div class="section-head"><h3>${esc(f.name)}</h3>${tag}${plf}
           <span class="place2">${esc(f.place || "")}</span></div>`;
         const res = results[i];
         const body = (res.status === "fulfilled")
@@ -508,8 +508,7 @@
 
     _currentStationValue() {
       if (!this._config.global_id) return "__favs__";
-      return (this._config.global_id) + "|" +
-        (this._config.types || "") + "||";
+      return (this._config.global_id) + "|" + (this._config.types || "") + "|";
     }
 
     _schema() {
@@ -520,8 +519,7 @@
           value: favKey(f),
           label: f.name
             + (f.filterTypes    ? ` · ${typesLabel(f.filterTypes)}` : "")
-            + (f.lineFilter     ? ` · ${f.lineFilter}` : "")
-            + (f.directionFilter ? ` → ${f.directionFilter}` : "")
+            + (f.platformFilter ? ` · Steig ${f.platformFilter.split(",").join("/")}` : "")
             + (f.place ? ` (${f.place})` : ""),
         })),
       ];
