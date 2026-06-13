@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.19
+/* MVG Abfahrten – Lovelace-Karte v2.2.20
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -116,6 +116,19 @@
       background: none; border: 0; cursor: pointer; padding: 0 2px;
       color: var(--mvg-red); font-size: 12px; line-height: 1; vertical-align: middle;
     }
+    .info-popup {
+      position: absolute; z-index: 100; max-width: 280px;
+      background: var(--card-background-color, #1e2125);
+      border: 1px solid var(--divider-color, rgba(127,127,127,0.2));
+      border-radius: 10px; padding: 10px 13px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      font-size: 12px; color: var(--primary-text-color); display: none;
+      pointer-events: none;
+    }
+    .info-popup .info-title { font-weight: 700; margin-bottom: 5px; color: var(--mvg-accent); }
+    .info-popup .info-item { margin-bottom: 4px; color: var(--secondary-text-color); }
+    .info-popup .info-item b { color: var(--primary-text-color); }
+    ha-card { position: relative; }
     .note { padding: 18px 16px; color: var(--mvg-muted); font-size: 13px; border-top: 1px solid var(--mvg-line); }
     .note.err { color: var(--mvg-red); }
     .filter-info {
@@ -202,6 +215,7 @@
           </div>
           <div class="filter-info" id="filterInfo" hidden></div>
           <div id="rows"><div class="note">Lade …</div></div>
+          <div class="info-popup" id="infoPopup"></div>
         </ha-card>`;
       this._els = {
         card: this.shadowRoot.querySelector("ha-card"),
@@ -216,6 +230,7 @@
         dirClear: this.shadowRoot.getElementById("dirClear"),
         filterInfo: this.shadowRoot.getElementById("filterInfo"),
         rows: this.shadowRoot.getElementById("rows"),
+        infoPopup: this.shadowRoot.getElementById("infoPopup"),
       };
       this._dirFilter = new Set(); // aktive Richtungen (1=H, 2=R)
       // Design: HA-Theme (Standard) oder dunkle Anzeigetafel
@@ -230,7 +245,7 @@
 
     connectedCallback() {
       this._init();
-      const refresh = Math.max(20, Number(this._config.refresh) || 30);
+      const refresh = Math.max(20, Number(this._config.refresh) || 60);
       this._timer = setInterval(() => {
         if (!document.hidden) this._refresh();
       }, refresh * 1000);
@@ -243,6 +258,11 @@
         this._els.dirChips.querySelectorAll(".dir-chip")
           .forEach(c => c.setAttribute("aria-pressed", "false"));
         this._renderRows(this._lastDeps || []);
+      });
+      this.shadowRoot.addEventListener("click", (e) => {
+        const btn = e.target.closest(".info-btn");
+        if (btn) { e.stopPropagation(); this._showInfoPopup(btn); }
+        else if (this._els.infoPopup) this._els.infoPopup.style.display = "none";
       });
     }
 
@@ -573,7 +593,8 @@
           ? `<span style="text-decoration:line-through;color:var(--mvg-red)">${esc(d.destination)}</span> <span style="color:var(--mvg-accent)">${esc(earlyTerm.message.replace(/^Fährt nur bis /i,""))}</span>`
           : esc(d.destination);
         const hasInfo = (d.infos||[]).some(x => x.type !== "EARLY_TERMINATION") || (d.messages||[]).length > 0;
-        const infoBadge = hasInfo ? `<span class="info-btn" title="${esc((d.infos||[]).map(i=>i.message).join(" · "))}">ⓘ</span>` : "";
+        const _infoItems = [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.type+"::"+i.message), ...(d.messages||[]).map(m=>"Info::"+m)].join("|||");
+        const infoBadge = hasInfo ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems)}">ⓘ</button>` : "";
         const platTxt = d.platform != null ? (d.platformChanged ? `⚠ ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
         const minHtml = d.cancelled ? '<span class="min">entfällt</span>' : `<span class="min">${mins}<small>min</small></span>`;
         const stationTxt = this._config.show_station !== false && d.stationName
@@ -588,6 +609,29 @@
           ${minHtml}
         </div>`;
       }).join("");
+    }
+
+    _showInfoPopup(btn) {
+      const popup = this._els.infoPopup;
+      if (!popup) return;
+      const TYPE_LABELS = { INCIDENT:"Störung", EARLY_TERMINATION:"Vorzeitige Endstation", DISRUPTION:"Betriebsstörung", INFORMATION:"Information", Info:"Info" };
+      const title = btn.dataset.title || "";
+      const items = btn.dataset.items || "";
+      popup.innerHTML = `<div class="info-title">${esc(title)}</div>` +
+        items.split("|||").filter(Boolean).map(item => {
+          const sep = item.indexOf("::");
+          const type = item.slice(0, sep);
+          const msg  = item.slice(sep + 2);
+          return `<div class="info-item"><b>${esc(TYPE_LABELS[type] || type)}:</b> ${esc(msg)}</div>`;
+        }).join("");
+      popup.style.display = "block";
+      const r = btn.getBoundingClientRect();
+      const cr = this.shadowRoot.host.getBoundingClientRect();
+      let left = r.left - cr.left;
+      let top = r.bottom - cr.top + 4;
+      if (left + 280 > cr.width - 8) left = cr.width - 280 - 8;
+      popup.style.left = Math.max(4, left) + "px";
+      popup.style.top = top + "px";
     }
 
     _badge(label, type) {
@@ -611,11 +655,9 @@
         const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
         const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
         const hasInfo = (d.infos && d.infos.length > 0) || (d.messages && d.messages.length > 0);
-        const infoTip = hasInfo
-          ? [...(d.infos||[]).map(i => i.message), ...(d.messages||[])].join(" · ")
-          : "";
+        const _infoItems2 = [...(d.infos||[]).map(i=>i.type+"::"+i.message), ...(d.messages||[]).map(m=>"Info::"+m)].join("|||");
         const infoBadge = hasInfo
-          ? `<span class="info-btn" title="${esc(infoTip)}">ⓘ</span>` : "";
+          ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems2)}">ⓘ</button>` : "";
         const occIcon = {"LOW":"🟢","MEDIUM":"🟡","HIGH":"🔴","FULL":"🔴"}[d.occupancy] || "";
         const platformTxt = d.platform != null
           ? (d.platformChanged ? `⚠ Gleis ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`)
@@ -648,7 +690,8 @@
     }
   }
 
-  customElements.define("mvg-abfahrten-card", MvgAbfahrtenCard);
+  if (!customElements.get("mvg-abfahrten-card"))
+    customElements.define("mvg-abfahrten-card", MvgAbfahrtenCard);
 
   /* ---------------------------------------------------------------- Editor */
 
@@ -967,7 +1010,8 @@
     }
   }
 
-  customElements.define("mvg-abfahrten-card-editor", MvgAbfahrtenCardEditor);
+  if (!customElements.get("mvg-abfahrten-card-editor"))
+    customElements.define("mvg-abfahrten-card-editor", MvgAbfahrtenCardEditor);
 
   window.customCards = window.customCards || [];
   window.customCards.push({
