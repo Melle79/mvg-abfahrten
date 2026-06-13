@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.15
+/* MVG Abfahrten – Lovelace-Karte v2.2.16
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -532,11 +532,13 @@
         const infoBadge = hasInfo ? `<span class="info-btn" title="${esc((d.infos||[]).map(i=>i.message).join(" · "))}">ⓘ</span>` : "";
         const platTxt = d.platform != null ? (d.platformChanged ? `⚠ ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
         const minHtml = d.cancelled ? '<span class="min">entfällt</span>' : `<span class="min">${mins}<small>min</small></span>`;
+        const stationTxt = this._config.show_station !== false && d.stationName
+          ? `${esc(d.stationName)} · ` : "";
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
             <div class="to">${destHtml}${infoBadge}</div>
-            <div class="meta">${planned}${delay}${sev}</div>
+            <div class="meta">${stationTxt}${planned}${delay}${sev}</div>
           </div>
           <span class="platform${d.platformChanged ? " platform-changed" : ""}">${platTxt}</span>
           ${minHtml}
@@ -620,8 +622,9 @@
     station: "Haltestelle / Favorit",
     layout: "Darstellung",
     design: "Design",
-    show_title: "Titel anzeigen",
-    show_clock: "Uhrzeit anzeigen",
+    show_title:   "Titel anzeigen",
+    show_clock:   "Uhrzeit anzeigen",
+    show_station: "Haltestellenname unter Ziel anzeigen",
     limit: "Anzahl Abfahrten",
     refresh: "Aktualisierung",
     api_url: "API-URL (leer = Standard)",
@@ -757,8 +760,9 @@
       }
       fields.push(
         { name: "design",     selector: { select: { mode: "dropdown", options: DESIGN_OPTIONS } } },
-        { name: "show_title", selector: { boolean: {} } },
-        { name: "show_clock", selector: { boolean: {} } },
+        { name: "show_title",   selector: { boolean: {} } },
+        { name: "show_clock",   selector: { boolean: {} } },
+        { name: "show_station", selector: { boolean: {} } },
         { name: "limit",      selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
         { name: "refresh",    selector: { number: { min: 20, max: 300, step: 5, mode: "box", unit_of_measurement: "s" } } },
         { name: "api_url",    selector: { text: {} } },
@@ -772,8 +776,9 @@
         station: this._currentStationValue(),
         layout: this._config.layout || "tabs",
         design: this._config.design || "auto",
-        show_title: this._config.show_title !== false,
-        show_clock: this._config.show_clock !== false,
+        show_title:   this._config.show_title !== false,
+        show_clock:   this._config.show_clock !== false,
+        show_station: this._config.show_station !== false,
         limit: Number(this._config.limit) || 8,
         refresh: Number(this._config.refresh) || 60,
         api_url: this._config.api_url || "",
@@ -897,8 +902,9 @@
 
       if (v.layout && v.layout !== "tabs") cfg.layout = v.layout; else delete cfg.layout;
       if (v.design && v.design !== "auto") cfg.design = v.design; else delete cfg.design;
-      if (v.show_title === false) cfg.show_title = false; else delete cfg.show_title;
-      if (v.show_clock === false) cfg.show_clock = false; else delete cfg.show_clock;
+      if (v.show_title   === false) cfg.show_title   = false; else delete cfg.show_title;
+      if (v.show_clock   === false) cfg.show_clock   = false; else delete cfg.show_clock;
+      if (v.show_station === false) cfg.show_station = false; else delete cfg.show_station;
 
       cfg.limit   = Number(v.limit)   || 8;
       cfg.refresh = Number(v.refresh) || 60;

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-13-03 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-13-04 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -284,7 +284,7 @@
         const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
         return `<div class="preview-row">
           ${badgeHtml(d.label, d.transportType, true)}
-          <span class="preview-dest"><b>${esc(d.destination)}</b></span>
+          <span class="preview-dest"><b>${esc(d.destination)}</b><br><span style="font-size:11px;color:var(--muted)">${esc(d.stationName)}</span></span>
           <span class="preview-min">${mins}<small>min</small></span>
         </div>`;
       }).join("");
