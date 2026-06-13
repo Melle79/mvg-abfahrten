@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.23
+/* MVG Abfahrten – Lovelace-Karte v2.2.24
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -793,10 +793,35 @@
     .search-drop button:hover { background: var(--secondary-background-color, #f5f5f5); }
     .search-drop .sname { flex: 1; }
     .search-drop .splace { color: var(--secondary-text-color, #727272); font-size: 12px; white-space: nowrap; }
-    .selected-id {
-      font-size: 11px; color: var(--secondary-text-color, #727272);
-      padding: 2px 4px; font-family: monospace;
+    .sort-widget {
+      margin-top: 8px;
+      border: 1px solid var(--divider-color, #ccc);
+      border-radius: 8px;
+      overflow: hidden;
     }
+    .sort-widget-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--secondary-text-color);
+      padding: 8px 12px 4px;
+    }
+    .sort-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-top: 1px solid var(--divider-color, #eee);
+      background: var(--card-background-color, #fff);
+    }
+    .sort-item:first-of-type { border-top: 0; }
+    .sort-name { flex: 1; font-size: 13px; color: var(--primary-text-color); }
+    .sort-btn {
+      background: none; border: 0; cursor: pointer;
+      color: var(--secondary-text-color); font-size: 16px;
+      padding: 2px 6px; border-radius: 4px; line-height: 1;
+    }
+    .sort-btn:hover { background: var(--secondary-background-color); color: var(--primary-text-color); }
+    .sort-btn:disabled { opacity: 0.3; cursor: default; }
   `;
 
   class MvgAbfahrtenCardEditor extends HTMLElement {
@@ -939,9 +964,11 @@
 
         this._form = document.createElement("ha-form");
         this._form.addEventListener("value-changed", (e) => this._valueChanged(e));
+        this._sortWrap = document.createElement("div");
         this._root = document.createDocumentFragment();
         this.appendChild(this._searchWrap);
         this.appendChild(this._form);
+        this.appendChild(this._sortWrap);
       }
 
       // Such-Widget nur bei fester Haltestelle (oder wenn Favoriten nicht erreichbar) zeigen
@@ -960,6 +987,41 @@
       this._form.data = this._formData();
       this._form.computeLabel = (s) => LABELS[s.name] || s.name;
       this._form.computeHelper = (s) => HELPERS_TXT[s.name] || "";
+
+      // Sortier-Widget nur wenn mehrere Pläne gewählt
+      this._renderSortWidget();
+    }
+
+    _renderSortWidget() {
+      const ids = Array.isArray(this._config.plan_ids) ? this._config.plan_ids : [];
+      if (ids.length < 2) { this._sortWrap.innerHTML = ""; return; }
+      const planMap = new Map((this._plans || []).map(p => [p.id, p.name]));
+      this._sortWrap.innerHTML = `<style>${EDITOR_STYLE}</style>
+        <div class="sort-widget">
+          <div class="sort-widget-label">Reihenfolge der Pläne</div>
+          ${ids.map((id, i) => `
+            <div class="sort-item">
+              <span class="sort-name">${esc(planMap.get(id) || id)}</span>
+              <button class="sort-btn" data-idx="${i}" data-dir="-1" ${i === 0 ? "disabled" : ""}>↑</button>
+              <button class="sort-btn" data-idx="${i}" data-dir="1" ${i === ids.length - 1 ? "disabled" : ""}>↓</button>
+            </div>`).join("")}
+        </div>`;
+      this._sortWrap.querySelectorAll(".sort-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.dataset.idx);
+          const dir = parseInt(btn.dataset.dir);
+          const newIds = [...ids];
+          const tmp = newIds[idx];
+          newIds[idx] = newIds[idx + dir];
+          newIds[idx + dir] = tmp;
+          const cfg = Object.assign({}, this._config, { plan_ids: newIds });
+          this._config = cfg;
+          this.dispatchEvent(new CustomEvent("config-changed", {
+            detail: { config: cfg }, bubbles: true, composed: true,
+          }));
+          this._renderSortWidget();
+        });
+      });
     }
 
     _renderSearchDrop(results) {
