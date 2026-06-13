@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-13-02 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-13-03 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -56,7 +56,7 @@
   .fullview-head h2 { font-size: 20px; font-weight: 700; }
   .fullview-head .timer { margin-left: auto; color: var(--muted); font-size: 13px; }
   .dept-board { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-  .dept-row { display: grid; grid-template-columns: minmax(52px,auto) 130px 1fr auto auto; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .dept-row { display: grid; grid-template-columns: minmax(52px,auto) 1fr auto auto; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
   .dept-row:last-child { border-bottom: 0; }
   .dept-station { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 42px; max-width: 104px; padding: 3px 6px; border-radius: 6px; font-weight: 800; font-size: 13.5px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -284,7 +284,7 @@
         const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
         return `<div class="preview-row">
           ${badgeHtml(d.label, d.transportType, true)}
-          <span class="preview-dest"><b>${esc(d.destination)}</b><br>${esc(d.stationName)}</span>
+          <span class="preview-dest"><b>${esc(d.destination)}</b></span>
           <span class="preview-min">${mins}<small>min</small></span>
         </div>`;
       }).join("");
@@ -332,10 +332,9 @@
         const minHtml = d.cancelled ? '<span class="dept-min">entfällt</span>' : `<span class="dept-min">${mins}<small>min</small></span>`;
         return `<div class="dept-row${d.cancelled?" cancelled":""}">
           ${badgeHtml(d.label, d.transportType)}
-          <span class="dept-station">${esc(d.stationName)}</span>
           <div class="dept-dest">
             <div class="to">${destHtml}${infoBadge}</div>
-            <div class="meta">${planned}${delay}${sev}${occIcon?" "+occIcon:""}</div>
+            <div class="meta">${esc(d.stationName)} · ${planned}${delay}${sev}${occIcon?" "+occIcon:""}</div>
           </div>
           <span class="dept-platform${d.platformChanged?" platform-changed":""}">${platTxt}</span>
           ${minHtml}
