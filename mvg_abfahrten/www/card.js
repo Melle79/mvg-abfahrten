@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.8.4
+/* MVG Abfahrten – Lovelace-Karte v1.9.0
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-14 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-15 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -111,6 +111,23 @@
   .fav:hover { border-color: var(--focus); }
   .fav .x { color: var(--muted); font-size: 13px; padding: 0 2px; }
   .fav .x:hover { color: var(--red); }
+  .fav .edit { color: var(--muted); font-size: 13px; padding: 0 2px; }
+  .fav .edit:hover { color: var(--amber); }
+
+  .fav-modal { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; }
+  .fav-modal[hidden] { display: none; }
+  .fav-modal-box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; width: min(440px,92vw); max-height: 85vh; overflow-y: auto; box-shadow: 0 16px 48px rgba(0,0,0,0.6); }
+  .fav-modal-box h3 { margin: 0 0 16px; font-size: 16px; }
+  .fav-section { margin-bottom: 16px; }
+  .fav-section-label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; display: block; }
+  .fav-check-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fav-check { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); font-size: 13px; cursor: pointer; user-select: none; }
+  .fav-check.on { border-color: var(--amber); color: var(--ink); background: rgba(255,179,0,0.08); }
+  .fav-check input[type=checkbox] { accent-color: var(--amber); }
+  .fav-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+  .btn { padding: 8px 18px; border-radius: 8px; border: 0; font-size: 14px; cursor: pointer; font-family: inherit; }
+  .btn-primary { background: var(--amber); color: #000; font-weight: 700; }
+  .btn-secondary { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); }
 
   /* ------- Tafel ------- */
   .board { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
@@ -254,6 +271,27 @@
   <footer>Daten: inoffizielle MVG-API · nur für private Nutzung · Auto-Aktualisierung alle 30 s</footer>
 </div>
 <div class="info-popup" id="infoPopup"></div>
+<div class="fav-modal" id="favModal" hidden>
+  <div class="fav-modal-box">
+    <h3 id="favModalTitle">Favorit bearbeiten</h3>
+    <div class="fav-section">
+      <span class="fav-section-label">Verkehrsmittel</span>
+      <div class="fav-check-grid" id="favModalTypes"></div>
+    </div>
+    <div class="fav-section">
+      <span class="fav-section-label">Linien (leer = alle)</span>
+      <div class="fav-check-grid" id="favModalLines"></div>
+    </div>
+    <div class="fav-section">
+      <span class="fav-section-label">Richtung</span>
+      <div class="fav-check-grid" id="favModalDir"></div>
+    </div>
+    <div class="fav-modal-actions">
+      <button class="btn btn-secondary" id="favModalCancel">Abbrechen</button>
+      <button class="btn btn-primary" id="favModalSave">Speichern</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -447,7 +485,11 @@
   // ---------- Station & Tafel ----------
   function selectStation(st) {
     current = st;
-    platformFilter = new Set(st.platformFilter || []);
+    // platformFilter korrekt als Zahlen-Set parsen (String "1,2" → Set{1,2})
+    const pfRaw = st.platformFilter || "";
+    platformFilter = new Set(
+      String(pfRaw).split(",").map(Number).filter(Boolean)
+    );
     localStorage.setItem("mvg:last", JSON.stringify(st));
     $("stationName").textContent = st.name;
     $("stationSub").textContent = st.place || "";
@@ -464,8 +506,8 @@
     if (!current) return;
     if (showLoading) rowsEl.innerHTML = '<div class="empty">Lade Abfahrten …</div>';
     try {
-      const types = activeTypes();
-      // Wir laden mehr als angezeigt, damit der Richtungsfilter genug Treffer hat
+      // filterTypes aus dem Favoriten verwenden — nicht activeTypes() (die zeigen nur UI-Zustand)
+      const types = current.filterTypes || activeTypes();
       const raw = Math.min(80, Math.max(30, DEFAULT_LIMIT * 4));
       const data = await api("departures/" + encodeURIComponent(current.globalId) +
                              "?limit=" + raw + (types ? "&types=" + encodeURIComponent(types) : ""));
@@ -519,9 +561,11 @@
 
   function renderRows(deps) {
     let filtered = deps;
-    if (platformFilter.size) {
-      filtered = deps.filter(d => platformFilter.has(d.direction));
-    }
+    // Linienfilter (z.B. nur U3,U6)
+    const lines = new Set((current?.lineFilter || "").split(",").filter(Boolean));
+    if (lines.size) filtered = filtered.filter(d => lines.has(d.label));
+    // Richtungsfilter (H=1, R=2)
+    if (platformFilter.size) filtered = filtered.filter(d => platformFilter.has(d.direction));
     const visible = filtered.slice(0, DEFAULT_LIMIT);
     if (!visible.length) {
       rowsEl.innerHTML = '<div class="empty">Keine Abfahrten für die gewählten Filter.</div>';
@@ -598,14 +642,12 @@
       const pf  = f.platformFilter
         ? ` · ${f.platformFilter.split(",").map(v => v === "1" ? "H" : v === "2" ? "R" : esc(v)).join(" / ")}`
         : "";
-      el.innerHTML = `★ ${esc(f.name)}${tag}${pf} <span class="x" title="Favorit entfernen">✕</span>`;
+      el.innerHTML = `★ ${esc(f.name)}${tag}${pf} <span class="edit" title="Favorit bearbeiten">✎</span><span class="x" title="Favorit entfernen">✕</span>`;
       el.addEventListener("click", (e) => {
-        if (e.target.classList.contains("x")) { removeFavorite(f); return; }
+        if (e.target.classList.contains("x"))    { removeFavorite(f); return; }
+        if (e.target.classList.contains("edit")) { openFavModal(f); return; }
         qInput.value = f.name;
         applyFilterChips(f.filterTypes || "");
-        platformFilter = new Set(
-          (f.platformFilter || "").split(",").filter(Boolean).map(Number)
-        );
         selectStation(f);
       });
       favsEl.appendChild(el);
@@ -650,7 +692,102 @@
     renderFavorites();
   }
 
-  // ---------- Start ----------
+  // ---------- Favoriten-Modal ----------
+  const favModal       = $("favModal");
+  const favModalTitle  = $("favModalTitle");
+  const favModalTypes  = $("favModalTypes");
+  const favModalLines  = $("favModalLines");
+  const favModalDir    = $("favModalDir");
+  const favModalCancel = $("favModalCancel");
+  const favModalSave   = $("favModalSave");
+  let   _editingFav    = null;
+
+  const ALL_TYPES = [
+    {value:"UBAHN",label:"U-Bahn"}, {value:"SBAHN",label:"S-Bahn"},
+    {value:"TRAM",label:"Tram"}, {value:"BUS,REGIONAL_BUS",label:"Bus"}, {value:"BAHN",label:"Bahn"}
+  ];
+  const DIR_OPTIONS = [{value:"1",label:"H · Hinfahrt"},{value:"2",label:"R · Rückfahrt"}];
+
+  function openFavModal(fav) {
+    _editingFav = fav;
+    favModalTitle.textContent = `${fav.name} bearbeiten`;
+
+    // Verkehrsmittel
+    const selTypes = new Set((fav.filterTypes || "").split(",").filter(Boolean));
+    favModalTypes.innerHTML = ALL_TYPES.map(t => {
+      const on = selTypes.size === 0 || t.value.split(",").some(v => selTypes.has(v));
+      return `<label class="fav-check ${on ? "on" : ""}">
+        <input type="checkbox" value="${t.value}" ${on ? "checked" : ""}> ${t.label}
+      </label>`;
+    }).join("");
+
+    // Linien aus letzten Abfahrten + gespeicherte
+    const knownLines = new Set([
+      ...(lastDeps || []).map(d => d.label).filter(Boolean),
+      ...(fav.lineFilter || "").split(",").filter(Boolean)
+    ]);
+    const selLines = new Set((fav.lineFilter || "").split(",").filter(Boolean));
+    favModalLines.innerHTML = knownLines.size
+      ? [...knownLines].sort().map(l => {
+          const on = selLines.has(l);
+          return `<label class="fav-check ${on ? "on" : ""}">
+            <input type="checkbox" value="${esc(l)}" ${on ? "checked" : ""}> ${esc(l)}
+          </label>`;
+        }).join("")
+      : '<span style="color:var(--muted);font-size:13px">Haltestelle zuerst öffnen</span>';
+
+    // Richtung
+    const selDirs = new Set((fav.platformFilter || "").split(",").filter(Boolean));
+    favModalDir.innerHTML = DIR_OPTIONS.map(d => {
+      const on = selDirs.has(d.value);
+      return `<label class="fav-check ${on ? "on" : ""}">
+        <input type="checkbox" value="${d.value}" ${on ? "checked" : ""}> ${d.label}
+      </label>`;
+    }).join("");
+
+    // Toggle-Logik für alle Checkboxen
+    [favModalTypes, favModalLines, favModalDir].forEach(container => {
+      container.querySelectorAll(".fav-check").forEach(label => {
+        label.addEventListener("click", () => {
+          const cb = label.querySelector("input");
+          cb.checked = !cb.checked;
+          label.classList.toggle("on", cb.checked);
+        });
+        label.querySelector("input").addEventListener("click", e => e.stopPropagation());
+      });
+    });
+
+    favModal.hidden = false;
+  }
+
+  favModalCancel.addEventListener("click", () => { favModal.hidden = true; });
+  favModal.addEventListener("click", (e) => { if (e.target === favModal) favModal.hidden = true; });
+
+  favModalSave.addEventListener("click", async () => {
+    if (!_editingFav) return;
+    const checkedTypes = [...favModalTypes.querySelectorAll("input:checked")].map(i => i.value);
+    const allTypes = ALL_TYPES.length === checkedTypes.length;
+    const filterTypes = allTypes ? "" : checkedTypes.join(",");
+
+    const checkedLines = [...favModalLines.querySelectorAll("input:checked")].map(i => i.value);
+    const lineFilter = checkedLines.join(",");
+
+    const checkedDirs = [...favModalDir.querySelectorAll("input:checked")].map(i => i.value);
+    const platformFilter = checkedDirs.join(",");
+
+    // Alten Favoriten löschen, neuen mit aktualisierten Filtern speichern
+    await fetch("./api/favorites/" + encodeURIComponent(_editingFav.globalId) +
+      "?types=" + encodeURIComponent(_editingFav.filterTypes || "") +
+      "&platform=" + encodeURIComponent(_editingFav.platformFilter || "") +
+      "&line=" + encodeURIComponent(_editingFav.lineFilter || ""),
+      { method: "DELETE" });
+    favorites = await fetch("./api/favorites", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(Object.assign({}, _editingFav, { filterTypes: filterTypes, lineFilter: lineFilter, platformFilter: platformFilter }))
+    }).then(r => r.json());
+    favModal.hidden = true;
+    renderFavorites();
+  });
   api("config").then(cfg => { if (cfg?.default_limit) DEFAULT_LIMIT = cfg.default_limit; }).catch(() => {});
   loadFavorites();
   const last = localStorage.getItem("mvg:last");

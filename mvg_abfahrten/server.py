@@ -199,11 +199,13 @@ def api_favorites_add():
         return jsonify({"error": "globalId fehlt"}), 400
     filter_types    = (body.get("filterTypes")    or "").strip()
     platform_filter = (body.get("platformFilter") or "").strip()
+    line_filter     = (body.get("lineFilter")     or "").strip()
     favs = _load_favorites()
     if not any(
         f.get("globalId") == global_id and
         (f.get("filterTypes")    or "") == filter_types and
-        (f.get("platformFilter") or "") == platform_filter
+        (f.get("platformFilter") or "") == platform_filter and
+        (f.get("lineFilter")     or "") == line_filter
         for f in favs
     ):
         favs.append({
@@ -213,6 +215,7 @@ def api_favorites_add():
             "transportTypes": body.get("transportTypes", []),
             "filterTypes":    filter_types,
             "platformFilter": platform_filter,
+            "lineFilter":     line_filter,
         })
         _save_favorites(favs)
     return jsonify(favs)
@@ -222,12 +225,14 @@ def api_favorites_add():
 def api_favorites_delete(global_id: str):
     filter_types    = (request.args.get("types")    or "").strip()
     platform_filter = (request.args.get("platform") or "").strip()
+    line_filter     = (request.args.get("line")     or "").strip()
     favs = [
         f for f in _load_favorites()
         if not (
             f.get("globalId") == global_id and
             (f.get("filterTypes")    or "") == filter_types and
-            (f.get("platformFilter") or "") == platform_filter
+            (f.get("platformFilter") or "") == platform_filter and
+            (f.get("lineFilter")     or "") == line_filter
         )
     ]
     _save_favorites(favs)
