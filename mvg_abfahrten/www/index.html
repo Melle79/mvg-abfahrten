@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v2.1.0 – Cache: 2026-06-13-24 */
+  /* Anzeigetafel v2.1.0 – Cache: 2026-06-13-25 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -129,6 +129,7 @@
   const infoPopup = $("infoPopup");
 
   let current = null;
+  let refreshTimer = null;
   const REFRESH = 60;
   let timerEl = $("timer");
   let timerCount = REFRESH;
