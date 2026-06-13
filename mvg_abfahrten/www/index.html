@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v2.1.0 – Cache: 2026-06-13-23 */
+  /* Anzeigetafel v2.1.0 – Cache: 2026-06-13-24 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -99,7 +99,7 @@
     <div id="rows"></div>
   </div>
 
-  <footer>Daten: inoffizielle MVG-API · nur für private Nutzung · Auto-Aktualisierung alle 30 s</footer>
+  <footer>Daten: inoffizielle MVG-API · nur für private Nutzung · Aktualisierung in <span id="timer">60</span> s</footer>
 </div>
 <div class="info-popup" id="infoPopup"></div>
 
@@ -129,7 +129,23 @@
   const infoPopup = $("infoPopup");
 
   let current = null;
-  let refreshTimer = null;
+  const REFRESH = 60;
+  let timerEl = $("timer");
+  let timerCount = REFRESH;
+
+  function startTimer() {
+    timerCount = REFRESH;
+    timerEl.textContent = timerCount;
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => {
+      timerCount--;
+      timerEl.textContent = timerCount;
+      if (timerCount <= 0) {
+        loadDepartures(false);
+        timerCount = REFRESH;
+      }
+    }, 1000);
+  }
   let debounceTimer = null;
   let searchAbort = null;
   let lastDeps = [];
@@ -202,8 +218,7 @@
     $("stationSub").textContent = st.place || "";
     board.hidden = false;
     loadDepartures(true);
-    clearInterval(refreshTimer);
-    refreshTimer = setInterval(() => loadDepartures(false), 30000);
+    startTimer();
   }
 
   async function loadDepartures(showLoading) {
