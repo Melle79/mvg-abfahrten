@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 import requests
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, make_response, request, send_from_directory
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("mvg-abfahrten")
@@ -99,7 +99,20 @@ def cors_preflight(_any):
 
 @app.get("/")
 def index():
-    return send_from_directory(WWW_DIR, "index.html")
+    resp = make_response(send_from_directory(WWW_DIR, "index.html"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
+
+
+@app.get("/card.js")
+def card_js():
+    resp = make_response(send_from_directory(WWW_DIR, "card.js"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 # ---------------------------------------------------------------- API
