@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-19 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-20 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -113,6 +113,14 @@
   .fav .x:hover { color: var(--red); }
   .fav .edit { color: var(--muted); font-size: 13px; padding: 0 2px; }
   .fav .edit:hover { color: var(--amber); }
+  .fav-add {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 13px; border-radius: 8px; cursor: pointer;
+    border: 1px dashed var(--amber); background: transparent;
+    color: var(--amber); font-size: 14px; font-family: inherit;
+    white-space: nowrap;
+  }
+  .fav-add:hover { background: rgba(255,179,0,0.08); }
 
   /* ------- Favoriten-Assistent (Sheet von unten) ------- */
   .fav-sheet {
@@ -291,6 +299,7 @@
       <div class="dropdown" id="dropdown" role="listbox"></div>
     </div>
     <div class="favs" id="favs"></div>
+    <button class="fav-add" id="favAdd" title="Neuen Favoriten erstellen">＋ Favorit</button>
   </div>
 
   <div class="chips" id="chips" role="group" aria-label="Verkehrsmittel filtern">
@@ -328,6 +337,19 @@
     <div class="fav-sheet-head">
       <h3 id="favSheetTitle">Favorit</h3>
       <button class="fav-sheet-close" id="favSheetClose">✕</button>
+    </div>
+
+    <!-- Schritt 1: Haltestelle -->
+    <div class="fav-step" id="favStepStation">
+      <div class="fav-step-label">
+        <span class="step-num active" id="stepNum1">1</span> Haltestelle
+      </div>
+      <div class="fav-station-search" style="position:relative">
+        <input class="fav-name-input" id="favStationInput" type="text"
+               placeholder="Haltestelle suchen …" autocomplete="off">
+        <div class="dropdown" id="favStationDrop" style="position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:99;display:none"></div>
+      </div>
+      <div id="favStationSelected" style="margin-top:8px;color:var(--muted);font-size:13px"></div>
     </div>
 
     <!-- Schritt 2: Verkehrsmittel -->
@@ -768,6 +790,7 @@
   }
 
   // ---------- Favoriten-Assistent ----------
+  const favAdd = $("favAdd");
   const favSheet     = $("favSheet");
   const favSheetTitle = $("favSheetTitle");
   const favSheetClose = $("favSheetClose");
@@ -776,12 +799,109 @@
   const favDirChecks  = $("favDirChecks");
   const favNameInput  = $("favNameInput");
   const favSheetSave  = $("favSheetSave");
-  let   _editingFav   = null; // null = neuer Favorit, sonst bestehender
+  const favStationInput  = $("favStationInput");
+  const favStationDrop   = $("favStationDrop");
+  const favStationSelected = $("favStationSelected");
+  let   _editingFav   = null;
+  let   _sheetStation = null; // gewählte Haltestelle im Assistenten
 
   const ALL_TYPES = [
     {value:"UBAHN",label:"U-Bahn"}, {value:"SBAHN",label:"S-Bahn"},
     {value:"TRAM",label:"Tram"}, {value:"BUS,REGIONAL_BUS",label:"Bus"}, {value:"BAHN",label:"Bahn"}
   ];
+
+  // Suche im Sheet-Suchfeld
+  let _favSearchTimer;
+  favStationInput.addEventListener("input", () => {
+    clearTimeout(_favSearchTimer);
+    const q = favStationInput.value.trim();
+    if (q.length < 2) { favStationDrop.style.display = "none"; return; }
+    _favSearchTimer = setTimeout(async () => {
+      try {
+        const res = await api("search?q=" + encodeURIComponent(q));
+        favStationDrop.innerHTML = "";
+        if (!res.length) {
+          favStationDrop.innerHTML = '<button disabled style="padding:10px 14px;color:var(--muted)">Keine Ergebnisse</button>';
+        } else {
+          res.forEach(st => {
+            const b = document.createElement("button");
+            b.style.cssText = "display:flex;width:100%;padding:10px 14px;background:none;border:0;border-bottom:1px solid var(--line);color:var(--ink);font-size:14px;text-align:left;cursor:pointer;gap:8px";
+            b.innerHTML = `<span style="flex:1">${esc(st.name)}</span><span style="color:var(--muted);font-size:12px">${esc(st.place||"")}</span>`;
+            b.addEventListener("click", () => {
+              favStationDrop.style.display = "none";
+              favStationInput.value = st.name;
+              favStationSelected.textContent = st.name + (st.place ? `, ${st.place}` : "");
+              _sheetStation = st;
+              favNameInput.value = st.name;
+              // Linien und Richtungen nachladen
+              _loadSheetLinien(st.globalId);
+            });
+            favStationDrop.appendChild(b);
+          });
+        }
+        favStationDrop.style.display = "block";
+        favStationDrop.style.background = "var(--panel)";
+        favStationDrop.style.border = "1px solid var(--line)";
+        favStationDrop.style.borderRadius = "10px";
+        favStationDrop.style.boxShadow = "0 8px 24px rgba(0,0,0,0.4)";
+        favStationDrop.style.overflow = "hidden";
+      } catch(e) {}
+    }, 300);
+  });
+  document.addEventListener("click", e => {
+    if (!favStationInput.contains(e.target)) favStationDrop.style.display = "none";
+  });
+
+  async function _loadSheetLinien(globalId) {
+    favLineChecks.innerHTML = '<span class="fav-check-loading">Lade Linien …</span>';
+    favDirChecks.innerHTML  = '<span class="fav-check-loading">Lade Richtungen …</span>';
+    try {
+      const data = await api("lines/" + encodeURIComponent(globalId));
+      const sel = _editingFav ? new Set((_editingFav.lineFilter||"").split(",").filter(Boolean)) : new Set();
+      _makeChecks(favLineChecks, data.lines || [], sel);
+    } catch(e) {
+      favLineChecks.innerHTML = '<span class="fav-check-loading">Fehler beim Laden</span>';
+    }
+    // Richtungen
+    try {
+      const data = await api("departures/" + encodeURIComponent(globalId) + "?limit=80");
+      const deps = data.departures || [];
+      const dirs = new Map();
+      for (const d of deps) {
+        if (!d.direction) continue;
+        if (!dirs.has(d.direction)) dirs.set(d.direction, new Set());
+        dirs.get(d.direction).add(d.destination);
+      }
+      if (dirs.size >= 2) {
+        const items = [...dirs.entries()].sort((a,b) => a[0]-b[0]).map(([dir, dests]) => ({
+          value: String(dir),
+          label: (dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt") + " (" + [...dests].slice(0,2).join(", ") + ")"
+        }));
+        const sel = _editingFav ? new Set((_editingFav.platformFilter||"").split(",").filter(Boolean)) : new Set();
+        _makeChecks(favDirChecks, items, sel);
+      } else {
+        favDirChecks.innerHTML = '<span class="fav-check-loading">Keine Richtungsunterscheidung möglich</span>';
+      }
+    } catch(e) {
+      favDirChecks.innerHTML = '<span class="fav-check-loading">Fehler beim Laden</span>';
+    }
+  }
+
+  // + Favorit Button
+  favAdd.addEventListener("click", () => {
+    _editingFav = null;
+    _sheetStation = null;
+    favSheetTitle.textContent = "Neuer Favorit";
+    favStationInput.value = "";
+    favStationSelected.textContent = "";
+    favNameInput.value = "";
+    favLineChecks.innerHTML = '<span class="fav-check-loading">Erst Haltestelle wählen</span>';
+    favDirChecks.innerHTML  = '<span class="fav-check-loading">Erst Haltestelle wählen</span>';
+    // Verkehrsmittel alle aktiv
+    _makeChecks(favTypeChecks, ALL_TYPES, new Set());
+    $("favStepStation").hidden = false;
+    favSheet.hidden = false;
+  });
 
   function _makeChecks(container, items, selectedSet) {
     container.innerHTML = items.map(item => {
@@ -801,76 +921,41 @@
 
   async function openFavSheet(fav) {
     _editingFav = fav;
-    const isNew = !fav.globalId;
-    favSheetTitle.textContent = fav.name + (isNew ? "" : " bearbeiten");
+    _sheetStation = fav;
+    favSheetTitle.textContent = fav.name + " bearbeiten";
     favNameInput.value = fav.name || "";
+    favStationInput.value = fav.name || "";
+    favStationSelected.textContent = "";
+    $("favStepStation").hidden = true; // bei Bearbeitung Haltestelle nicht änderbar
 
-    // Schritt 2: Verkehrsmittel
+    // Verkehrsmittel vorbelegen
     const selTypes = new Set((fav.filterTypes || "").split(",").filter(Boolean));
     _makeChecks(favTypeChecks, ALL_TYPES, selTypes);
 
-    // Schritt 3: Linien – direkt von MVG, kein Cache, kein Filter
     favLineChecks.innerHTML = '<span class="fav-check-loading">Lade Linien …</span>';
     favDirChecks.innerHTML  = '<span class="fav-check-loading">Lade Richtungen …</span>';
     favSheet.hidden = false;
 
-    let allLines = [];
-    try {
-      const data = await api("lines/" + encodeURIComponent(fav.globalId));
-      allLines = data.lines || [];
-    } catch (e) {}
-
-    const selLines = new Set((fav.lineFilter || "").split(",").filter(Boolean));
-    if (allLines.length) {
-      _makeChecks(favLineChecks, allLines, selLines);
-    } else {
-      favLineChecks.innerHTML = '<span class="fav-check-loading">Keine Linien gefunden (Bus fährt gerade nicht?)</span>';
-    }
-
-    // Schritt 4: Richtung – aus Abfahrten ermitteln (alle Verkehrsmittel, kein Filter)
-    await _loadDirChecks(fav);
-  }
-
-  async function _loadDirChecks(fav) {
-    const selDirs = new Set((fav.platformFilter || "").split(",").filter(Boolean));
-    favDirChecks.innerHTML = '<span class="fav-check-loading">Lade Richtungen …</span>';
-    try {
-      const data = await api("departures/" + encodeURIComponent(fav.globalId) + "?limit=80");
-      const deps = data.departures || [];
-      const dirs = new Map(); // direction → Set<destination>
-      for (const d of deps) {
-        if (!d.direction) continue;
-        if (!dirs.has(d.direction)) dirs.set(d.direction, new Set());
-        dirs.get(d.direction).add(d.destination);
-      }
-      if (dirs.size >= 2) {
-        const items = [...dirs.entries()].sort((a,b) => a[0]-b[0]).map(([dir, dests]) => ({
-          value: String(dir),
-          label: (dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt") +
-                 " (" + [...dests].slice(0,2).join(", ") + ")"
-        }));
-        _makeChecks(favDirChecks, items, selDirs);
-      } else {
-        favDirChecks.innerHTML = '<span class="fav-check-loading">Richtung nicht unterscheidbar</span>';
-      }
-    } catch (e) {
-      favDirChecks.innerHTML = '<span class="fav-check-loading">Fehler beim Laden</span>';
-    }
+    await _loadSheetLinien(fav.globalId);
   }
 
   favSheetClose.addEventListener("click", () => { favSheet.hidden = true; });
   favSheet.addEventListener("click", (e) => { if (e.target === favSheet) favSheet.hidden = true; });
 
   favSheetSave.addEventListener("click", async () => {
-    if (!_editingFav) return;
-    const checkedTypes = _checkedValues(favTypeChecks);
-    const filterTypes  = checkedTypes.length === ALL_TYPES.length ? "" : checkedTypes.join(",");
-    const lineFilter   = _checkedValues(favLineChecks).join(",");
+    const station = _sheetStation || _editingFav;
+    if (!station?.globalId) {
+      favStationInput.style.borderColor = "var(--red)";
+      return;
+    }
+    const checkedTypes   = _checkedValues(favTypeChecks);
+    const filterTypes    = checkedTypes.length === ALL_TYPES.length ? "" : checkedTypes.join(",");
+    const lineFilter     = _checkedValues(favLineChecks).join(",");
     const platformFilter = _checkedValues(favDirChecks).join(",");
-    const name = favNameInput.value.trim() || _editingFav.name;
+    const name = favNameInput.value.trim() || station.name;
 
     // Alten löschen wenn Bearbeitung
-    if (_editingFav.filterTypes !== undefined) {
+    if (_editingFav?.globalId) {
       await fetch("./api/favorites/" + encodeURIComponent(_editingFav.globalId) +
         "?types="    + encodeURIComponent(_editingFav.filterTypes    || "") +
         "&platform=" + encodeURIComponent(_editingFav.platformFilter || "") +
@@ -879,9 +964,12 @@
     }
     favorites = await fetch("./api/favorites", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({}, _editingFav, {
-        name, filterTypes, lineFilter, platformFilter
-      }))
+      body: JSON.stringify({
+        globalId: station.globalId,
+        name, place: station.place || "",
+        transportTypes: station.transportTypes || [],
+        filterTypes, lineFilter, platformFilter
+      })
     }).then(r => r.json());
     favSheet.hidden = true;
     renderFavorites();
