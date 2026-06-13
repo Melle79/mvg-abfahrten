@@ -5,283 +5,75 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-21 */
+  /* Anzeigetafel v2.1.0 – Cache: 2026-06-13-22 */
   :root {
-    --bg: #0C141F;
-    --panel: #131F30;
-    --panel-2: #0F1A29;
-    --ink: #EDF2F8;
-    --muted: #7E92AB;
-    --amber: #FFB300;
-    --red: #E5443B;
-    --line: #1E2E44;
-    --focus: #3D7BD9;
+    --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
+    --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
+    --red: #E5443B; --line: #1E2E44; --focus: #3D7BD9;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
-  body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    font-size: 16px;
-    -webkit-font-smoothing: antialiased;
-  }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 16px; -webkit-font-smoothing: antialiased; }
   .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; }
 
-  /* ------- Kopf ------- */
-  header {
-    display: flex; align-items: baseline; justify-content: space-between;
-    margin-bottom: 18px;
-  }
-  header h1 {
-    font-size: 14px; font-weight: 700; letter-spacing: 0.22em;
-    text-transform: uppercase; color: var(--muted);
-  }
+  /* Kopf */
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
+  header h1 { font-size: 14px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
   header h1 b { color: var(--ink); }
-  #clock {
-    font-variant-numeric: tabular-nums;
-    font-size: 22px; font-weight: 600; color: var(--amber);
-  }
+  #clock { font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; color: var(--amber); }
   #clock .tick { animation: blink 2s steps(1) infinite; }
   @keyframes blink { 50% { opacity: 0.25; } }
-  @media (prefers-reduced-motion: reduce) { #clock .tick { animation: none; } }
 
-  /* ------- Suche ------- */
-  .topbar {
-    display: flex; flex-wrap: nowrap; align-items: center; gap: 10px 14px;
-    margin-bottom: 12px;
-  }
-  .search { position: relative; flex: 0 1 400px; min-width: 240px; }
-  .search input {
-    width: 100%; padding: 13px 44px 13px 14px;
-    background: var(--panel); color: var(--ink);
-    border: 1px solid var(--line); border-radius: 10px;
-    font-size: 16px; outline: none;
-  }
+  /* Suche */
+  .search { position: relative; margin-bottom: 14px; }
+  .search input { width: 100%; padding: 13px 44px 13px 14px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; font-size: 16px; outline: none; }
   .search input:focus { border-color: var(--focus); }
   .search input::placeholder { color: var(--muted); }
-  .search .spin {
-    position: absolute; right: 14px; top: 50%; translate: 0 -50%;
-    width: 16px; height: 16px; border: 2px solid var(--line);
-    border-top-color: var(--amber); border-radius: 50%;
-    animation: rot 0.8s linear infinite; display: none;
-  }
+  .search .spin { position: absolute; right: 14px; top: 50%; translate: 0 -50%; width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--amber); border-radius: 50%; animation: rot 0.8s linear infinite; display: none; }
   @keyframes rot { to { transform: rotate(360deg); } }
-  .dropdown {
-    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-    max-height: 320px; overflow-y: auto; display: none;
-  }
-  .dropdown button {
-    display: flex; width: 100%; align-items: center; gap: 10px;
-    padding: 11px 14px; background: none; border: 0; border-bottom: 1px solid var(--line);
-    color: var(--ink); font-size: 15px; text-align: left; cursor: pointer;
-  }
+  .dropdown { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.5); max-height: 320px; overflow-y: auto; display: none; }
+  .dropdown button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 11px 14px; background: none; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 15px; text-align: left; cursor: pointer; }
   .dropdown button:last-child { border-bottom: 0; }
-  .dropdown button:hover, .dropdown button:focus-visible { background: var(--panel-2); outline: none; }
+  .dropdown button:hover { background: var(--panel-2); }
   .dropdown .place { color: var(--muted); font-size: 13px; margin-left: auto; white-space: nowrap; }
-  .dropdown .types { display: flex; gap: 4px; }
 
-  /* ------- Filter & Favoriten ------- */
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
-  .chip {
-    padding: 6px 13px; border-radius: 999px; cursor: pointer;
-    border: 1px solid var(--line); background: var(--panel);
-    color: var(--muted); font-size: 13px; font-weight: 600;
-  }
-  .chip[aria-pressed="true"] { color: var(--ink); border-color: var(--amber); background: rgba(255,179,0,0.08); }
-  .chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-  .favs {
-    display: flex; flex-wrap: wrap; gap: 8px; min-height: 0; min-width: 0;
-    flex: 1 1 auto; justify-content: flex-start;
-  }
-  .favs:empty { display: none; }
-  @media (max-width: 640px) {
-    .topbar { flex-wrap: wrap; }
-    .search { flex: 1 1 100%; }
-    .favs { flex: 1 1 100%; }
-  }
-  .fav {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 7px 12px; border-radius: 8px; cursor: pointer;
-    border: 1px solid var(--line); background: var(--panel-2);
-    color: var(--ink); font-size: 14px;
-  }
-  .fav:hover { border-color: var(--focus); }
-  .fav .x { color: var(--muted); font-size: 13px; padding: 0 2px; }
-  .fav .x:hover { color: var(--red); }
-  .fav .edit { color: var(--muted); font-size: 13px; padding: 0 2px; }
-  .fav .edit:hover { color: var(--amber); }
-  .fav-add {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 13px; border-radius: 8px; cursor: pointer;
-    border: 1px dashed var(--amber); background: transparent;
-    color: var(--amber); font-size: 14px; font-family: inherit;
-    white-space: nowrap;
-  }
-  .fav-add:hover { background: rgba(255,179,0,0.08); }
-
-  /* ------- Favoriten-Assistent (Sheet von unten) ------- */
-  .fav-sheet {
-    position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,0.65);
-    display: flex; align-items: flex-end; justify-content: center;
-  }
-  .fav-sheet[hidden] { display: none; }
-  .fav-sheet-box {
-    background: var(--panel); border-radius: 18px 18px 0 0;
-    width: min(560px, 100%); max-height: 88vh; overflow-y: auto;
-    padding: 0 0 32px; box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
-  }
-  .fav-sheet-handle {
-    width: 40px; height: 4px; border-radius: 2px;
-    background: var(--line); margin: 12px auto 16px;
-  }
-  .fav-sheet-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px 16px; border-bottom: 1px solid var(--line);
-  }
-  .fav-sheet-head h3 { margin: 0; font-size: 17px; font-weight: 700; }
-  .fav-sheet-close {
-    background: none; border: 0; color: var(--muted);
-    font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1;
-  }
-  .fav-step {
-    padding: 16px 20px; border-bottom: 1px solid var(--line);
-  }
-  .fav-step[hidden] { display: none; }
-  .fav-step-label {
-    display: flex; align-items: center; gap: 8px;
-    color: var(--muted); font-size: 11px; font-weight: 700;
-    letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px;
-  }
-  .fav-step-label .step-num {
-    width: 20px; height: 20px; border-radius: 50%;
-    background: var(--line); color: var(--muted);
-    font-size: 11px; display: inline-flex; align-items: center; justify-content: center;
-  }
-  .fav-step-label .step-num.active { background: var(--amber); color: #000; }
-  .fav-check-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-  .fav-check {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 12px; border-radius: 8px;
-    border: 1px solid var(--line); background: var(--panel-2);
-    color: var(--muted); font-size: 13px; cursor: pointer; user-select: none;
-    font-family: inherit;
-  }
-  .fav-check.on { border-color: var(--amber); color: var(--ink); background: rgba(255,179,0,0.08); }
-  .fav-check input[type=checkbox] { accent-color: var(--amber); pointer-events: none; }
-  .fav-check-loading { color: var(--muted); font-size: 13px; font-style: italic; }
-  .fav-sheet-save {
-    margin: 20px 20px 0; display: flex; align-items: center; gap: 12px;
-  }
-  .fav-name-input {
-    flex: 1; padding: 10px 13px; border-radius: 9px;
-    border: 1px solid var(--line); background: var(--panel);
-    color: var(--ink); font-size: 14px; font-family: inherit; outline: none;
-  }
-  .fav-name-input:focus { border-color: var(--amber); }
-  .btn { padding: 9px 20px; border-radius: 9px; border: 0; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600; }
-  .btn-primary { background: var(--amber); color: #000; }
-  .btn-secondary { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); }
-
-  /* ------- Tafel ------- */
-  .board { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-  .board-head {
-    display: flex; align-items: center; gap: 10px;
-    padding: 14px 16px; border-bottom: 1px solid var(--line);
-  }
+  /* Tafel */
+  .board { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+  .board-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
   .board-head h2 { font-size: 17px; font-weight: 700; }
   .board-head .sub { color: var(--muted); font-size: 13px; }
-  .board-head .star {
-    margin-left: auto; background: none; border: 0; cursor: pointer;
-    font-size: 20px; color: var(--muted); line-height: 1;
-  }
-  .board-head .star.on { color: var(--amber); }
-  .board-head .star:focus-visible { outline: 2px solid var(--focus); border-radius: 4px; }
 
-  .dir-bar {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-    padding: 9px 16px; border-bottom: 1px solid var(--line);
-  }
-  .dir-bar[hidden] { display: none; }
-  .dir-label { color: var(--muted); font-size: 12px; white-space: nowrap; }
-  .dir-chip {
-    display: flex; flex-direction: column; align-items: flex-start;
-    padding: 6px 12px; border-radius: 8px; cursor: pointer;
-    border: 1px solid var(--line); background: var(--panel);
-    color: var(--muted); font-family: inherit; text-align: left;
-    transition: border-color 0.15s;
-  }
-  .dir-chip .gleis { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
-  .dir-chip .dest-list { font-size: 12px; font-weight: 500; color: var(--muted); }
-  .dir-chip[aria-pressed="true"] {
-    border-color: var(--amber); background: rgba(255,179,0,0.08);
-    color: var(--ink);
-  }
-  .dir-chip[aria-pressed="true"] .dest-list { color: var(--ink); }
-  .dir-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-  .dir-clear {
-    background: none; border: 0; color: var(--muted);
-    font-size: 13px; cursor: pointer; padding: 4px 8px; line-height: 1;
-    border-radius: 6px; white-space: nowrap; margin-left: auto;
-  }
-  .dir-clear:hover { color: var(--ink); background: rgba(255,255,255,0.05); }
-
-  .row {
-    display: grid; align-items: center;
-    grid-template-columns: minmax(58px, auto) 1fr auto auto;
-    gap: 12px; padding: 11px 16px;
-    border-bottom: 1px solid var(--line);
-  }
+  .row { display: grid; align-items: center; grid-template-columns: minmax(58px, auto) 1fr auto auto; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--line); }
   .row:last-child { border-bottom: 0; }
-  .badge {
-    display: inline-flex; align-items: center; justify-content: center;
-    min-width: 46px; max-width: 112px; padding: 4px 7px; border-radius: 6px;
-    font-weight: 800; font-size: 15px; color: #fff;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .badge.long { font-size: 11px; letter-spacing: -0.01em; }
+  .badge { display: inline-flex; align-items: center; justify-content: center; min-width: 46px; max-width: 112px; padding: 4px 7px; border-radius: 6px; font-weight: 800; font-size: 15px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge.long { font-size: 11px; }
   .dest { min-width: 0; }
-  .dest .to { font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .dest .meta { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
-  .dest .meta .delay { color: var(--red); font-weight: 700; }
-  .dest .meta .sev { color: var(--amber); font-weight: 700; }
-  .cancelled .to { text-decoration: line-through; color: var(--muted); }
-  .cancelled .min { color: var(--red); font-size: 15px; }
+  .to { font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .meta .delay { color: var(--red); font-weight: 700; }
+  .meta .sev { color: var(--amber); font-weight: 700; }
   .platform { color: var(--muted); font-size: 13px; white-space: nowrap; }
   .platform-changed { color: var(--amber); font-weight: 700; }
-  .min {
-    font-variant-numeric: tabular-nums; text-align: right;
-    color: var(--amber); font-size: 22px; font-weight: 700; min-width: 78px;
-  }
+  .min { font-variant-numeric: tabular-nums; text-align: right; color: var(--amber); font-size: 22px; font-weight: 700; min-width: 78px; }
   .min small { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 3px; }
-
+  .cancelled .to { text-decoration: line-through; color: var(--muted); }
+  .cancelled .min { color: var(--red); }
+  .info-btn { background: none; border: 0; cursor: pointer; padding: 0 3px; color: var(--red); font-size: 14px; line-height: 1; vertical-align: middle; }
   .empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: 14.5px; }
   .error { padding: 14px 16px; color: var(--red); font-size: 14px; }
 
-  .info-btn {
-    background: none; border: 0; cursor: pointer; padding: 0 3px;
-    color: var(--red); font-size: 14px; line-height: 1; vertical-align: middle;
-  }
-  .info-popup {
-    position: fixed; z-index: 100; max-width: 320px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 12px 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.5);
-    font-size: 13px; color: var(--ink); display: none;
-  }
+  /* Info-Popup */
+  .info-popup { position: fixed; z-index: 100; max-width: 320px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.5); font-size: 13px; color: var(--ink); display: none; }
   .info-popup .info-title { font-weight: 700; margin-bottom: 6px; color: var(--amber); }
   .info-popup .info-item { margin-bottom: 5px; color: var(--muted); }
   .info-popup .info-item b { color: var(--ink); }
-  footer { margin-top: 14px; color: var(--muted); font-size: 12px; text-align: center; }
 
   @media (max-width: 520px) {
     .row { grid-template-columns: minmax(50px, auto) 1fr auto; }
     .platform { display: none; }
     .min { font-size: 19px; min-width: 64px; }
   }
+  footer { margin-top: 14px; color: var(--muted); font-size: 12px; text-align: center; }
 </style>
 </head>
 <body>
@@ -291,23 +83,10 @@
     <div id="clock" aria-hidden="true">--<span class="tick">:</span>--</div>
   </header>
 
-  <div class="topbar">
-    <div class="search">
-      <input id="q" type="text" placeholder="Haltestelle suchen … (z. B. Ottobrunn)"
-             autocomplete="off" aria-label="Haltestelle suchen">
-      <div class="spin" id="spin"></div>
-      <div class="dropdown" id="dropdown" role="listbox"></div>
-    </div>
-    <div class="favs" id="favs"></div>
-    <button class="fav-add" id="favAdd" title="Neuen Favoriten erstellen">＋ Favorit</button>
-  </div>
-
-  <div class="chips" id="chips" role="group" aria-label="Verkehrsmittel filtern">
-    <button class="chip" data-type="UBAHN"        aria-pressed="true">U-Bahn</button>
-    <button class="chip" data-type="SBAHN"        aria-pressed="true">S-Bahn</button>
-    <button class="chip" data-type="TRAM"         aria-pressed="true">Tram</button>
-    <button class="chip" data-type="BUS,REGIONAL_BUS" aria-pressed="true">Bus</button>
-    <button class="chip" data-type="BAHN"         aria-pressed="true">Bahn</button>
+  <div class="search">
+    <input id="q" type="text" placeholder="Haltestelle suchen … (z. B. Ottobrunn)" autocomplete="off" aria-label="Haltestelle suchen">
+    <div class="spin" id="spin"></div>
+    <div class="dropdown" id="dropdown" role="listbox"></div>
   </div>
 
   <div class="board" id="board" hidden>
@@ -316,12 +95,6 @@
         <h2 id="stationName"></h2>
         <div class="sub" id="stationSub"></div>
       </div>
-      <button class="star" id="star" title="Als Favorit speichern" aria-label="Als Favorit speichern">★</button>
-    </div>
-    <div class="dir-bar" id="dirBar" hidden>
-      <span class="dir-label">Richtung</span>
-      <div id="platformChips" style="display:flex;flex-wrap:wrap;gap:8px;flex:1"></div>
-      <button class="dir-clear" id="dirClear" title="Richtungsfilter zurücksetzen">✕ Reset</button>
     </div>
     <div id="rows"></div>
   </div>
@@ -330,114 +103,42 @@
 </div>
 <div class="info-popup" id="infoPopup"></div>
 
-<!-- Favoriten-Assistent -->
-<div class="fav-sheet" id="favSheet" hidden>
-  <div class="fav-sheet-box">
-    <div class="fav-sheet-handle"></div>
-    <div class="fav-sheet-head">
-      <h3 id="favSheetTitle">Favorit</h3>
-      <button class="fav-sheet-close" id="favSheetClose">✕</button>
-    </div>
-
-    <!-- Schritt 1: Haltestelle -->
-    <div class="fav-step" id="favStepStation">
-      <div class="fav-step-label">
-        <span class="step-num active" id="stepNum1">1</span> Haltestelle
-      </div>
-      <div class="fav-station-search" style="position:relative">
-        <input class="fav-name-input" id="favStationInput" type="text"
-               placeholder="Haltestelle suchen …" autocomplete="off">
-        <div class="dropdown" id="favStationDrop" style="position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:99;display:none"></div>
-      </div>
-      <div id="favStationSelected" style="margin-top:8px;color:var(--muted);font-size:13px"></div>
-    </div>
-
-    <!-- Schritt 2: Verkehrsmittel -->
-    <div class="fav-step" id="favStepTypes">
-      <div class="fav-step-label">
-        <span class="step-num active">2</span> Verkehrsmittel
-        <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:4px">(leer = alle)</span>
-      </div>
-      <div class="fav-check-grid" id="favTypeChecks"></div>
-    </div>
-
-    <!-- Schritt 3: Linie -->
-    <div class="fav-step" id="favStepLines">
-      <div class="fav-step-label">
-        <span class="step-num active">3</span> Linie
-        <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:4px">(leer = alle)</span>
-      </div>
-      <div class="fav-check-grid" id="favLineChecks">
-        <span class="fav-check-loading">Lade Linien …</span>
-      </div>
-    </div>
-
-    <!-- Schritt 4: Richtung -->
-    <div class="fav-step" id="favStepDir">
-      <div class="fav-step-label">
-        <span class="step-num active">4</span> Richtung
-        <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:4px">(leer = beide)</span>
-      </div>
-      <div class="fav-check-grid" id="favDirChecks">
-        <span class="fav-check-loading">Lade Richtungen …</span>
-      </div>
-    </div>
-
-    <!-- Name + Speichern -->
-    <div class="fav-sheet-save">
-      <input class="fav-name-input" id="favNameInput" type="text" placeholder="Name des Favoriten">
-      <button class="btn btn-primary" id="favSheetSave">★ Speichern</button>
-    </div>
-  </div>
-</div>
-
 <script>
 (() => {
   "use strict";
 
-  // Offizielle Linienfarben (Auswahl) + Fallbacks pro Verkehrsmittel
   const LINE_COLORS = {
-    U1:"#438136", U2:"#C40C37", U3:"#F36E31", U4:"#0AB38D", U5:"#B8740E",
-    U6:"#006CB3",
+    U1:"#438136", U2:"#C40C37", U3:"#F36E31", U4:"#0AB38D", U5:"#B8740E", U6:"#006CB3",
     S1:"#16BAE7", S2:"#76B82A", S3:"#951B81", S4:"#E30613", S5:"#005E82",
     S6:"#00975F", S7:"#943126", S8:"#262626", S20:"#ED6B83"
   };
-  // Zweifarbige Linien als CSS-Gradient (U7 = U1-Grün/U2-Rot, U8 = U2-Rot/U3-Orange)
   const LINE_GRADIENTS = {
     U7:"linear-gradient(135deg,#438136 50%,#C40C37 50%)",
     U8:"linear-gradient(135deg,#C40C37 50%,#F36E31 50%)"
   };
-  const EXPRESS_GREEN = "#009A3D"; // ExpressBus (X-Linien)
-  const TYPE_COLORS = {
-    UBAHN:"#0065B0", SBAHN:"#4C9046", TRAM:"#D82020",
-    BUS:"#00586A", REGIONAL_BUS:"#0D5C70", BAHN:"#36397F", SEV:"#7A6A00"
-  };
-  const TYPE_SHORT = { UBAHN:"U", SBAHN:"S", TRAM:"T", BUS:"B", REGIONAL_BUS:"B", BAHN:"R" };
+  const EXPRESS_GREEN = "#009A3D";
+  const TYPE_COLORS = { UBAHN:"#0065B0", SBAHN:"#4C9046", TRAM:"#D82020", BUS:"#00586A", REGIONAL_BUS:"#0D5C70", BAHN:"#36397F", SEV:"#7A6A00" };
+  const TYPE_SHORT  = { UBAHN:"U", SBAHN:"S", TRAM:"T", BUS:"B", REGIONAL_BUS:"B", BAHN:"R" };
+  const SHORT_LABELS = { "LUFTHANSA EXPRESS BUS":"LH Bus", "Lufthansa Express Bus":"LH Bus", "ERSATZVERKEHR":"SEV" };
 
-  const $  = (id) => document.getElementById(id);
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
   const qInput = $("q"), dropdown = $("dropdown"), spin = $("spin");
   const board = $("board"), rowsEl = $("rows");
-  const favsEl = $("favs"), starBtn = $("star");
-  const dirBar = $("dirBar"), dirClear = $("dirClear");
-  const platformChips = $("platformChips");
+  const infoPopup = $("infoPopup");
 
   let current = null;
-  let favorites = [];
   let refreshTimer = null;
   let debounceTimer = null;
   let searchAbort = null;
-  let platformFilter = new Set(); // aktive Richtungen: 1=H (Hinfahrt), 2=R (Rückfahrt)
-  let lastDeps = [];              // letzte Abfahrtsliste für Re-Filter ohne API-Call
-
-  let DEFAULT_LIMIT = 10; // wird aus /api/config überschrieben
+  let lastDeps = [];
+  let DEFAULT_LIMIT = 10;
 
   // ---------- Uhr ----------
   function tickClock() {
     const d = new Date();
-    $("clock").innerHTML =
-      String(d.getHours()).padStart(2,"0") +
-      '<span class="tick">:</span>' +
-      String(d.getMinutes()).padStart(2,"0");
+    $("clock").innerHTML = String(d.getHours()).padStart(2,"0") + '<span class="tick">:</span>' + String(d.getMinutes()).padStart(2,"0");
   }
   tickClock(); setInterval(tickClock, 1000);
 
@@ -447,61 +148,13 @@
     return r.json();
   });
 
-  // Bekannte Langnamen kürzen, damit das Badge kompakt bleibt
-  const SHORT_LABELS = {
-    "LUFTHANSA EXPRESS BUS": "LH Bus",
-    "Lufthansa Express Bus": "LH Bus",
-    "ERSATZVERKEHR": "SEV"
-  };
-
   function badgeHtml(label, type) {
     const shown = SHORT_LABELS[label] || label || TYPE_SHORT[type] || "?";
     let bg = LINE_GRADIENTS[label] || LINE_COLORS[label] || TYPE_COLORS[type] || "#36428D";
     if (!LINE_GRADIENTS[label] && !LINE_COLORS[label] && /^X\d+/.test(label || "")) bg = EXPRESS_GREEN;
     const fg = (label === "S8") ? "#F8C300" : "#fff";
     const cls = shown.length > 4 ? "badge long" : "badge";
-    return `<span class="${cls}" style="background:${bg};color:${fg}" title="${esc(label || "")}">${esc(shown)}</span>`;
-  }
-  const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
-    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-
-  function activeTypes() {
-    return [...document.querySelectorAll('.chip[aria-pressed="true"]')]
-      .map(c => c.dataset.type).join(",");
-  }
-
-  // Filterauswahl für den Favoriten: alle Chips an = kein Filter
-  function filterForSave() {
-    const chips = [...document.querySelectorAll(".chip")];
-    const on = chips.filter(c => c.getAttribute("aria-pressed") === "true");
-    return on.length === chips.length ? "" : on.map(c => c.dataset.type).join(",");
-  }
-
-  function directionForSave() { return ""; } // veraltet, nur für Rückwärtskompatibilität
-  function lineForSave()      { return ""; } // veraltet
-
-  // Gespeicherten Favoriten-Filter auf die Chips anwenden
-  function applyFilterChips(filterTypes) {
-    const set = new Set((filterTypes || "").split(",").filter(Boolean));
-    document.querySelectorAll(".chip").forEach(c => {
-      if (!set.size) { c.setAttribute("aria-pressed", "true"); return; }
-      const match = c.dataset.type.split(",").some(t => set.has(t));
-      c.setAttribute("aria-pressed", match ? "true" : "false");
-    });
-  }
-
-  const TYPE_NAMES = {
-    UBAHN:"U-Bahn", SBAHN:"S-Bahn", TRAM:"Tram",
-    BUS:"Bus", REGIONAL_BUS:"Bus", BAHN:"Bahn"
-  };
-  function typesLabel(filterTypes) {
-    const names = [...new Set(
-      (filterTypes || "").split(",").filter(Boolean).map(t => TYPE_NAMES[t] || t)
-    )];
-    return names.join("/");
-  }
-  function platformForSave() {
-    return platformFilter.size ? [...platformFilter].sort().join(",") : "";
+    return `<span class="${cls}" style="background:${bg};color:${fg}" title="${esc(label||"")}">${esc(shown)}</span>`;
   }
 
   // ---------- Suche ----------
@@ -510,38 +163,6 @@
     const val = qInput.value.trim();
     if (val.length < 2) { dropdown.style.display = "none"; return; }
     debounceTimer = setTimeout(() => search(val), 300);
-  });
-  // ---------- Info-Popup ----------
-  const infoPopup = $("infoPopup");
-
-  function showInfoPopup(dep, anchor) {
-    const TYPE_LABELS = {
-      INCIDENT: "Störung", EARLY_TERMINATION: "Vorzeitige Endstation",
-      DISRUPTION: "Betriebsstörung", INFORMATION: "Information"
-    };
-    const items = (dep.infos || []).map(info =>
-      `<div class="info-item"><b>${esc(TYPE_LABELS[info.type] || info.type)}:</b> ${esc(info.message)}</div>`
-    ).join("");
-    const msgs = (dep.messages || []).filter(m => !dep.infos?.some(i => i.message === m))
-      .map(m => `<div class="info-item">${esc(m)}</div>`).join("");
-    infoPopup.innerHTML = `<div class="info-title">${esc(dep.label)} → ${esc(dep.destination)}</div>${items}${msgs}`;
-    infoPopup.style.display = "block";
-    // Positionieren nahe dem Button
-    const r = anchor.getBoundingClientRect();
-    const pw = 320, ph = infoPopup.offsetHeight || 120;
-    let left = r.left, top = r.bottom + 6;
-    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
-    if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;
-    infoPopup.style.left = left + "px";
-    infoPopup.style.top  = top  + "px";
-  }
-
-  document.addEventListener("click", e => {
-    if (!e.target.closest(".info-btn") && !e.target.closest("#infoPopup")) {
-      infoPopup.style.display = "none";
-    }
-    if (!e.target.closest(".search")) dropdown.style.display = "none";
-    if (!e.target.closest("#favStepStation")) favStationDrop.style.display = "none";
   });
 
   async function search(query) {
@@ -554,9 +175,7 @@
       renderDropdown(Array.isArray(list) ? list : []);
     } catch (err) {
       if (err.name !== "AbortError") renderDropdown([]);
-    } finally {
-      spin.style.display = "none";
-    }
+    } finally { spin.style.display = "none"; }
   }
 
   function renderDropdown(list) {
@@ -567,35 +186,21 @@
       for (const st of list) {
         const b = document.createElement("button");
         b.setAttribute("role", "option");
-        b.innerHTML =
-          `<span class="types">${(st.transportTypes||[]).slice(0,4).map(t => badgeHtml(TYPE_SHORT[t]||"", t)).join("")}</span>
-           <span>${esc(st.name)}</span><span class="place">${esc(st.place||"")}</span>`;
-        b.addEventListener("click", () => {
-          dropdown.style.display = "none";
-          qInput.value = st.name;
-          selectStation(st);
-        });
+        b.innerHTML = `<span class="types">${(st.transportTypes||[]).slice(0,4).map(t => badgeHtml(TYPE_SHORT[t]||"",t)).join("")}</span><span>${esc(st.name)}</span><span class="place">${esc(st.place||"")}</span>`;
+        b.addEventListener("click", () => { dropdown.style.display = "none"; qInput.value = st.name; selectStation(st); });
         dropdown.appendChild(b);
       }
     }
     dropdown.style.display = "block";
   }
 
-  // ---------- Station & Tafel ----------
+  // ---------- Station ----------
   function selectStation(st) {
     current = st;
-    // platformFilter korrekt als Zahlen-Set parsen (String "1,2" → Set{1,2})
-    const pfRaw = st.platformFilter || "";
-    platformFilter = new Set(
-      String(pfRaw).split(",").map(Number).filter(Boolean)
-    );
     localStorage.setItem("mvg:last", JSON.stringify(st));
     $("stationName").textContent = st.name;
     $("stationSub").textContent = st.place || "";
     board.hidden = false;
-    dirBar.hidden = true;
-    platformChips.innerHTML = "";
-    updateStar();
     loadDepartures(true);
     clearInterval(refreshTimer);
     refreshTimer = setInterval(() => loadDepartures(false), 30000);
@@ -605,381 +210,70 @@
     if (!current) return;
     if (showLoading) rowsEl.innerHTML = '<div class="empty">Lade Abfahrten …</div>';
     try {
-      // filterTypes aus dem Favoriten verwenden — nicht activeTypes() (die zeigen nur UI-Zustand)
-      const types = current.filterTypes || activeTypes();
       const raw = Math.min(80, Math.max(30, DEFAULT_LIMIT * 4));
-      const data = await api("departures/" + encodeURIComponent(current.globalId) +
-                             "?limit=" + raw + (types ? "&types=" + encodeURIComponent(types) : ""));
+      const data = await api("departures/" + encodeURIComponent(current.globalId) + "?limit=" + raw);
       lastDeps = data.departures || [];
-      updatePlatformChips(lastDeps);
       renderRows(lastDeps);
     } catch (err) {
       rowsEl.innerHTML = '<div class="error">MVG-API nicht erreichbar – nächster Versuch in 30 s.</div>';
     }
   }
 
-  function updatePlatformChips(deps) {
-    if (deps.length < 2) { dirBar.hidden = true; return; }
-
-    // direction aus lineId (:H:=1, :R:=2) — das ist die saubere MVG-Richtung
-    const directions = new Set(deps.map(d => d.direction).filter(d => d > 0));
-
-    if (directions.size >= 2) {
-      // Richtungs-Chips basierend auf lineId-Direction
-      const byDir = new Map();
-      for (const d of deps) {
-        if (!d.direction) continue;
-        if (!byDir.has(d.direction)) byDir.set(d.direction, new Set());
-        byDir.get(d.direction).add(d.destination);
-      }
-      platformChips.innerHTML = "";
-      for (const [dir, dests] of [...byDir.entries()].sort((a,b) => a[0]-b[0])) {
-        const sub = [...dests].slice(0, 3).join(", ");
-        const dirLabel = dir === 1 ? "H" : "R";
-        const dirName  = dir === 1 ? "Hinfahrt" : "Rückfahrt";
-        const btn = document.createElement("button");
-        btn.className = "dir-chip";
-        btn.setAttribute("aria-pressed", platformFilter.has(dir) ? "true" : "false");
-        btn.innerHTML = `<span class="gleis">${esc(dirLabel)} · ${esc(dirName)}</span>
-                         <span class="dest-list">${esc(sub)}</span>`;
-        btn.addEventListener("click", () => {
-          if (platformFilter.has(dir)) platformFilter.delete(dir);
-          else platformFilter.add(dir);
-          btn.setAttribute("aria-pressed", platformFilter.has(dir) ? "true" : "false");
-          updateStar();
-          renderRows(lastDeps);
-        });
-        platformChips.appendChild(btn);
-      }
-      dirBar.hidden = false;
-    } else {
-      // Keine auswertbare Richtungsinformation → kein Filter anzeigen
-      dirBar.hidden = true;
-    }
-  }
-
   function renderRows(deps) {
-    let filtered = deps;
-    // Linienfilter (z.B. nur U3,U6)
-    const lines = new Set((current?.lineFilter || "").split(",").filter(Boolean));
-    if (lines.size) filtered = filtered.filter(d => lines.has(d.label));
-    // Richtungsfilter (H=1, R=2)
-    if (platformFilter.size) filtered = filtered.filter(d => platformFilter.has(d.direction));
-    const visible = filtered.slice(0, DEFAULT_LIMIT);
-    if (!visible.length) {
-      rowsEl.innerHTML = '<div class="empty">Keine Abfahrten für die gewählten Filter.</div>';
-      return;
-    }
+    const visible = deps.slice(0, DEFAULT_LIMIT);
+    if (!visible.length) { rowsEl.innerHTML = '<div class="empty">Keine Abfahrten.</div>'; return; }
     const now = Date.now();
     rowsEl.innerHTML = visible.map((d, i) => {
       const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
       const planned = new Date(d.planned).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
       const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
       const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
-      const hasInfo = (d.infos && d.infos.length > 0) || (d.messages && d.messages.length > 0);
-      const infoBadge = hasInfo
-        ? `<button class="info-btn" data-idx="${i}" title="Info anzeigen">ⓘ</button>` : "";
-      const platformDisplay = d.platform != null
-        ? `${d.platformChanged ? '<span class="platform-changed">⚠ ' : ''}Gleis ${esc(d.platform)}${d.platformChanged ? '</span>' : ''}`
-        : "";
-      const occIcon = {
-        "LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🔴", "FULL": "🔴"
-      }[d.occupancy] || "";
-      const minHtml = d.cancelled
-        ? '<span class="min">entfällt</span>'
-        : `<span class="min">${mins}<small>min</small></span>`;
+      const hasInfo = (d.infos?.length > 0) || (d.messages?.length > 0);
+      const infoBadge = hasInfo ? `<button class="info-btn" data-idx="${i}">ⓘ</button>` : "";
+      const occIcon = {"LOW":"🟢","MEDIUM":"🟡","HIGH":"🔴","FULL":"🔴"}[d.occupancy] || "";
+      const platformTxt = d.platform != null ? (d.platformChanged ? `⚠ Gleis ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
+      const minHtml = d.cancelled ? '<span class="min">entfällt</span>' : `<span class="min">${mins}<small>min</small></span>`;
       return `<div class="row${d.cancelled ? " cancelled" : ""}">
         ${badgeHtml(d.label, d.transportType)}
         <div class="dest">
           <div class="to">${esc(d.destination)}${infoBadge}</div>
-          <div class="meta">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</div>
+          <div class="meta">${planned}${delay}${sev}${occIcon ? ' '+occIcon : ''}</div>
         </div>
-        <span class="platform">${platformDisplay}</span>
+        <span class="platform${d.platformChanged ? " platform-changed" : ""}">${platformTxt}</span>
         ${minHtml}
       </div>`;
     }).join("");
-
-    // Info-Popup-Handler
+    // Info-Popup
     rowsEl.querySelectorAll(".info-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const dep = visible[parseInt(btn.dataset.idx)];
-        showInfoPopup(dep, btn);
-      });
+      btn.addEventListener("click", (e) => { e.stopPropagation(); showInfoPopup(visible[parseInt(btn.dataset.idx)], btn); });
     });
   }
 
-  // ---------- Richtungsfilter ----------
-  dirClear.addEventListener("click", () => {
-    platformFilter.clear();
-    platformChips.querySelectorAll(".dir-chip").forEach(c => c.setAttribute("aria-pressed", "false"));
-    updateStar();
-    renderRows(lastDeps);
+  // ---------- Info-Popup ----------
+  const TYPE_LABELS = { INCIDENT:"Störung", EARLY_TERMINATION:"Vorzeitige Endstation", DISRUPTION:"Betriebsstörung", INFORMATION:"Information" };
+
+  function showInfoPopup(dep, anchor) {
+    const items = (dep.infos||[]).map(i => `<div class="info-item"><b>${esc(TYPE_LABELS[i.type]||i.type)}:</b> ${esc(i.message)}</div>`).join("");
+    const msgs = (dep.messages||[]).filter(m => !(dep.infos||[]).some(i => i.message===m)).map(m => `<div class="info-item">${esc(m)}</div>`).join("");
+    infoPopup.innerHTML = `<div class="info-title">${esc(dep.label)} → ${esc(dep.destination)}</div>${items}${msgs}`;
+    infoPopup.style.display = "block";
+    const r = anchor.getBoundingClientRect();
+    let left = r.left, top = r.bottom + 6;
+    if (left + 320 > window.innerWidth - 8) left = window.innerWidth - 320 - 8;
+    if (top + 120 > window.innerHeight - 8) top = r.top - 120 - 6;
+    infoPopup.style.left = left + "px";
+    infoPopup.style.top  = top  + "px";
+  }
+
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".info-btn") && !e.target.closest("#infoPopup")) infoPopup.style.display = "none";
+    if (!e.target.closest(".search")) dropdown.style.display = "none";
   });
 
-  // ---------- Filter ----------
-  $("chips").addEventListener("click", (e) => {
-    const chip = e.target.closest(".chip");
-    if (!chip) return;
-    chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
-    updateStar();
-    loadDepartures(true);
-  });
-
-  // ---------- Favoriten ----------
-  async function loadFavorites() {
-    try { favorites = await api("favorites"); } catch { favorites = []; }
-    renderFavorites();
-  }
-
-  function renderFavorites() {
-    favsEl.innerHTML = "";
-    for (const f of favorites) {
-      const el = document.createElement("button");
-      el.className = "fav";
-      const tag = f.filterTypes    ? ` · ${esc(typesLabel(f.filterTypes))}` : "";
-      const pf  = f.platformFilter
-        ? ` · ${f.platformFilter.split(",").map(v => v === "1" ? "H" : v === "2" ? "R" : esc(v)).join(" / ")}`
-        : "";
-      el.innerHTML = `★ ${esc(f.name)}${tag}${pf} <span class="edit" title="Favorit bearbeiten">✎</span><span class="x" title="Favorit entfernen">✕</span>`;
-      el.addEventListener("click", (e) => {
-        if (e.target.classList.contains("x"))    { removeFavorite(f); return; }
-        if (e.target.classList.contains("edit")) { openFavSheet(f); return; }
-        qInput.value = f.name;
-        applyFilterChips(f.filterTypes || "");
-        selectStation(f);
-      });
-      favsEl.appendChild(el);
-    }
-    updateStar();
-  }
-
-  function findFavorite() {
-    if (!current) return null;
-    const ft = filterForSave(), pf = platformForSave();
-    return favorites.find(f =>
-      f.globalId === current.globalId &&
-      (f.filterTypes    || "") === ft &&
-      (f.platformFilter || "") === pf
-    ) || null;
-  }
-  function updateStar() {
-    const fav = findFavorite();
-    starBtn.classList.toggle("on", !!fav);
-    starBtn.title = fav ? "Favorit entfernen" : "Als Favorit speichern (mit Verkehrsmittel- und Richtungsfilter)";
-  }
-
-  starBtn.addEventListener("click", () => {
-    if (!current) return;
-    const existing = findFavorite();
-    if (existing) { removeFavorite(existing); return; }
-    // Assistenten mit aktueller Station öffnen
-    openFavSheet(Object.assign({}, current, {
-      filterTypes: filterForSave(),
-      lineFilter: "",
-      platformFilter: platformForSave(),
-    }));
-  });
-
-  async function removeFavorite(fav) {
-    const url = "./api/favorites/" + encodeURIComponent(fav.globalId) +
-      "?types="    + encodeURIComponent(fav.filterTypes    || "") +
-      "&platform=" + encodeURIComponent(fav.platformFilter || "") +
-      "&line="     + encodeURIComponent(fav.lineFilter     || "");
-    favorites = await fetch(url, { method: "DELETE" }).then(r => r.json());
-    renderFavorites();
-  }
-
-  // ---------- Favoriten-Assistent ----------
-  const favAdd = $("favAdd");
-  const favSheet     = $("favSheet");
-  const favSheetTitle = $("favSheetTitle");
-  const favSheetClose = $("favSheetClose");
-  const favTypeChecks = $("favTypeChecks");
-  const favLineChecks = $("favLineChecks");
-  const favDirChecks  = $("favDirChecks");
-  const favNameInput  = $("favNameInput");
-  const favSheetSave  = $("favSheetSave");
-  const favStationInput  = $("favStationInput");
-  const favStationDrop   = $("favStationDrop");
-  const favStationSelected = $("favStationSelected");
-  let   _editingFav   = null;
-  let   _sheetStation = null; // gewählte Haltestelle im Assistenten
-
-  const ALL_TYPES = [
-    {value:"UBAHN",label:"U-Bahn"}, {value:"SBAHN",label:"S-Bahn"},
-    {value:"TRAM",label:"Tram"}, {value:"BUS,REGIONAL_BUS",label:"Bus"}, {value:"BAHN",label:"Bahn"}
-  ];
-
-  // Suche im Sheet-Suchfeld
-  let _favSearchTimer;
-  favStationInput.addEventListener("input", () => {
-    clearTimeout(_favSearchTimer);
-    const q = favStationInput.value.trim();
-    if (q.length < 2) { favStationDrop.style.display = "none"; return; }
-    _favSearchTimer = setTimeout(async () => {
-      try {
-        const res = await api("search?q=" + encodeURIComponent(q));
-        favStationDrop.innerHTML = "";
-        if (!res.length) {
-          favStationDrop.innerHTML = '<button disabled style="padding:10px 14px;color:var(--muted)">Keine Ergebnisse</button>';
-        } else {
-          res.forEach(st => {
-            const b = document.createElement("button");
-            b.style.cssText = "display:flex;width:100%;padding:10px 14px;background:none;border:0;border-bottom:1px solid var(--line);color:var(--ink);font-size:14px;text-align:left;cursor:pointer;gap:8px";
-            b.innerHTML = `<span style="flex:1">${esc(st.name)}</span><span style="color:var(--muted);font-size:12px">${esc(st.place||"")}</span>`;
-            b.addEventListener("mousedown", (ev) => {
-              ev.preventDefault(); // verhindert Blur/Close vor dem Click
-              ev.stopPropagation();
-              favStationDrop.style.display = "none";
-              favStationInput.value = st.name;
-              favStationSelected.textContent = "✓ " + st.name + (st.place ? `, ${st.place}` : "");
-              favStationSelected.style.color = "var(--amber)";
-              _sheetStation = st;
-              favNameInput.value = st.name;
-              _loadSheetLinien(st.globalId);
-            });
-            favStationDrop.appendChild(b);
-          });
-        }
-        favStationDrop.style.display = "block";
-        favStationDrop.style.background = "var(--panel)";
-        favStationDrop.style.border = "1px solid var(--line)";
-        favStationDrop.style.borderRadius = "10px";
-        favStationDrop.style.boxShadow = "0 8px 24px rgba(0,0,0,0.4)";
-        favStationDrop.style.overflow = "hidden";
-      } catch(e) {}
-    }, 300);
-  });
-
-  async function _loadSheetLinien(globalId) {
-    favLineChecks.innerHTML = '<span class="fav-check-loading">Lade Linien …</span>';
-    favDirChecks.innerHTML  = '<span class="fav-check-loading">Lade Richtungen …</span>';
-    try {
-      const data = await api("lines/" + encodeURIComponent(globalId));
-      const sel = _editingFav ? new Set((_editingFav.lineFilter||"").split(",").filter(Boolean)) : new Set();
-      _makeChecks(favLineChecks, data.lines || [], sel);
-    } catch(e) {
-      favLineChecks.innerHTML = '<span class="fav-check-loading">Fehler beim Laden</span>';
-    }
-    // Richtungen
-    try {
-      const data = await api("departures/" + encodeURIComponent(globalId) + "?limit=80");
-      const deps = data.departures || [];
-      const dirs = new Map();
-      for (const d of deps) {
-        if (!d.direction) continue;
-        if (!dirs.has(d.direction)) dirs.set(d.direction, new Set());
-        dirs.get(d.direction).add(d.destination);
-      }
-      if (dirs.size >= 2) {
-        const items = [...dirs.entries()].sort((a,b) => a[0]-b[0]).map(([dir, dests]) => ({
-          value: String(dir),
-          label: (dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt") + " (" + [...dests].slice(0,2).join(", ") + ")"
-        }));
-        const sel = _editingFav ? new Set((_editingFav.platformFilter||"").split(",").filter(Boolean)) : new Set();
-        _makeChecks(favDirChecks, items, sel);
-      } else {
-        favDirChecks.innerHTML = '<span class="fav-check-loading">Keine Richtungsunterscheidung möglich</span>';
-      }
-    } catch(e) {
-      favDirChecks.innerHTML = '<span class="fav-check-loading">Fehler beim Laden</span>';
-    }
-  }
-
-  // + Favorit Button
-  favAdd.addEventListener("click", () => {
-    _editingFav = null;
-    _sheetStation = null;
-    favSheetTitle.textContent = "Neuer Favorit";
-    favStationInput.value = "";
-    favStationSelected.textContent = "";
-    favNameInput.value = "";
-    favLineChecks.innerHTML = '<span class="fav-check-loading">Erst Haltestelle wählen</span>';
-    favDirChecks.innerHTML  = '<span class="fav-check-loading">Erst Haltestelle wählen</span>';
-    // Verkehrsmittel alle aktiv
-    _makeChecks(favTypeChecks, ALL_TYPES, new Set());
-    $("favStepStation").hidden = false;
-    favSheet.hidden = false;
-  });
-
-  function _makeChecks(container, items, selectedSet) {
-    container.innerHTML = items.map(item => {
-      const v = typeof item === "string" ? item : item.value;
-      const l = typeof item === "string" ? item : item.label;
-      const on = selectedSet.has(v);
-      return `<button class="fav-check${on ? " on" : ""}" data-value="${esc(v)}" type="button">${esc(l)}</button>`;
-    }).join("");
-    container.querySelectorAll(".fav-check").forEach(btn => {
-      btn.addEventListener("click", () => btn.classList.toggle("on"));
-    });
-  }
-
-  function _checkedValues(container) {
-    return [...container.querySelectorAll(".fav-check.on")].map(b => b.dataset.value);
-  }
-
-  async function openFavSheet(fav) {
-    _editingFav = fav;
-    _sheetStation = fav;
-    favSheetTitle.textContent = fav.name + " bearbeiten";
-    favNameInput.value = fav.name || "";
-    favStationInput.value = fav.name || "";
-    favStationSelected.textContent = "";
-    $("favStepStation").hidden = true; // bei Bearbeitung Haltestelle nicht änderbar
-
-    // Verkehrsmittel vorbelegen
-    const selTypes = new Set((fav.filterTypes || "").split(",").filter(Boolean));
-    _makeChecks(favTypeChecks, ALL_TYPES, selTypes);
-
-    favLineChecks.innerHTML = '<span class="fav-check-loading">Lade Linien …</span>';
-    favDirChecks.innerHTML  = '<span class="fav-check-loading">Lade Richtungen …</span>';
-    favSheet.hidden = false;
-
-    await _loadSheetLinien(fav.globalId);
-  }
-
-  favSheetClose.addEventListener("click", () => { favSheet.hidden = true; });
-  favSheet.addEventListener("click", (e) => { if (e.target === favSheet) favSheet.hidden = true; });
-
-  favSheetSave.addEventListener("click", async () => {
-    const station = _sheetStation || _editingFav;
-    if (!station?.globalId) {
-      favStationInput.style.borderColor = "var(--red)";
-      return;
-    }
-    const checkedTypes   = _checkedValues(favTypeChecks);
-    const filterTypes    = checkedTypes.length === ALL_TYPES.length ? "" : checkedTypes.join(",");
-    const lineFilter     = _checkedValues(favLineChecks).join(",");
-    const platformFilter = _checkedValues(favDirChecks).join(",");
-    const name = favNameInput.value.trim() || station.name;
-
-    // Alten löschen wenn Bearbeitung
-    if (_editingFav?.globalId) {
-      await fetch("./api/favorites/" + encodeURIComponent(_editingFav.globalId) +
-        "?types="    + encodeURIComponent(_editingFav.filterTypes    || "") +
-        "&platform=" + encodeURIComponent(_editingFav.platformFilter || "") +
-        "&line="     + encodeURIComponent(_editingFav.lineFilter     || ""),
-        { method: "DELETE" });
-    }
-    favorites = await fetch("./api/favorites", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        globalId: station.globalId,
-        name, place: station.place || "",
-        transportTypes: station.transportTypes || [],
-        filterTypes, lineFilter, platformFilter
-      })
-    }).then(r => r.json());
-    favSheet.hidden = true;
-    renderFavorites();
-  });
+  // ---------- Start ----------
   api("config").then(cfg => { if (cfg?.default_limit) DEFAULT_LIMIT = cfg.default_limit; }).catch(() => {});
-  loadFavorites();
   const last = localStorage.getItem("mvg:last");
-  if (last) {
-    try { const st = JSON.parse(last); qInput.value = st.name; selectStation(st); } catch {}
-  }
+  if (last) { try { const st = JSON.parse(last); qInput.value = st.name; selectStation(st); } catch {} }
 })();
 </script>
 </body>
