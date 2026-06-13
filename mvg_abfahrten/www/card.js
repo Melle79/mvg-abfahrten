@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.22
+/* MVG Abfahrten – Lovelace-Karte v2.2.23
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -103,21 +103,19 @@
     .badge.long { font-size: 10.5px; letter-spacing: -0.01em; }
     .dest { min-width: 0; }
     .to { font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .meta { color: var(--mvg-muted); font-size: 11.5px; }
-    .meta .delay { color: var(--mvg-red); font-weight: 700; }
-    .meta .sev { color: var(--mvg-accent); font-weight: 700; }
-    .ticker-row {
-      grid-column: 1 / -1;
-      overflow: hidden;
-      height: 14px;
-      padding: 0 16px 0 0;
+    .meta { color: var(--mvg-muted); font-size: 11.5px; display: flex; align-items: center; gap: 4px; overflow: hidden; }
+    .meta .delay { color: var(--mvg-red); font-weight: 700; flex-shrink: 0; }
+    .meta .sev { color: var(--mvg-accent); font-weight: 700; flex-shrink: 0; }
+    .meta .meta-time { flex-shrink: 0; }
+    .meta .ticker-wrap {
+      flex: 1; overflow: hidden; min-width: 0;
     }
     .ticker {
       display: inline-block;
       font-size: 11px;
       color: var(--mvg-red);
       white-space: nowrap;
-      padding-left: 60%;
+      padding-left: 100%;
       animation: ticker 20s linear infinite;
     }
     @keyframes ticker {
@@ -620,18 +618,18 @@
         const tickerText = this._config.show_ticker && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
-        const tickerRow = tickerText
-          ? `<div class="ticker-row"><span class="ticker">${esc(tickerText)}</span></div>`
-          : "";
-        return `<div class="row${d.cancelled ? " cancelled" : ""}${tickerText ? " has-ticker" : ""}">
+        const metaHtml = `<div class="meta">
+          <span class="meta-time">${stationTxt}${planned}${delay}${sev}</span>
+          ${tickerText ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText)}</span></span>` : ""}
+        </div>`;
+        return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
             <div class="to">${destHtml}${infoBadge}</div>
-            <div class="meta">${stationTxt}${planned}${delay}${sev}</div>
+            ${metaHtml}
           </div>
           <span class="platform${d.platformChanged ? " platform-changed" : ""}">${platTxt}</span>
           ${minHtml}
-          ${tickerRow}
         </div>`;
       }).join("");
     }
@@ -693,11 +691,11 @@
         const tickerText2 = this._config.show_ticker && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
-        const tickerRow2 = tickerText2
-          ? `<div class="ticker-row"><span class="ticker">${esc(tickerText2)}</span></div>`
-          : "";
-        const metaHtml2 = `<div class="meta">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</div>`;
-        return `<div class="row${d.cancelled ? " cancelled" : ""}${tickerText2 ? " has-ticker" : ""}">
+        const metaHtml2 = `<div class="meta">
+          <span class="meta-time">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</span>
+          ${tickerText2 ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText2)}</span></span>` : ""}
+        </div>`;
+        return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
             <div class="to">${esc(d.destination)}${infoBadge}</div>
@@ -705,7 +703,6 @@
           </div>
           <span class="platform${d.platformChanged ? ' platform-changed' : ''}">${platformTxt}</span>
           ${minHtml}
-          ${tickerRow2}
         </div>`;
       }).join("");
     }
