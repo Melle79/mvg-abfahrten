@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-10 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-13 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -178,6 +178,7 @@
   .cancelled .to { text-decoration: line-through; color: var(--muted); }
   .cancelled .min { color: var(--red); font-size: 15px; }
   .platform { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .platform-changed { color: var(--amber); font-weight: 700; }
   .min {
     font-variant-numeric: tabular-nums; text-align: right;
     color: var(--amber); font-size: 22px; font-weight: 700; min-width: 78px;
@@ -289,7 +290,7 @@
   let refreshTimer = null;
   let debounceTimer = null;
   let searchAbort = null;
-  let platformFilter = new Set(); // aktive Steig-Nummern (leer = alle)
+  let platformFilter = new Set(); // aktive Richtungen: 1=H (Hinfahrt), 2=R (Rückfahrt)
   let lastDeps = [];              // letzte Abfahrtsliste für Re-Filter ohne API-Call
 
   let DEFAULT_LIMIT = 10; // wird aus /api/config überschrieben
@@ -493,10 +494,12 @@
       platformChips.innerHTML = "";
       for (const [dir, dests] of [...byDir.entries()].sort((a,b) => a[0]-b[0])) {
         const sub = [...dests].slice(0, 3).join(", ");
+        const dirLabel = dir === 1 ? "H" : "R";
+        const dirName  = dir === 1 ? "Hinfahrt" : "Rückfahrt";
         const btn = document.createElement("button");
         btn.className = "dir-chip";
         btn.setAttribute("aria-pressed", platformFilter.has(dir) ? "true" : "false");
-        btn.innerHTML = `<span class="gleis">Richtung ${esc(String(dir))}</span>
+        btn.innerHTML = `<span class="gleis">${esc(dirLabel)} · ${esc(dirName)}</span>
                          <span class="dest-list">${esc(sub)}</span>`;
         btn.addEventListener("click", () => {
           if (platformFilter.has(dir)) platformFilter.delete(dir);
@@ -509,61 +512,15 @@
       }
       dirBar.hidden = false;
     } else {
-      // Fallback: platform (S/U/Tram) oder destination (Bus ohne direction)
-      _buildChips(deps, "platform");
-      if (dirBar.hidden) _buildChips(deps, "destination");
+      // Keine auswertbare Richtungsinformation → kein Filter anzeigen
+      dirBar.hidden = true;
     }
-  }
-
-  function _buildChips(deps, mode) {
-    // mode = "platform" oder "destination"
-    const byKey = new Map();
-    for (const d of deps) {
-      const key = mode === "platform" ? d.platform : d.destination;
-      if (key == null || key === "") continue;
-      if (!byKey.has(key)) byKey.set(key, new Set());
-      if (mode === "platform") byKey.get(key).add(d.destination);
-      else byKey.get(key).add(d.label);
-    }
-    if (byKey.size < 2) { dirBar.hidden = true; return; }
-
-    platformChips.innerHTML = "";
-    const sorted = mode === "platform"
-      ? [...byKey.keys()].sort((a, b) => a - b)
-      : [...byKey.keys()].sort();
-
-    for (const key of sorted) {
-      const sub = [...byKey.get(key)].slice(0, 3).join(", ");
-      const btn = document.createElement("button");
-      btn.className = "dir-chip";
-      btn.setAttribute("aria-pressed", platformFilter.has(key) ? "true" : "false");
-      if (mode === "platform") {
-        btn.innerHTML = `<span class="gleis">Steig ${esc(String(key))}</span>
-                         <span class="dest-list">${esc(sub)}</span>`;
-      } else {
-        btn.innerHTML = `<span class="gleis">${esc(String(key))}</span>
-                         <span class="dest-list">${esc(sub)}</span>`;
-      }
-      btn.addEventListener("click", () => {
-        if (platformFilter.has(key)) platformFilter.delete(key);
-        else platformFilter.add(key);
-        btn.setAttribute("aria-pressed", platformFilter.has(key) ? "true" : "false");
-        updateStar();
-        renderRows(lastDeps);
-      });
-      platformChips.appendChild(btn);
-    }
-    dirBar.hidden = false;
   }
 
   function renderRows(deps) {
     let filtered = deps;
     if (platformFilter.size) {
-      filtered = deps.filter(d =>
-        platformFilter.has(d.direction) ||
-        platformFilter.has(d.platform) ||
-        platformFilter.has(d.destination)
-      );
+      filtered = deps.filter(d => platformFilter.has(d.direction));
     }
     const visible = filtered.slice(0, DEFAULT_LIMIT);
     if (!visible.length) {
@@ -576,9 +533,15 @@
       const planned = new Date(d.planned).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
       const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
       const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
-      const hasInfo = d.infos && d.infos.length > 0;
+      const hasInfo = (d.infos && d.infos.length > 0) || (d.messages && d.messages.length > 0);
       const infoBadge = hasInfo
         ? `<button class="info-btn" data-idx="${i}" title="Info anzeigen">ⓘ</button>` : "";
+      const platformDisplay = d.platform != null
+        ? `${d.platformChanged ? '<span class="platform-changed">⚠ ' : ''}Gleis ${esc(d.platform)}${d.platformChanged ? '</span>' : ''}`
+        : "";
+      const occIcon = {
+        "LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🔴", "FULL": "🔴"
+      }[d.occupancy] || "";
       const minHtml = d.cancelled
         ? '<span class="min">entfällt</span>'
         : `<span class="min">${mins}<small>min</small></span>`;
@@ -586,9 +549,9 @@
         ${badgeHtml(d.label, d.transportType)}
         <div class="dest">
           <div class="to">${esc(d.destination)}${infoBadge}</div>
-          <div class="meta">${planned}${delay}${sev}</div>
+          <div class="meta">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</div>
         </div>
-        <span class="platform">${d.platform != null ? "Gleis " + esc(d.platform) : ""}</span>
+        <span class="platform">${platformDisplay}</span>
         ${minHtml}
       </div>`;
     }).join("");
@@ -633,7 +596,7 @@
       el.className = "fav";
       const tag = f.filterTypes    ? ` · ${esc(typesLabel(f.filterTypes))}` : "";
       const pf  = f.platformFilter
-        ? ` · ${f.platformFilter.split(",").map(v => isNaN(v) ? esc(v) : "Steig " + esc(v)).join(" / ")}`
+        ? ` · ${f.platformFilter.split(",").map(v => v === "1" ? "H" : v === "2" ? "R" : esc(v)).join(" / ")}`
         : "";
       el.innerHTML = `★ ${esc(f.name)}${tag}${pf} <span class="x" title="Favorit entfernen">✕</span>`;
       el.addEventListener("click", (e) => {

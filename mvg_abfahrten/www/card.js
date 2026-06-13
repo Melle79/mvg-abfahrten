@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.8.0
+/* MVG Abfahrten – Lovelace-Karte v1.8.3
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -107,6 +107,7 @@
     .meta .delay { color: var(--mvg-red); font-weight: 700; }
     .meta .sev { color: var(--mvg-accent); font-weight: 700; }
     .platform { color: var(--mvg-muted); font-size: 12px; white-space: nowrap; }
+    .platform-changed { color: var(--mvg-accent); font-weight: 700; }
     .min { text-align: right; color: var(--mvg-accent); font-size: 18px; font-weight: 700; min-width: 62px; }
     .min small { font-size: 10.5px; font-weight: 600; color: var(--mvg-muted); margin-left: 2px; }
     .cancelled .to { text-decoration: line-through; color: var(--mvg-muted); }
@@ -307,11 +308,7 @@
       const data = await resp.json();
       let deps = data.departures || [];
       if (platformFilter?.size) {
-        deps = deps.filter(d =>
-          platformFilter.has(d.direction) ||
-          platformFilter.has(d.platform) ||
-          platformFilter.has(d.destination)
-        );
+        deps = deps.filter(d => platformFilter.has(d.direction));
       }
       return deps.slice(0, this._config.limit || 8);
     }
@@ -324,8 +321,8 @@
         const deps = await this._fetchDepartures(this._current.globalId, types, pf);
         this._els.rows.innerHTML = this._rowsHtml(deps);
         if (deps.length === 0 && pf?.size) {
-          this._els.rows.innerHTML = '<div class="note">Keine Abfahrten für Steig ' +
-            esc([...pf].join("/")) + '. Favorit im Add-on neu setzen?</div>';
+          this._els.rows.innerHTML = '<div class="note">Keine Abfahrten für Richtung ' +
+            esc([...pf].map(v => v === 1 ? "H" : v === 2 ? "R" : v).join("/")) + '. Favorit im Add-on neu setzen?</div>';
         }
       } catch (err) {
         this._error("Fehler beim Laden: " + esc(String(err)) +
@@ -352,7 +349,7 @@
       this._els.rows.innerHTML = this._favorites.map((f, i) => {
         const tag = f.filterTypes    ? `<span class="tag">${esc(typesLabel(f.filterTypes))}</span>` : "";
         const plf = f.platformFilter
-          ? `<span class="tag">${f.platformFilter.split(",").map(v => isNaN(v) ? esc(v) : "Steig " + esc(v)).join(" / ")}</span>`
+          ? `<span class="tag">${f.platformFilter.split(",").map(v => v === "1" ? "H · Hinfahrt" : v === "2" ? "R · Rückfahrt" : esc(v)).join(" / ")}</span>`
           : "";
         const head = `<div class="section-head"><h3>${esc(f.name)}</h3>${tag}${plf}
           <span class="place2">${esc(f.place || "")}</span></div>`;
@@ -384,12 +381,16 @@
           { hour: "2-digit", minute: "2-digit" });
         const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
         const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
-        const hasInfo = d.infos && d.infos.length > 0;
+        const hasInfo = (d.infos && d.infos.length > 0) || (d.messages && d.messages.length > 0);
         const infoTip = hasInfo
-          ? d.infos.map(i => i.message).join(" · ")
-          : (d.messages || []).join(" · ");
-        const infoBadge = (hasInfo || (d.messages||[]).length)
+          ? [...(d.infos||[]).map(i => i.message), ...(d.messages||[])].join(" · ")
+          : "";
+        const infoBadge = hasInfo
           ? `<span class="info-btn" title="${esc(infoTip)}">ⓘ</span>` : "";
+        const occIcon = {"LOW":"🟢","MEDIUM":"🟡","HIGH":"🔴","FULL":"🔴"}[d.occupancy] || "";
+        const platformTxt = d.platform != null
+          ? (d.platformChanged ? `⚠ Gleis ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`)
+          : "";
         const minHtml = d.cancelled
           ? '<span class="min">entfällt</span>'
           : `<span class="min">${mins}<small>min</small></span>`;
@@ -397,9 +398,9 @@
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
             <div class="to">${esc(d.destination)}${infoBadge}</div>
-            <div class="meta">${planned}${delay}${sev}</div>
+            <div class="meta">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</div>
           </div>
-          <span class="platform">${d.platform != null ? "Gleis " + esc(d.platform) : ""}</span>
+          <span class="platform${d.platformChanged ? ' platform-changed' : ''}">${platformTxt}</span>
           ${minHtml}
         </div>`;
       }).join("");
@@ -538,7 +539,7 @@
           label: f.name
             + (f.filterTypes    ? ` · ${typesLabel(f.filterTypes)}` : "")
             + (f.platformFilter
-              ? ` · ${f.platformFilter.split(",").map(v => isNaN(v) ? v : "Steig " + v).join(" / ")}`
+              ? ` · ${f.platformFilter.split(",").map(v => v === "1" ? "H" : v === "2" ? "R" : v).join("/")}`
               : "")
             + (f.place ? ` (${f.place})` : ""),
         })),
