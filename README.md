@@ -7,30 +7,121 @@
 
 [![Repository zu Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FMelle79%2Fmvg-abfahrten)
 
-Abfahrtsmonitor für **MVG/MVV** als Home-Assistant-Add-on – mit Haltestellensuche (Live-Autocomplete), Verkehrsmittel-Filtern, Favoriten inkl. Beförderungsart, Echtzeitdaten und einer eigenen **Dashboard-Karte** mit visuellem Editor.
+Abfahrtsmonitor für **MVG/MVV** als Home-Assistant-Add-on – mit Haltestellensuche, Echtzeit-Abfahrten, **Abfahrtsplänen** (mehrere Haltestellen & Filter pro Plan) und einer eigenen **Dashboard-Karte**.
+
+---
 
 ## Features
 
-**Add-on (Web-UI über Ingress):**
-- 🔍 Haltestellensuche mit Dropdown (MVG-Locations-API)
-- 🚇 Filter nach U-Bahn, S-Bahn, Tram, Bus, Bahn
-- ⭐ Favoriten **inkl. Beförderungsart** – der Stern speichert die aktive Filterauswahl mit; dieselbe Haltestelle kann mehrfach mit unterschiedlichen Filtern gespeichert werden (z. B. „Ottobrunn · S-Bahn" und „Ottobrunn · Bus")
-- ⏱ Echtzeit-Abfahrten mit Verspätung (+x), Gleis, SEV- und Ausfall-Kennzeichnung
-- 🔄 Auto-Refresh alle 30 s, serverseitiges Caching
-- 🎨 Linien-Badges in den offiziellen Farben (U1–U8 inkl. zweifarbiger U7/U8, S1–S20, ExpressBus)
+### 🔍 Suche (Tab „Suche")
+- Live-Haltestellensuche mit Autocomplete und Verkehrsmittel-Badges
+- Echtzeit-Abfahrten mit Verspätung, Gleis, SEV-Kennzeichnung
+- **EARLY_TERMINATION**: Originalziel durchgestrichen, tatsächliches Ziel daneben
+- **Info-Popup** (ⓘ) bei Störungen und Betriebshinweisen
+- Gleisänderung (⚠) in Bernstein hervorgehoben
+- Auslastung als Farbpunkt (🟢🟡🔴)
+- 60s Auto-Refresh mit Countdown-Timer
+- Hinweis wenn mehr als 30 Suchergebnisse
 
-**Dashboard-Karte:**
-- 🃏 Eigene Lovelace-Karte, vom Add-on selbst ausgeliefert (kein HACS nötig)
-- 🖱 **Visueller Editor**: Haltestelle aus den Favoriten wählen, Layout, Design, Anzahl, Filter, Refresh
-- 📑 Favoriten als **Tabs** (umschaltbar) oder **untereinander** als eigene Blöcke
-- 🎛 **Design wählbar**: passt sich dem HA-Theme an (Standard) oder dunkle „Anzeigetafel"-Optik
-- 👁 Titel und Uhrzeit einzeln abschaltbar
+### 📋 Abfahrtspläne (Tab „Pläne")
+- **Mehrere Haltestellen pro Plan** – z. B. S-Bahn-Haltestelle + Bus-Haltestelle in einem Plan
+- **Linienfilter** – nur bestimmte Linien anzeigen (Chips aus aktuellen Abfahrten)
+- **Richtungsfilter** – H (Hinfahrt) oder R (Rückfahrt) aus der `lineId`, mit Endziel-Vorschau
+- **Kacheln-Übersicht** mit Vorschau der nächsten Abfahrten
+- **Vollansicht** mit 60s-Countdown, Info-Popup, EARLY_TERMINATION-Anzeige
+- Pläne bearbeiten (✎) und löschen (✕)
+
+### 🃏 Dashboard-Karte
+- Eigene Lovelace-Karte, vom Add-on selbst ausgeliefert (kein HACS nötig)
+- **Abfahrtspläne** oder klassische Favoriten/Haltestelle
+- **Mehrere Pläne** als Tabs oder untereinander
+- **Filter-Info** unter den Tabs (Fahrtrichtung mit Endzielen)
+- **Haltestellenname** optional unter dem Ziel
+- **Laufschrift** für Störungsmeldungen (optional, rechts neben der Uhrzeit)
+- Info-Popup bei Störungen (funktioniert im Shadow DOM)
+- Design: HA-Theme oder dunkle „Anzeigetafel"-Optik
+- Visueller Editor mit allen Optionen
+
+---
 
 ## Installation
 
-1. Badge oben anklicken **oder** in Home Assistant: **Einstellungen → Add-ons → Add-on Store → ⋮ → Repositories** und `https://github.com/Melle79/mvg-abfahrten` hinzufügen
+1. Badge oben anklicken **oder** in HA: **Einstellungen → Add-ons → Add-on Store → ⋮ → Repositories**
+   → `https://github.com/Melle79/mvg-abfahrten` hinzufügen
 2. **MVG Abfahrten** installieren und starten
-3. Über die Seitenleiste (**MVG**) öffnen, Haltestellen suchen und mit ★ als Favoriten speichern
+3. Über die Seitenleiste (**MVG**) öffnen
+
+---
+
+## Bedienung
+
+### Suche
+Haltestelle eingeben, Abfahrten erscheinen automatisch. 60s-Countdown in der Fußzeile zeigt wann die nächste Aktualisierung kommt.
+
+### Abfahrtspläne
+1. Tab **Pläne** öffnen → **+ Neuer Plan**
+2. **Name** eingeben
+3. **+ Haltestelle hinzufügen** – Haltestelle suchen und auswählen
+4. Optional: **Verkehrsmittel**, **Linien** (Chips), **Richtung** (H/R mit Endziel-Vorschau) wählen
+5. Weitere Haltestellen hinzufügen (z. B. S-Bahn + Bus-Haltestelle kombinieren)
+6. **Speichern**
+
+Die Kacheln-Übersicht zeigt die nächsten Abfahrten aller Einträge zeitlich sortiert. Klick auf eine Kachel öffnet die Vollansicht.
+
+---
+
+## Dashboard-Karte
+
+### Ressource registrieren (einmalig)
+**Einstellungen → Dashboards → ⋮ → Ressourcen → Hinzufügen**
+- URL: `http://<ha-host>:8099/card.js`
+- Typ: **JavaScript-Modul**
+
+*(Erfordert aktivierten „Erweiterten Modus" im Benutzerprofil)*
+
+### Karte hinzufügen
+Im Dashboard: **Karte hinzufügen → MVG Abfahrten**
+
+### Karten-Optionen (visueller Editor)
+
+| Option | Standard | Beschreibung |
+|---|---|---|
+| `plan_ids` | — | Abfahrtspläne (Mehrfachauswahl) |
+| `layout` | `tabs` | `tabs` oder `list` (untereinander) |
+| `design` | `auto` | `auto` (HA-Theme) oder `board` (Anzeigetafel) |
+| `show_title` | `true` | Titel anzeigen |
+| `show_clock` | `true` | Uhrzeit anzeigen |
+| `show_station` | `true` | Haltestellenname unter Ziel anzeigen |
+| `show_filter` | `true` | Fahrtrichtung unter Plan-Tabs anzeigen |
+| `show_ticker` | `false` | Störungstext als Laufschrift neben der Uhrzeit |
+| `limit` | `8` | Anzahl Abfahrten (1–20) |
+| `refresh` | `60` | Aktualisierungsintervall in Sekunden |
+| `api_url` | auto | API-URL (Standard: `http://<ha-host>:8099`) |
+
+### YAML-Beispiel (Plan-Modus)
+```yaml
+type: custom:mvg-abfahrten-card
+plan_ids:
+  - abc12345
+  - def67890
+layout: tabs
+show_filter: true
+show_ticker: true
+limit: 8
+```
+
+### YAML-Beispiel (klassisch mit Favoriten)
+```yaml
+type: custom:mvg-abfahrten-card
+favorites: true
+layout: list
+design: board
+show_title: true
+show_clock: true
+limit: 10
+```
+
+---
 
 ## Add-on-Optionen
 
@@ -39,78 +130,20 @@ Abfahrtsmonitor für **MVG/MVV** als Home-Assistant-Add-on – mit Haltestellens
 | `cache_ttl` | 45 | Cache-Dauer für Abfahrten in Sekunden (10–300) |
 | `default_limit` | 12 | Standardanzahl Abfahrten (1–80) |
 
-Port **8099** stellt die API und die Dashboard-Karte im LAN bereit (ohne Authentifizierung – nur im Heimnetz verwenden).
+Port **8099** stellt API und Karte im LAN bereit (ohne Authentifizierung – nur im Heimnetz verwenden).
 
-## Dashboard-Karte
+---
 
-**Ressource registrieren** (einmalig): **Einstellungen → Dashboards → ⋮ → Ressourcen → Hinzufügen**
-- URL: `http://<ha-host>:8099/card.js`
-- Typ: **JavaScript-Modul**
+## Hinweise
 
-*(Der Menüpunkt „Ressourcen" erfordert den aktivierten „Erweiterten Modus" im Benutzerprofil.)*
+- Basiert auf der **inoffiziellen MVG-API** – nur für private, nicht-kommerzielle Nutzung
+- Die MVG-API liefert für manche Haltestellen nur ein Verkehrsmittel obwohl mehrere fahren → in diesem Fall separate Haltestellen-Einträge im Plan anlegen (z. B. S-Bahn-Haltestelle + Bus-Haltestelle)
+- Abfahrtspläne werden unter `/data/plans.json` im Add-on gespeichert
 
-**Karte einbinden:** Dashboard → **Karte hinzufügen** → nach **„MVG Abfahrten"** suchen. Alle Einstellungen lassen sich im **visuellen Editor** vornehmen – YAML ist nicht nötig.
-
-### Karten-Optionen (YAML)
-
-| Option | Standard | Beschreibung |
-|---|---|---|
-| `global_id` | – | Feste Haltestelle (sonst Favoriten-Modus) |
-| `title` | – | Anzeigename bei fester Haltestelle |
-| `layout` | `tabs` | Favoriten-Darstellung: `tabs` oder `list` (untereinander) |
-| `design` | Theme | `board` für die dunkle Anzeigetafel-Optik |
-| `show_title` | `true` | Titelzeile (Haltestellenname) anzeigen |
-| `show_clock` | `true` | Uhrzeit anzeigen |
-| `limit` | `8` | Anzahl Abfahrten (1–20) |
-| `types` | alle | Filter, z. B. `"SBAHN,BUS"` |
-| `refresh` | `30` | Aktualisierung in Sekunden (min. 20) |
-| `favorites` | `true` | Favoriten-Chips anzeigen |
-| `api_url` | `http://<ha-host>:8099` | Add-on-API überschreiben |
-
-### YAML-Beispiele
-
-Alle Favoriten als umschaltbare Tabs:
-
-```yaml
-type: custom:mvg-abfahrten-card
-```
-
-Alle Favoriten untereinander, ohne Titel und Uhr (z. B. fürs Wandtablet):
-
-```yaml
-type: custom:mvg-abfahrten-card
-layout: list
-show_title: false
-show_clock: false
-limit: 6
-```
-
-Feste Haltestelle (Beispiel Marienplatz):
-
-```yaml
-type: custom:mvg-abfahrten-card
-global_id: "de:09162:2"
-title: "Marienplatz"
-types: "SBAHN,UBAHN"
-limit: 6
-```
-
-> **Tipp:** Die `global_id` einer Haltestelle findest du über die Add-on-API im Browser, z. B. `http://<ha-host>:8099/api/search?q=ottobrunn` – Feld `globalId`. Einfacher ist aber der visuelle Editor: dort wählst du die Haltestelle direkt aus deinen Favoriten.
-
-## API-Endpunkte (Port 8099)
-
-- `GET /api/search?q=ottobrunn` – Haltestellensuche
-- `GET /api/departures/<globalId>?limit=15&types=SBAHN,BUS` – Abfahrten
-- `GET/POST /api/favorites`, `DELETE /api/favorites/<globalId>?types=...` – Favoriten
+---
 
 ## Unterstützung
 
-Wenn dir das Projekt gefällt und du die Weiterentwicklung unterstützen möchtest:
+Wenn dir das Projekt gefällt:
 
-<a href="https://buymeacoffee.com/melle79"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="44"></a>
-
-## Haftungsausschluss
-
-Dies ist ein **privates Hobby-Projekt** ohne kommerziellen Hintergrund. Die Nutzung erfolgt auf eigene Gefahr – es gelten die Haftungsausschlüsse der [MIT-Lizenz](LICENSE); es besteht kein Anspruch auf Support oder Weiterentwicklung.
-
-Dieses Add-on nutzt die **inoffizielle** MVG-API (`www.mvg.de/api/bgw-pt/v3`). Die Nutzung der Daten ist nur für **private, nicht-kommerzielle Zwecke** gestattet. Dies ist **kein offizielles Projekt** der MVG/MVV; alle Marken, Logos und Linienfarben gehören den jeweiligen Rechteinhabern.
+[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/melle79)

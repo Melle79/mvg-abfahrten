@@ -1,37 +1,47 @@
 # MVG Abfahrten
 
-Abfahrtsmonitor für MVG/MVV mit Haltestellensuche, Favoriten inkl. Beförderungsart, Echtzeitdaten und eigener Dashboard-Karte.
+Abfahrtsmonitor für MVG/MVV mit Haltestellensuche, Abfahrtsplänen und Dashboard-Karte.
 
 ## Bedienung
 
-1. Add-on starten und über die Seitenleiste (**MVG**) öffnen.
-2. Haltestelle suchen, optional Verkehrsmittel-Filter setzen (U-Bahn, S-Bahn, Tram, Bus, Bahn).
-3. Mit ★ als Favorit speichern – **die aktive Filterauswahl wird mitgespeichert**. So lässt sich dieselbe Haltestelle mehrfach anlegen, z. B. einmal nur S-Bahn und einmal nur Bus.
-4. Favoriten erscheinen rechts neben der Suche und in der Dashboard-Karte.
+### Tab „Suche"
+Haltestelle eingeben → Abfahrten erscheinen mit Echtzeit-Daten. Der Countdown in der Fußzeile zeigt wann die nächste Aktualisierung (60s) stattfindet.
+
+Bei Störungen erscheint ein rotes **ⓘ** – Klick öffnet das Info-Popup mit Details. Vorzeitige Endstationen werden mit durchgestrichenem Originalziel und tatsächlichem Ziel in Bernstein angezeigt.
+
+### Tab „Pläne"
+Abfahrtspläne kombinieren mehrere Haltestellen und Filter in einer Ansicht:
+
+1. **+ Neuer Plan** → Name eingeben
+2. **+ Haltestelle hinzufügen** → Haltestelle suchen
+3. Optional: Verkehrsmittel, Linien (Chips) und Richtung (H · Hinfahrt / R · Rückfahrt) wählen
+4. Weitere Haltestellen hinzufügen
+5. **Speichern**
+
+**Tipp:** Da die MVG-API manche Haltestellen nach Verkehrsmittel trennt (z. B. S-Bahn und Bus an verschiedenen Punkten), können mehrere Haltestellen-Einträge pro Plan sinnvoll sein.
+
+## Dashboard-Karte
+
+### Ressource registrieren (einmalig)
+**Einstellungen → Dashboards → ⋮ → Ressourcen → Hinzufügen**
+- URL: `http://<ha-host>:8099/card.js`
+- Typ: **JavaScript-Modul**
+
+### Karte konfigurieren
+Im Dashboard **Karte hinzufügen → MVG Abfahrten**. Im visuellen Editor:
+
+- **Abfahrtspläne**: Einen oder mehrere gespeicherte Pläne auswählen
+- **Darstellung**: Tabs (umschaltbar) oder Untereinander (alle Pläne als Blöcke)
+- **Design**: HA-Theme oder dunkle Anzeigetafel-Optik
+- **Optionen**: Titel, Uhrzeit, Haltestellenname, Filter-Info, Laufschrift (Störungstext)
 
 ## Optionen
 
 | Option | Standard | Beschreibung |
 |---|---|---|
-| `cache_ttl` | 45 | Cache-Dauer für Abfahrten in Sekunden (10–300) |
+| `cache_ttl` | 45 | Cache-Dauer in Sekunden (10–300) |
 | `default_limit` | 12 | Standardanzahl Abfahrten (1–80) |
 
-Port **8099** stellt API und Dashboard-Karte im LAN bereit (ohne Authentifizierung – nur im Heimnetz verwenden).
+## Hinweis
 
-## Dashboard-Karte
-
-Einmalig als Ressource registrieren: **Einstellungen → Dashboards → ⋮ → Ressourcen → Hinzufügen** mit URL `http://<ha-host>:8099/card.js`, Typ **JavaScript-Modul**. Danach im Dashboard **Karte hinzufügen → „MVG Abfahrten"** – alle Einstellungen (Haltestelle, Layout Tabs/untereinander, Design, Titel/Uhr, Anzahl, Filter) im visuellen Editor.
-
-Details und YAML-Beispiele: [README auf GitHub](https://github.com/Melle79/mvg-abfahrten)
-
-## Unterstützung
-
-Wenn dir das Projekt gefällt und du die Weiterentwicklung unterstützen möchtest:
-
-<a href="https://buymeacoffee.com/melle79"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="44"></a>
-
-## Haftungsausschluss
-
-Dies ist ein **privates Hobby-Projekt** ohne kommerziellen Hintergrund. Die Nutzung erfolgt auf eigene Gefahr – es gelten die Haftungsausschlüsse der MIT-Lizenz; es besteht kein Anspruch auf Support oder Weiterentwicklung.
-
-Dieses Add-on nutzt die **inoffizielle** MVG-API. Die Nutzung der Daten ist nur für **private, nicht-kommerzielle Zwecke** gestattet. Dies ist **kein offizielles Projekt** der MVG/MVV.
+Basiert auf der inoffiziellen MVG-API – nur für private Nutzung. Port 8099 ist ohne Authentifizierung erreichbar – nur im Heimnetz verwenden.
