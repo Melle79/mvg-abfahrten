@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.5.1
+/* MVG Abfahrten – Lovelace-Karte v1.6.1
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -42,7 +42,8 @@
   const typesLabel = (ft) => [...new Set(
     (ft || "").split(",").filter(Boolean).map(t => TYPE_NAMES[t] || t)
   )].join("/");
-  const favKey = (f) => f.globalId + "|" + (f.filterTypes || "");
+  const favKey = (f) =>
+    f.globalId + "|" + (f.filterTypes || "") + "|" + (f.lineFilter || "") + "|" + (f.directionFilter || "");
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g,
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -274,21 +275,26 @@
       this._els.place.textContent = this._current.place || "";
     }
 
-    async _fetchDepartures(globalId, types) {
-      const params = new URLSearchParams({ limit: this._config.limit });
+    async _fetchDepartures(globalId, types, lineFilter, dirFilter) {
+      const params = new URLSearchParams({ limit: Math.max(30, this._config.limit) });
       if (types) params.set("types", types);
       const resp = await fetch(this._apiUrl + "/api/departures/" +
         encodeURIComponent(globalId) + "?" + params);
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       const data = await resp.json();
-      return data.departures || [];
+      let deps = data.departures || [];
+      if (lineFilter) deps = deps.filter(d => d.label === lineFilter);
+      if (dirFilter)  deps = deps.filter(d => d.destination === dirFilter);
+      return deps.slice(0, this._config.limit);
     }
 
     async _loadDepartures() {
       if (!this._current) return;
-      const types = this._current.filterTypes || this._config.types || "";
+      const types  = this._current.filterTypes     || this._config.types || "";
+      const line   = this._current.lineFilter      || "";
+      const dir    = this._current.directionFilter || "";
       try {
-        const deps = await this._fetchDepartures(this._current.globalId, types);
+        const deps = await this._fetchDepartures(this._current.globalId, types, line, dir);
         this._els.rows.innerHTML = this._rowsHtml(deps);
       } catch (err) {
         this._error("MVG-Daten nicht erreichbar – nächster Versuch beim Refresh.");
@@ -299,12 +305,18 @@
     async _loadAll() {
       const results = await Promise.allSettled(
         this._favorites.map(f =>
-          this._fetchDepartures(f.globalId, f.filterTypes || this._config.types || ""))
+          this._fetchDepartures(
+            f.globalId,
+            f.filterTypes     || this._config.types || "",
+            f.lineFilter      || "",
+            f.directionFilter || ""
+          ))
       );
       this._els.rows.innerHTML = this._favorites.map((f, i) => {
-        const tag = f.filterTypes
-          ? `<span class="tag">${esc(typesLabel(f.filterTypes))}</span>` : "";
-        const head = `<div class="section-head"><h3>${esc(f.name)}</h3>${tag}
+        const tag = f.filterTypes    ? `<span class="tag">${esc(typesLabel(f.filterTypes))}</span>` : "";
+        const lin = f.lineFilter     ? `<span class="tag">${esc(f.lineFilter)}</span>` : "";
+        const dir = f.directionFilter ? `<span class="tag">→ ${esc(f.directionFilter)}</span>` : "";
+        const head = `<div class="section-head"><h3>${esc(f.name)}</h3>${tag}${lin}${dir}
           <span class="place2">${esc(f.place || "")}</span></div>`;
         const res = results[i];
         const body = (res.status === "fulfilled")
@@ -480,7 +492,8 @@
         ...(this._favorites || []).map(f => ({
           value: favKey(f),
           label: f.name
-            + (f.filterTypes ? ` · ${typesLabel(f.filterTypes)}` : "")
+            + (f.filterTypes    ? ` · ${typesLabel(f.filterTypes)}` : "")
+            + (f.lineFilter     ? ` · ${f.lineFilter}` : "")
             + (f.directionFilter ? ` → ${f.directionFilter}` : "")
             + (f.place ? ` (${f.place})` : ""),
         })),
