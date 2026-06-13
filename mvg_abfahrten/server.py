@@ -211,22 +211,29 @@ def api_departures(global_id: str):
 
 @app.get("/api/lines/<path:global_id>")
 def api_lines(global_id: str):
-    """Alle Linien einer Haltestelle – kein Cache, kein Verkehrsmittelfilter."""
-    try:
-        resp = requests.get(
-            MVG_BASE + "/departures",
-            params={"globalId": global_id, "limit": 200},
-            headers=HEADERS, timeout=10
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    except requests.RequestException as err:
-        log.warning("MVG-Linien fehlgeschlagen: %s", err)
-        return jsonify({"error": "MVG-API nicht erreichbar"}), 502
-    lines = sorted(
-        {(dep.get("label"), dep.get("transportType", "")) for dep in data if dep.get("label")},
-        key=lambda x: x[0]
-    )
+    """Alle Linien einer Haltestelle – kein Cache, mehrere Zeitfenster."""
+    all_lines = {}
+    # Drei Zeitfenster: jetzt, +4h, +8h — um selten fahrende Linien zu erfassen
+    offsets = [0, 4 * 3600, 8 * 3600]
+    for offset in offsets:
+        try:
+            params = {"globalId": global_id, "limit": 80}
+            if offset:
+                params["offsetInMinutes"] = offset // 60
+            resp = requests.get(
+                MVG_BASE + "/departures",
+                params=params,
+                headers=HEADERS, timeout=10
+            )
+            if resp.status_code != 200:
+                continue
+            for dep in resp.json():
+                label = dep.get("label")
+                if label and label not in all_lines:
+                    all_lines[label] = dep.get("transportType", "")
+        except requests.RequestException:
+            continue
+    lines = sorted(all_lines.items(), key=lambda x: x[0])
     return jsonify({"globalId": global_id, "lines": [{"label": l, "type": t} for l, t in lines]})
 
 
