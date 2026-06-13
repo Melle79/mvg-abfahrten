@@ -186,7 +186,22 @@ def api_departures(global_id: str):
     return jsonify({"globalId": global_id, "departures": departures, "fetchedAt": int(time.time() * 1000)})
 
 
-@app.get("/api/favorites")
+@app.get("/api/lines/<path:global_id>")
+def api_lines(global_id: str):
+    """Alle Linien einer Haltestelle – kein Cache, kein Verkehrsmittelfilter."""
+    try:
+        resp = requests.get(
+            MVG_BASE + "/departures",
+            params={"globalId": global_id, "limit": 80},
+            headers=HEADERS, timeout=10
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except requests.RequestException as err:
+        log.warning("MVG-Linien fehlgeschlagen: %s", err)
+        return jsonify({"error": "MVG-API nicht erreichbar"}), 502
+    lines = sorted({dep.get("label") for dep in data if dep.get("label")})
+    return jsonify({"globalId": global_id, "lines": lines})
 def api_favorites_get():
     return jsonify(_load_favorites())
 

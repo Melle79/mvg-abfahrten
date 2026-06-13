@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-17 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-18 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -714,17 +714,16 @@
     favModalLines.innerHTML = '<span style="color:var(--muted);font-size:13px">Lade Linien …</span>';
     favModal.hidden = false;
 
-    // Alle Linien der Haltestelle laden – OHNE filterTypes-Filter damit auch Bus etc. sichtbar sind
-    let stationDeps = [];
+    // Alle Linien der Haltestelle direkt von MVG laden – kein Cache, kein Filter
+    let knownLines = new Set((fav.lineFilter || "").split(",").filter(Boolean));
     try {
-      const data = await api("departures/" + encodeURIComponent(fav.globalId) + "?limit=60");
-      stationDeps = data.departures || [];
-    } catch (e) { stationDeps = []; }
-
-    _renderFavModal(fav, stationDeps);
+      const data = await api("lines/" + encodeURIComponent(fav.globalId));
+      (data.lines || []).forEach(l => knownLines.add(l));
+    } catch (e) { /* Fallback: nur gespeicherte Linien */ }
+    _renderFavModal(fav, [...knownLines].sort());
   }
 
-  function _renderFavModal(fav, stationDeps) {
+  function _renderFavModal(fav, lines) {
     favModalTitle.textContent = `${fav.name} bearbeiten`;
 
     // Verkehrsmittel
@@ -736,20 +735,16 @@
       </label>`;
     }).join("");
 
-    // Linien aus frisch geladenen Abfahrten + gespeicherte
-    const knownLines = new Set([
-      ...stationDeps.map(d => d.label).filter(Boolean),
-      ...(fav.lineFilter || "").split(",").filter(Boolean)
-    ]);
+    // Linien
     const selLines = new Set((fav.lineFilter || "").split(",").filter(Boolean));
-    favModalLines.innerHTML = knownLines.size
-      ? [...knownLines].sort().map(l => {
+    favModalLines.innerHTML = lines.length
+      ? lines.map(l => {
           const on = selLines.has(l);
           return `<label class="fav-check ${on ? "on" : ""}">
             <input type="checkbox" value="${esc(l)}" ${on ? "checked" : ""}> ${esc(l)}
           </label>`;
         }).join("")
-      : '<span style="color:var(--muted);font-size:13px">Haltestelle zuerst öffnen</span>';
+      : '<span style="color:var(--muted);font-size:13px">Keine Linien gefunden</span>';
 
     // Richtung
     const selDirs = new Set((fav.platformFilter || "").split(",").filter(Boolean));
