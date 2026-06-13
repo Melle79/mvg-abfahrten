@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-15 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-16 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -708,8 +708,25 @@
   ];
   const DIR_OPTIONS = [{value:"1",label:"H · Hinfahrt"},{value:"2",label:"R · Rückfahrt"}];
 
-  function openFavModal(fav) {
+  async function openFavModal(fav) {
     _editingFav = fav;
+    favModalTitle.textContent = `${fav.name} bearbeiten`;
+    favModalLines.innerHTML = '<span style="color:var(--muted);font-size:13px">Lade Linien …</span>';
+    favModal.hidden = false;
+
+    // Linien dieser Haltestelle laden (frisch, nicht aus lastDeps)
+    let stationDeps = [];
+    try {
+      const types = fav.filterTypes || "";
+      const data = await api("departures/" + encodeURIComponent(fav.globalId) +
+        "?limit=60" + (types ? "&types=" + encodeURIComponent(types) : ""));
+      stationDeps = data.departures || [];
+    } catch (e) { stationDeps = []; }
+
+    _renderFavModal(fav, stationDeps);
+  }
+
+  function _renderFavModal(fav, stationDeps) {
     favModalTitle.textContent = `${fav.name} bearbeiten`;
 
     // Verkehrsmittel
@@ -721,9 +738,9 @@
       </label>`;
     }).join("");
 
-    // Linien aus letzten Abfahrten + gespeicherte
+    // Linien aus frisch geladenen Abfahrten + gespeicherte
     const knownLines = new Set([
-      ...(lastDeps || []).map(d => d.label).filter(Boolean),
+      ...stationDeps.map(d => d.label).filter(Boolean),
       ...(fav.lineFilter || "").split(",").filter(Boolean)
     ]);
     const selLines = new Set((fav.lineFilter || "").split(",").filter(Boolean));
@@ -756,8 +773,6 @@
         label.querySelector("input").addEventListener("click", e => e.stopPropagation());
       });
     });
-
-    favModal.hidden = false;
   }
 
   favModalCancel.addEventListener("click", () => { favModal.hidden = true; });
