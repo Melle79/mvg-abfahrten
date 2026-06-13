@@ -228,6 +228,9 @@ def api_lines(global_id: str):
         key=lambda x: x[0]
     )
     return jsonify({"globalId": global_id, "lines": [{"label": l, "type": t} for l, t in lines]})
+
+
+@app.get("/api/favorites")
 def api_favorites_get():
     return jsonify(_load_favorites())
 
