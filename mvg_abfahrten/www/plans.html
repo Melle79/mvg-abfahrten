@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-13-01 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-13-02 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -487,14 +487,7 @@
           ${entry._lines.length
             ? _renderLineChipsHtml(entry._lines, entry.lines)
             : entry.globalId
-              ? `<span style="color:var(--muted);font-size:12px">Keine Linien von API – manuell eingeben:</span>
-                 <div class="line-input-manual" style="display:flex;gap:8px;margin-top:6px">
-                   <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px" placeholder="z. B. 212, S5 …">
-                   <button class="chip" style="padding:6px 12px;border-radius:8px" data-manual-add="${idx}">＋</button>
-                 </div>
-                 <div class="manual-line-chips" data-idx="${idx}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-                   ${[...entry.lines].map(l => `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`).join("")}
-                 </div>`
+              ? '<span style="color:var(--muted);font-size:12px">Lade Linien …</span>'
               : '<span style="color:var(--muted);font-size:12px">Erst Haltestelle wählen</span>'
           }
         </div>
@@ -544,16 +537,31 @@
             sheetEntries[idx]._lines = [];
             sheetEntries[idx].lines = new Set();
             renderEntries();
-            // Linien nachladen und Chips neu rendern
+
+            // Linien nachladen – NUR den Container updaten, kein renderEntries()
             api("lines/" + encodeURIComponent(st.globalId)).then(d => {
               sheetEntries[idx]._lines = d.lines || [];
-              const avail = $("entriesList").querySelectorAll(".line-chips-avail")[idx];
+              const card = $("entriesList").querySelectorAll(".entry-card")[idx];
+              if (!card) return;
+              const avail = card.querySelector(".line-chips-avail");
               if (avail) {
-                avail.innerHTML = _renderLineChipsHtml(d.lines || [], new Set());
-                _bindLineChips(avail, idx);
+                if (d.lines && d.lines.length) {
+                  avail.innerHTML = _renderLineChipsHtml(d.lines, new Set());
+                  _bindLineChips(avail, idx);
+                } else {
+                  // API leer → manuelle Eingabe zeigen
+                  avail.innerHTML = `<span style="color:var(--muted);font-size:12px">Keine Linien von API – manuell eingeben:</span>
+                    <div style="display:flex;gap:8px;margin-top:6px">
+                      <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px" placeholder="z. B. 212, S5 …">
+                      <button class="chip" style="padding:6px 12px;border-radius:8px" data-manual-add="${idx}">＋</button>
+                    </div>
+                    <div class="manual-line-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>`;
+                  _bindLineChips(avail, idx);
+                }
               }
             }).catch(()=>{});
-            // Richtungen mit Endzielen nachladen
+
+            // Richtungen nachladen – NUR die dir-row updaten, kein renderEntries()
             api("departures/" + encodeURIComponent(st.globalId) + "?limit=80").then(d => {
               const deps = d.departures || [];
               const dirs = new Map();
@@ -563,13 +571,14 @@
                 dirs.get(dep.direction).add(dep.destination);
               }
               sheetEntries[idx]._dirs = dirs;
-              const dirRow = $("entriesList").querySelectorAll(".dir-row")[idx];
+              const card = $("entriesList").querySelectorAll(".entry-card")[idx];
+              if (!card) return;
+              const dirRow = card.querySelector(".dir-row");
               if (dirRow && dirs.size >= 2) {
                 dirRow.innerHTML = [...dirs.entries()].sort((a,b)=>a[0]-b[0]).map(([dir, dests]) => {
                   const label = dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt";
                   const sub = [...dests].slice(0,2).join(", ");
-                  const on = sheetEntries[idx].direction === (dir===1?"H":"R");
-                  return `<button class="chip dir-chip-full${on?" on":""}" data-dir="${dir===1?"H":"R"}">
+                  return `<button class="chip dir-chip-full" data-dir="${dir===1?"H":"R"}">
                     <span style="font-weight:700">${esc(label)}</span>
                     <span style="font-size:11px;color:var(--muted);display:block">${esc(sub)}</span>
                   </button>`;
