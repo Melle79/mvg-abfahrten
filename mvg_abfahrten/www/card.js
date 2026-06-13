@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.17
+/* MVG Abfahrten – Lovelace-Karte v2.2.18
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -118,7 +118,14 @@
     }
     .note { padding: 18px 16px; color: var(--mvg-muted); font-size: 13px; border-top: 1px solid var(--mvg-line); }
     .note.err { color: var(--mvg-red); }
-    .dir-bar {
+    .filter-info {
+      padding: 5px 16px 7px;
+      font-size: 11px;
+      color: var(--mvg-muted);
+      border-bottom: 1px solid var(--mvg-line);
+      line-height: 1.5;
+    }
+    .filter-info[hidden] { display: none; }
       display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
       padding: 8px 16px; border-top: 1px solid var(--mvg-line);
     }
@@ -193,6 +200,7 @@
             <div id="dirChips" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"></div>
             <button class="dir-clear" id="dirClear">✕</button>
           </div>
+          <div class="filter-info" id="filterInfo" hidden></div>
           <div id="rows"><div class="note">Lade …</div></div>
         </ha-card>`;
       this._els = {
@@ -206,6 +214,7 @@
         dirBar: this.shadowRoot.getElementById("dirBar"),
         dirChips: this.shadowRoot.getElementById("dirChips"),
         dirClear: this.shadowRoot.getElementById("dirClear"),
+        filterInfo: this.shadowRoot.getElementById("filterInfo"),
         rows: this.shadowRoot.getElementById("rows"),
       };
       this._dirFilter = new Set(); // aktive Richtungen (1=H, 2=R)
@@ -482,11 +491,7 @@
       this._plans.forEach((plan, i) => {
         const b = document.createElement("button");
         b.className = "chip" + (i === (this._currentPlanIdx ?? 0) ? " on" : "");
-        const filterLabel = this._config.show_filter !== false ? this._planFilterLabel(plan) : "";
-        b.innerHTML = filterLabel
-          ? `<span>${esc(plan.name)}</span><span style="display:block;font-size:10px;font-weight:400;color:inherit;opacity:0.7">${esc(filterLabel)}</span>`
-          : esc(plan.name);
-        b.style.cssText = "display:flex;flex-direction:column;align-items:flex-start;padding:5px 11px;height:auto";
+        b.textContent = plan.name;
         b.addEventListener("click", () => {
           this._currentPlanIdx = i;
           this._els.name.textContent = this._config.title || plan.name;
@@ -531,6 +536,22 @@
         this._els.rows.innerHTML = deps.length
           ? this._planRowsHtml(deps)
           : '<div class="note">Keine Abfahrten für diesen Plan.</div>';
+
+        // Filter-Info: Endziele pro Haltestelle aus den Abfahrten
+        if (this._config.show_filter !== false && this._els.filterInfo && deps.length) {
+          const byStation = new Map();
+          for (const d of deps) {
+            if (!byStation.has(d.stationName)) byStation.set(d.stationName, new Set());
+            byStation.get(d.stationName).add(d.destination);
+          }
+          const parts = [...byStation.entries()].map(([station, dests]) =>
+            `<b>${esc(station)}</b>: ${[...dests].slice(0,3).map(d => esc(d)).join(", ")}`
+          );
+          this._els.filterInfo.innerHTML = parts.join(" &nbsp;|&nbsp; ");
+          this._els.filterInfo.hidden = false;
+        } else if (this._els.filterInfo) {
+          this._els.filterInfo.hidden = true;
+        }
       } catch(err) {
         this._error("Fehler beim Laden: " + esc(String(err)));
       }
