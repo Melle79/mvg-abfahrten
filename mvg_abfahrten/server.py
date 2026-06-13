@@ -223,8 +223,11 @@ def api_lines(global_id: str):
     except requests.RequestException as err:
         log.warning("MVG-Linien fehlgeschlagen: %s", err)
         return jsonify({"error": "MVG-API nicht erreichbar"}), 502
-    lines = sorted({dep.get("label") for dep in data if dep.get("label")})
-    return jsonify({"globalId": global_id, "lines": lines})
+    lines = sorted(
+        {(dep.get("label"), dep.get("transportType", "")) for dep in data if dep.get("label")},
+        key=lambda x: x[0]
+    )
+    return jsonify({"globalId": global_id, "lines": [{"label": l, "type": t} for l, t in lines]})
 def api_favorites_get():
     return jsonify(_load_favorites())
 

@@ -415,9 +415,7 @@
         sheetEntries[idx]._lines = d.lines || [];
         const avail = $("entriesList").querySelectorAll(".line-chips-avail")[idx];
         if (avail) {
-          avail.innerHTML = (d.lines||[]).map(l =>
-            `<button class="chip${entry.lines.has(l)?" on":""}" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
-          ).join("") || '<span style="color:var(--muted);font-size:12px">Keine Linien gefunden</span>';
+          avail.innerHTML = _renderLineChipsHtml(d.lines || [], entry.lines);
           _bindLineChips(avail, idx);
         }
       }).catch(()=>{});
@@ -487,7 +485,7 @@
         <span class="chip-label">Linien (leer = alle)</span>
         <div class="line-chips-avail" data-idx="${idx}">
           ${entry._lines.length
-            ? entry._lines.map(l => `<button class="chip${entry.lines.has(l)?" on":""}" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`).join("")
+            ? _renderLineChipsHtml(entry._lines, entry.lines)
             : entry.globalId
               ? '<span style="color:var(--muted);font-size:12px">Lade Linien …</span>'
               : '<span style="color:var(--muted);font-size:12px">Erst Haltestelle wählen</span>'
@@ -541,9 +539,7 @@
               sheetEntries[idx]._lines = d.lines || [];
               const avail = $("entriesList").querySelectorAll(".line-chips-avail")[idx];
               if (avail) {
-                avail.innerHTML = (d.lines||[]).map(l =>
-                  `<button class="chip" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
-                ).join("") || '<span style="color:var(--muted);font-size:12px">Keine Linien gefunden</span>';
+                avail.innerHTML = _renderLineChipsHtml(d.lines || [], new Set());
                 _bindLineChips(avail, idx);
               }
             }).catch(()=>{});
@@ -594,6 +590,42 @@
         sheetEntries[idx].types = on.join(",");
       });
     });
+  }
+
+  const TYPE_ORDER = ["UBAHN","SBAHN","TRAM","BUS","REGIONAL_BUS","BAHN",""];
+  const TYPE_GROUP_LABEL = { UBAHN:"U-Bahn", SBAHN:"S-Bahn", TRAM:"Tram", BUS:"Bus", REGIONAL_BUS:"Bus", BAHN:"Bahn", "":"Sonstige" };
+
+  function _renderLineChipsHtml(lines, selectedSet) {
+    // lines = [{label, type}] oder [string] (Rückwärtskompatibilität)
+    const norm = lines.map(l => typeof l === "string" ? {label:l, type:""} : l);
+    // Gruppieren nach Typ
+    const groups = new Map();
+    for (const {label, type} of norm) {
+      const t = type || "";
+      if (!groups.has(t)) groups.set(t, []);
+      groups.get(t).push(label);
+    }
+    // Sortieren: erst nach TYPE_ORDER, dann innerhalb der Gruppe numerisch/alphabetisch
+    const sorted = [...groups.entries()].sort((a,b) =>
+      (TYPE_ORDER.indexOf(a[0]) + 1 || 99) - (TYPE_ORDER.indexOf(b[0]) + 1 || 99)
+    );
+    // Doppelte Bus-Gruppen zusammenführen
+    const merged = new Map();
+    for (const [t, ls] of sorted) {
+      const key = TYPE_GROUP_LABEL[t] || "Sonstige";
+      if (!merged.has(key)) merged.set(key, []);
+      merged.get(key).push(...ls);
+    }
+    if (!merged.size) return '<span style="color:var(--muted);font-size:12px">Keine Linien gefunden</span>';
+    return [...merged.entries()].map(([groupLabel, ls]) => {
+      const chips = ls.map(l =>
+        `<button class="chip${selectedSet.has(l)?" on":""}" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
+      ).join("");
+      return `<div style="margin-bottom:8px">
+        <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px">${esc(groupLabel)}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
+      </div>`;
+    }).join("");
   }
 
   function _bindLineChips(container, idx) {
