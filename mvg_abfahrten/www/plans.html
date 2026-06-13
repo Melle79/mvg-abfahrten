@@ -487,7 +487,14 @@
           ${entry._lines.length
             ? _renderLineChipsHtml(entry._lines, entry.lines)
             : entry.globalId
-              ? '<span style="color:var(--muted);font-size:12px">Lade Linien …</span>'
+              ? `<span style="color:var(--muted);font-size:12px">Keine Linien von API – manuell eingeben:</span>
+                 <div class="line-input-manual" style="display:flex;gap:8px;margin-top:6px">
+                   <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px" placeholder="z. B. 212, S5 …">
+                   <button class="chip" style="padding:6px 12px;border-radius:8px" data-manual-add="${idx}">＋</button>
+                 </div>
+                 <div class="manual-line-chips" data-idx="${idx}" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+                   ${[...entry.lines].map(l => `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`).join("")}
+                 </div>`
               : '<span style="color:var(--muted);font-size:12px">Erst Haltestelle wählen</span>'
           }
         </div>
@@ -505,7 +512,9 @@
       });
       _bindStationSearch(card.querySelector(".search-drop-sheet"), idx);
       _bindTypeChips(card.querySelector(".types-row"), idx);
-      _bindLineChips(card.querySelector(".line-chips-avail"), idx);
+      const lineAvail = card.querySelector(".line-chips-avail");
+      const manualChips = card.querySelector(".manual-line-chips");
+      _bindLineChips(lineAvail || manualChips, idx);
       _bindDirChips(card.querySelector(".dir-row"), idx);
     });
   }
@@ -643,6 +652,23 @@
         }
       });
     });
+    // Manuelle Eingabe
+    const manualAdd = container.closest(".entry-card")?.querySelector("[data-manual-add]");
+    const manualInput = container.closest(".entry-card")?.querySelector(".manual-line-input");
+    const manualChips = container.closest(".entry-card")?.querySelector(".manual-line-chips");
+    if (manualAdd && manualInput && manualChips) {
+      const addManual = () => {
+        const vals = manualInput.value.split(",").map(v => v.trim().toUpperCase()).filter(Boolean);
+        vals.forEach(v => sheetEntries[idx].lines.add(v));
+        manualInput.value = "";
+        manualChips.innerHTML = [...sheetEntries[idx].lines].map(l =>
+          `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
+        ).join("");
+        _bindLineChips(manualChips, idx);
+      };
+      manualAdd.addEventListener("click", addManual);
+      manualInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addManual(); } });
+    }
   }
 
   function _bindDirChips(row, idx) {

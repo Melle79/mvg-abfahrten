@@ -211,28 +211,42 @@ def api_departures(global_id: str):
 
 @app.get("/api/lines/<path:global_id>")
 def api_lines(global_id: str):
-    """Alle Linien einer Haltestelle – kein Cache, mehrere Zeitfenster."""
+    """Alle Linien einer Haltestelle – mehrere Versuche, verschiedene Limits."""
     all_lines = {}
-    # Drei Zeitfenster: jetzt, +4h, +8h — um selten fahrende Linien zu erfassen
-    offsets = [0, 4 * 3600, 8 * 3600]
-    for offset in offsets:
+    # Versuche mit verschiedenen Limits um alle Linien zu erfassen
+    for limit in [80, 40, 20]:
         try:
-            params = {"globalId": global_id, "limit": 80}
-            if offset:
-                params["offsetInMinutes"] = offset // 60
             resp = requests.get(
                 MVG_BASE + "/departures",
-                params=params,
+                params={"globalId": global_id, "limit": limit},
                 headers=HEADERS, timeout=10
             )
             if resp.status_code != 200:
                 continue
-            for dep in resp.json():
+            data = resp.json()
+            if not isinstance(data, list):
+                continue
+            for dep in data:
                 label = dep.get("label")
                 if label and label not in all_lines:
                     all_lines[label] = dep.get("transportType", "")
+            if all_lines:
+                break  # Haben Daten, kein weiterer Versuch nötig
         except requests.RequestException:
             continue
+
+    # Zusätzlich: aus gespeicherten Plänen bekannte Linien dieser Haltestelle ergänzen
+    try:
+        for plan in _load_plans():
+            for entry in plan.get("entries", []):
+                if entry.get("globalId") == global_id:
+                    for line in (entry.get("lines") or "").split(","):
+                        line = line.strip()
+                        if line and line not in all_lines:
+                            all_lines[line] = entry.get("types", "")
+    except Exception:
+        pass
+
     lines = sorted(all_lines.items(), key=lambda x: x[0])
     return jsonify({"globalId": global_id, "lines": [{"label": l, "type": t} for l, t in lines]})
 
