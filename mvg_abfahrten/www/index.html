@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.4.0 – Cache: 2026-06-12-05 */
+  /* Anzeigetafel v1.5.0 – Cache: 2026-06-12-06 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -127,6 +127,26 @@
   .board-head .star.on { color: var(--amber); }
   .board-head .star:focus-visible { outline: 2px solid var(--focus); border-radius: 4px; }
 
+  .dir-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 16px; border-bottom: 1px solid var(--line);
+    min-height: 0;
+  }
+  .dir-bar[hidden] { display: none; }
+  .dir-label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .dir-select {
+    flex: 1; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 10px; font-size: 13px; font-family: inherit;
+    cursor: pointer; outline: none;
+  }
+  .dir-select:focus { border-color: var(--focus); }
+  .dir-clear {
+    background: none; border: 0; color: var(--muted);
+    font-size: 16px; cursor: pointer; padding: 2px 4px; line-height: 1;
+  }
+  .dir-clear:hover { color: var(--ink); }
+
   .row {
     display: grid; align-items: center;
     grid-template-columns: minmax(58px, auto) 1fr auto auto;
@@ -200,6 +220,13 @@
       </div>
       <button class="star" id="star" title="Als Favorit speichern" aria-label="Als Favorit speichern">★</button>
     </div>
+    <div class="dir-bar" id="dirBar" hidden>
+      <span class="dir-label">Richtung</span>
+      <select class="dir-select" id="dirSelect" aria-label="Richtung filtern">
+        <option value="">Alle Ziele</option>
+      </select>
+      <button class="dir-clear" id="dirClear" title="Richtungsfilter entfernen" aria-label="Filter entfernen">✕</button>
+    </div>
     <div id="rows"></div>
   </div>
 
@@ -229,16 +256,19 @@
   };
   const TYPE_SHORT = { UBAHN:"U", SBAHN:"S", TRAM:"T", BUS:"B", REGIONAL_BUS:"B", BAHN:"R" };
 
-  const $ = (id) => document.getElementById(id);
+  const $  = (id) => document.getElementById(id);
   const qInput = $("q"), dropdown = $("dropdown"), spin = $("spin");
   const board = $("board"), rowsEl = $("rows");
   const favsEl = $("favs"), starBtn = $("star");
+  const dirBar = $("dirBar"), dirSelect = $("dirSelect"), dirClear = $("dirClear");
 
-  let current = null;          // { globalId, name, place, transportTypes }
+  let current = null;
   let favorites = [];
   let refreshTimer = null;
   let debounceTimer = null;
   let searchAbort = null;
+  let dirFilter = "";        // aktiver Richtungsfilter (Destination-String)
+  let lastDeps   = [];       // letzte Abfahrtsliste für Re-Filter ohne API-Call
 
   // ---------- Uhr ----------
   function tickClock() {
@@ -358,10 +388,13 @@
   // ---------- Station & Tafel ----------
   function selectStation(st) {
     current = st;
+    dirFilter = st.directionFilter || "";
     localStorage.setItem("mvg:last", JSON.stringify(st));
     $("stationName").textContent = st.name;
     $("stationSub").textContent = st.place || "";
     board.hidden = false;
+    dirBar.hidden = true;
+    dirSelect.innerHTML = '<option value="">Alle Ziele</option>';
     updateStar();
     loadDepartures(true);
     clearInterval(refreshTimer);
@@ -373,21 +406,35 @@
     if (showLoading) rowsEl.innerHTML = '<div class="empty">Lade Abfahrten …</div>';
     try {
       const types = activeTypes();
+      // Wir laden mehr als angezeigt, damit der Richtungsfilter genug Treffer hat
       const data = await api("departures/" + encodeURIComponent(current.globalId) +
-                             "?limit=15" + (types ? "&types=" + encodeURIComponent(types) : ""));
-      renderRows(data.departures || []);
+                             "?limit=30" + (types ? "&types=" + encodeURIComponent(types) : ""));
+      lastDeps = data.departures || [];
+      updateDirOptions(lastDeps);
+      renderRows(lastDeps);
     } catch (err) {
       rowsEl.innerHTML = '<div class="error">MVG-API nicht erreichbar – nächster Versuch in 30 s.</div>';
     }
   }
 
+  function updateDirOptions(deps) {
+    const destinations = [...new Set(deps.map(d => d.destination).filter(Boolean))].sort();
+    if (destinations.length < 2) { dirBar.hidden = true; return; }
+    const current_val = dirSelect.value;
+    dirSelect.innerHTML = '<option value="">Alle Ziele</option>' +
+      destinations.map(d => `<option value="${esc(d)}"${d === current_val ? " selected" : ""}>${esc(d)}</option>`).join("");
+    dirBar.hidden = false;
+  }
+
   function renderRows(deps) {
-    if (!deps.length) {
+    const filtered = dirFilter ? deps.filter(d => d.destination === dirFilter) : deps;
+    const visible = filtered.slice(0, 15);
+    if (!visible.length) {
       rowsEl.innerHTML = '<div class="empty">Keine Abfahrten für die gewählten Filter.</div>';
       return;
     }
     const now = Date.now();
-    rowsEl.innerHTML = deps.map(d => {
+    rowsEl.innerHTML = visible.map(d => {
       const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
       const planned = new Date(d.planned).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
       const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
@@ -406,6 +453,19 @@
       </div>`;
     }).join("");
   }
+
+  // ---------- Richtungsfilter ----------
+  dirSelect.addEventListener("change", () => {
+    dirFilter = dirSelect.value;
+    updateStar();
+    renderRows(lastDeps);
+  });
+  dirClear.addEventListener("click", () => {
+    dirFilter = "";
+    dirSelect.value = "";
+    updateStar();
+    renderRows(lastDeps);
+  });
 
   // ---------- Filter ----------
   $("chips").addEventListener("click", (e) => {
@@ -428,11 +488,13 @@
       const el = document.createElement("button");
       el.className = "fav";
       const tag = f.filterTypes ? ` · ${esc(typesLabel(f.filterTypes))}` : "";
-      el.innerHTML = `★ ${esc(f.name)}${tag} <span class="x" title="Favorit entfernen">✕</span>`;
+      const dir = f.directionFilter ? ` → ${esc(f.directionFilter)}` : "";
+      el.innerHTML = `★ ${esc(f.name)}${tag}${dir} <span class="x" title="Favorit entfernen">✕</span>`;
       el.addEventListener("click", (e) => {
         if (e.target.classList.contains("x")) { removeFavorite(f); return; }
         qInput.value = f.name;
         applyFilterChips(f.filterTypes || "");
+        dirFilter = f.directionFilter || "";
         selectStation(f);
       });
       favsEl.appendChild(el);
@@ -443,13 +505,17 @@
   function findFavorite() {
     if (!current) return null;
     const ft = filterForSave();
+    const df = directionForSave();
     return favorites.find(f =>
-      f.globalId === current.globalId && (f.filterTypes || "") === ft) || null;
+      f.globalId === current.globalId &&
+      (f.filterTypes || "") === ft &&
+      (f.directionFilter || "") === df
+    ) || null;
   }
   function updateStar() {
     const fav = findFavorite();
     starBtn.classList.toggle("on", !!fav);
-    starBtn.title = fav ? "Favorit entfernen" : "Als Favorit speichern (mit aktueller Filterauswahl)";
+    starBtn.title = fav ? "Favorit entfernen" : "Als Favorit speichern (mit Filter und Richtung)";
   }
 
   starBtn.addEventListener("click", async () => {
@@ -458,14 +524,18 @@
     if (existing) { removeFavorite(existing); return; }
     favorites = await fetch("./api/favorites", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({}, current, { filterTypes: filterForSave() }))
+      body: JSON.stringify(Object.assign({}, current, {
+        filterTypes: filterForSave(),
+        directionFilter: directionForSave(),
+      }))
     }).then(r => r.json());
     renderFavorites();
   });
 
   async function removeFavorite(fav) {
     const url = "./api/favorites/" + encodeURIComponent(fav.globalId) +
-      "?types=" + encodeURIComponent(fav.filterTypes || "");
+      "?types=" + encodeURIComponent(fav.filterTypes || "") +
+      "&direction=" + encodeURIComponent(fav.directionFilter || "");
     favorites = await fetch(url, { method: "DELETE" }).then(r => r.json());
     renderFavorites();
   }
