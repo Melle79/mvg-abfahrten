@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-08 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-10 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -186,6 +186,20 @@
 
   .empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: 14.5px; }
   .error { padding: 14px 16px; color: var(--red); font-size: 14px; }
+
+  .info-btn {
+    background: none; border: 0; cursor: pointer; padding: 0 3px;
+    color: var(--red); font-size: 14px; line-height: 1; vertical-align: middle;
+  }
+  .info-popup {
+    position: fixed; z-index: 100; max-width: 320px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+    font-size: 13px; color: var(--ink); display: none;
+  }
+  .info-popup .info-title { font-weight: 700; margin-bottom: 6px; color: var(--amber); }
+  .info-popup .info-item { margin-bottom: 5px; color: var(--muted); }
+  .info-popup .info-item b { color: var(--ink); }
   footer { margin-top: 14px; color: var(--muted); font-size: 12px; text-align: center; }
 
   @media (max-width: 520px) {
@@ -238,6 +252,7 @@
 
   <footer>Daten: inoffizielle MVG-API · nur für private Nutzung · Auto-Aktualisierung alle 30 s</footer>
 </div>
+<div class="info-popup" id="infoPopup"></div>
 
 <script>
 (() => {
@@ -359,7 +374,35 @@
     if (val.length < 2) { dropdown.style.display = "none"; return; }
     debounceTimer = setTimeout(() => search(val), 300);
   });
+  // ---------- Info-Popup ----------
+  const infoPopup = $("infoPopup");
+
+  function showInfoPopup(dep, anchor) {
+    const TYPE_LABELS = {
+      INCIDENT: "Störung", EARLY_TERMINATION: "Vorzeitige Endstation",
+      DISRUPTION: "Betriebsstörung", INFORMATION: "Information"
+    };
+    const items = (dep.infos || []).map(info =>
+      `<div class="info-item"><b>${esc(TYPE_LABELS[info.type] || info.type)}:</b> ${esc(info.message)}</div>`
+    ).join("");
+    const msgs = (dep.messages || []).filter(m => !dep.infos?.some(i => i.message === m))
+      .map(m => `<div class="info-item">${esc(m)}</div>`).join("");
+    infoPopup.innerHTML = `<div class="info-title">${esc(dep.label)} → ${esc(dep.destination)}</div>${items}${msgs}`;
+    infoPopup.style.display = "block";
+    // Positionieren nahe dem Button
+    const r = anchor.getBoundingClientRect();
+    const pw = 320, ph = infoPopup.offsetHeight || 120;
+    let left = r.left, top = r.bottom + 6;
+    if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+    if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+    infoPopup.style.left = left + "px";
+    infoPopup.style.top  = top  + "px";
+  }
+
   document.addEventListener("click", (e) => {
+    if (!e.target.closest(".info-btn") && !e.target.closest("#infoPopup")) {
+      infoPopup.style.display = "none";
+    }
     if (!e.target.closest(".search")) dropdown.style.display = "none";
   });
 
@@ -434,29 +477,77 @@
   }
 
   function updatePlatformChips(deps) {
-    // Pro Steig alle vorkommenden Ziele sammeln
-    const byPlatform = new Map();
-    for (const d of deps) {
-      const p = d.platform;
-      if (p == null) continue;
-      if (!byPlatform.has(p)) byPlatform.set(p, new Set());
-      byPlatform.get(p).add(d.destination);
+    if (deps.length < 2) { dirBar.hidden = true; return; }
+
+    // direction aus lineId (:H:=1, :R:=2) — das ist die saubere MVG-Richtung
+    const directions = new Set(deps.map(d => d.direction).filter(d => d > 0));
+
+    if (directions.size >= 2) {
+      // Richtungs-Chips basierend auf lineId-Direction
+      const byDir = new Map();
+      for (const d of deps) {
+        if (!d.direction) continue;
+        if (!byDir.has(d.direction)) byDir.set(d.direction, new Set());
+        byDir.get(d.direction).add(d.destination);
+      }
+      platformChips.innerHTML = "";
+      for (const [dir, dests] of [...byDir.entries()].sort((a,b) => a[0]-b[0])) {
+        const sub = [...dests].slice(0, 3).join(", ");
+        const btn = document.createElement("button");
+        btn.className = "dir-chip";
+        btn.setAttribute("aria-pressed", platformFilter.has(dir) ? "true" : "false");
+        btn.innerHTML = `<span class="gleis">Richtung ${esc(String(dir))}</span>
+                         <span class="dest-list">${esc(sub)}</span>`;
+        btn.addEventListener("click", () => {
+          if (platformFilter.has(dir)) platformFilter.delete(dir);
+          else platformFilter.add(dir);
+          btn.setAttribute("aria-pressed", platformFilter.has(dir) ? "true" : "false");
+          updateStar();
+          renderRows(lastDeps);
+        });
+        platformChips.appendChild(btn);
+      }
+      dirBar.hidden = false;
+    } else {
+      // Fallback: platform (S/U/Tram) oder destination (Bus ohne direction)
+      _buildChips(deps, "platform");
+      if (dirBar.hidden) _buildChips(deps, "destination");
     }
-    if (byPlatform.size < 2) { dirBar.hidden = true; return; }
+  }
+
+  function _buildChips(deps, mode) {
+    // mode = "platform" oder "destination"
+    const byKey = new Map();
+    for (const d of deps) {
+      const key = mode === "platform" ? d.platform : d.destination;
+      if (key == null || key === "") continue;
+      if (!byKey.has(key)) byKey.set(key, new Set());
+      if (mode === "platform") byKey.get(key).add(d.destination);
+      else byKey.get(key).add(d.label);
+    }
+    if (byKey.size < 2) { dirBar.hidden = true; return; }
 
     platformChips.innerHTML = "";
-    const sorted = [...byPlatform.keys()].sort((a, b) => a - b);
-    for (const p of sorted) {
-      const dests = [...byPlatform.get(p)].slice(0, 3).join(", ");
+    const sorted = mode === "platform"
+      ? [...byKey.keys()].sort((a, b) => a - b)
+      : [...byKey.keys()].sort();
+
+    for (const key of sorted) {
+      const sub = [...byKey.get(key)].slice(0, 3).join(", ");
       const btn = document.createElement("button");
       btn.className = "dir-chip";
-      btn.setAttribute("aria-pressed", platformFilter.has(p) ? "true" : "false");
-      btn.innerHTML = `<span class="gleis">Steig ${esc(String(p))}</span>
-                       <span class="dest-list">${esc(dests)}</span>`;
+      btn.setAttribute("aria-pressed", platformFilter.has(key) ? "true" : "false");
+      if (mode === "platform") {
+        btn.innerHTML = `<span class="gleis">Steig ${esc(String(key))}</span>
+                         <span class="dest-list">${esc(sub)}</span>`;
+      } else {
+        btn.innerHTML = `<span class="gleis">${esc(String(key))}</span>
+                         <span class="dest-list">${esc(sub)}</span>`;
+      }
       btn.addEventListener("click", () => {
-        if (platformFilter.has(p)) platformFilter.delete(p);
-        else platformFilter.add(p);
-        btn.setAttribute("aria-pressed", platformFilter.has(p) ? "true" : "false");
+        if (platformFilter.has(key)) platformFilter.delete(key);
+        else platformFilter.add(key);
+        btn.setAttribute("aria-pressed", platformFilter.has(key) ? "true" : "false");
         updateStar();
         renderRows(lastDeps);
       });
@@ -466,33 +557,50 @@
   }
 
   function renderRows(deps) {
-    const filtered = platformFilter.size
-      ? deps.filter(d => platformFilter.has(d.platform))
-      : deps;
+    let filtered = deps;
+    if (platformFilter.size) {
+      filtered = deps.filter(d =>
+        platformFilter.has(d.direction) ||
+        platformFilter.has(d.platform) ||
+        platformFilter.has(d.destination)
+      );
+    }
     const visible = filtered.slice(0, DEFAULT_LIMIT);
     if (!visible.length) {
       rowsEl.innerHTML = '<div class="empty">Keine Abfahrten für die gewählten Filter.</div>';
       return;
     }
     const now = Date.now();
-    rowsEl.innerHTML = visible.map(d => {
+    rowsEl.innerHTML = visible.map((d, i) => {
       const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
       const planned = new Date(d.planned).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
       const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
       const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
+      const hasInfo = d.infos && d.infos.length > 0;
+      const infoBadge = hasInfo
+        ? `<button class="info-btn" data-idx="${i}" title="Info anzeigen">ⓘ</button>` : "";
       const minHtml = d.cancelled
         ? '<span class="min">entfällt</span>'
         : `<span class="min">${mins}<small>min</small></span>`;
       return `<div class="row${d.cancelled ? " cancelled" : ""}">
         ${badgeHtml(d.label, d.transportType)}
         <div class="dest">
-          <div class="to">${esc(d.destination)}</div>
+          <div class="to">${esc(d.destination)}${infoBadge}</div>
           <div class="meta">${planned}${delay}${sev}</div>
         </div>
-        <span class="platform">${d.platform ? "Gleis " + esc(d.platform) : ""}</span>
+        <span class="platform">${d.platform != null ? "Gleis " + esc(d.platform) : ""}</span>
         ${minHtml}
       </div>`;
     }).join("");
+
+    // Info-Popup-Handler
+    rowsEl.querySelectorAll(".info-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const dep = visible[parseInt(btn.dataset.idx)];
+        showInfoPopup(dep, btn);
+      });
+    });
   }
 
   // ---------- Richtungsfilter ----------
@@ -524,8 +632,10 @@
       const el = document.createElement("button");
       el.className = "fav";
       const tag = f.filterTypes    ? ` · ${esc(typesLabel(f.filterTypes))}` : "";
-      const plf = f.platformFilter ? ` · Steig ${esc(f.platformFilter.split(",").join("/"))}` : "";
-      el.innerHTML = `★ ${esc(f.name)}${tag}${plf} <span class="x" title="Favorit entfernen">✕</span>`;
+      const pf  = f.platformFilter
+        ? ` · ${f.platformFilter.split(",").map(v => isNaN(v) ? esc(v) : "Steig " + esc(v)).join(" / ")}`
+        : "";
+      el.innerHTML = `★ ${esc(f.name)}${tag}${pf} <span class="x" title="Favorit entfernen">✕</span>`;
       el.addEventListener("click", (e) => {
         if (e.target.classList.contains("x")) { removeFavorite(f); return; }
         qInput.value = f.name;

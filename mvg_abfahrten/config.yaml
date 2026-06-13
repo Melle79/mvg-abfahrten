@@ -1,5 +1,5 @@
 name: MVG Abfahrten
-version: "1.7.0"
+version: "1.8.0"
 slug: mvg_abfahrten
 description: Abfahrtsmonitor für MVG/MVV mit Haltestellensuche, Favoriten und Echtzeitdaten
 url: https://github.com/Melle79/mvg-abfahrten

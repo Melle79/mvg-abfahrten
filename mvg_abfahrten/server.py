@@ -163,16 +163,22 @@ def api_departures(global_id: str):
 
     departures = [
         {
-            "label": dep.get("label"),
-            "destination": dep.get("destination"),
+            "label":         dep.get("label"),
+            "destination":   dep.get("destination"),
             "transportType": dep.get("transportType"),
-            "planned": dep.get("plannedDepartureTime"),
-            "realtime": dep.get("realtimeDepartureTime") or dep.get("plannedDepartureTime"),
-            "delay": dep.get("delayInMinutes") or 0,
-            "platform": dep.get("platform"),
-            "cancelled": bool(dep.get("cancelled")),
-            "sev": bool(dep.get("sev")),
-            "messages": dep.get("messages") or [],
+            "planned":       dep.get("plannedDepartureTime"),
+            "realtime":      dep.get("realtimeDepartureTime") or dep.get("plannedDepartureTime"),
+            "delay":         dep.get("delayInMinutes") or 0,
+            "platform":      dep.get("platform"),
+            "cancelled":     bool(dep.get("cancelled")),
+            "sev":           bool(dep.get("sev")),
+            "messages":      dep.get("messages") or [],
+            "infos":         dep.get("infos") or [],
+            "occupancy":     dep.get("occupancy") or "UNKNOWN",
+            "lineId":        dep.get("lineId") or "",
+            # Richtung aus lineId ableiten: :H: = Hinfahrt (1), :R: = Rückfahrt (2)
+            "direction":     1 if ":H:" in (dep.get("lineId") or "") else
+                             2 if ":R:" in (dep.get("lineId") or "") else 0,
         }
         for dep in data
     ]

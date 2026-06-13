@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.7.0
+/* MVG Abfahrten – Lovelace-Karte v1.8.0
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -111,6 +111,10 @@
     .min small { font-size: 10.5px; font-weight: 600; color: var(--mvg-muted); margin-left: 2px; }
     .cancelled .to { text-decoration: line-through; color: var(--mvg-muted); }
     .cancelled .min { color: var(--mvg-red); font-size: 13px; }
+    .info-btn {
+      background: none; border: 0; cursor: pointer; padding: 0 2px;
+      color: var(--mvg-red); font-size: 12px; line-height: 1; vertical-align: middle;
+    }
     .note { padding: 18px 16px; color: var(--mvg-muted); font-size: 13px; border-top: 1px solid var(--mvg-line); }
     .note.err { color: var(--mvg-red); }
     .section-head {
@@ -302,7 +306,13 @@
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       const data = await resp.json();
       let deps = data.departures || [];
-      if (platformFilter?.size) deps = deps.filter(d => platformFilter.has(d.platform));
+      if (platformFilter?.size) {
+        deps = deps.filter(d =>
+          platformFilter.has(d.direction) ||
+          platformFilter.has(d.platform) ||
+          platformFilter.has(d.destination)
+        );
+      }
       return deps.slice(0, this._config.limit || 8);
     }
 
@@ -341,7 +351,9 @@
       );
       this._els.rows.innerHTML = this._favorites.map((f, i) => {
         const tag = f.filterTypes    ? `<span class="tag">${esc(typesLabel(f.filterTypes))}</span>` : "";
-        const plf = f.platformFilter ? `<span class="tag">Steig ${esc(f.platformFilter.split(",").join("/"))}</span>` : "";
+        const plf = f.platformFilter
+          ? `<span class="tag">${f.platformFilter.split(",").map(v => isNaN(v) ? esc(v) : "Steig " + esc(v)).join(" / ")}</span>`
+          : "";
         const head = `<div class="section-head"><h3>${esc(f.name)}</h3>${tag}${plf}
           <span class="place2">${esc(f.place || "")}</span></div>`;
         const res = results[i];
@@ -372,16 +384,22 @@
           { hour: "2-digit", minute: "2-digit" });
         const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
         const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
+        const hasInfo = d.infos && d.infos.length > 0;
+        const infoTip = hasInfo
+          ? d.infos.map(i => i.message).join(" · ")
+          : (d.messages || []).join(" · ");
+        const infoBadge = (hasInfo || (d.messages||[]).length)
+          ? `<span class="info-btn" title="${esc(infoTip)}">ⓘ</span>` : "";
         const minHtml = d.cancelled
           ? '<span class="min">entfällt</span>'
           : `<span class="min">${mins}<small>min</small></span>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
-            <div class="to">${esc(d.destination)}</div>
+            <div class="to">${esc(d.destination)}${infoBadge}</div>
             <div class="meta">${planned}${delay}${sev}</div>
           </div>
-          <span class="platform">${d.platform ? "Gleis " + esc(d.platform) : ""}</span>
+          <span class="platform">${d.platform != null ? "Gleis " + esc(d.platform) : ""}</span>
           ${minHtml}
         </div>`;
       }).join("");
@@ -519,7 +537,9 @@
           value: favKey(f),
           label: f.name
             + (f.filterTypes    ? ` · ${typesLabel(f.filterTypes)}` : "")
-            + (f.platformFilter ? ` · Steig ${f.platformFilter.split(",").join("/")}` : "")
+            + (f.platformFilter
+              ? ` · ${f.platformFilter.split(",").map(v => isNaN(v) ? v : "Steig " + v).join(" / ")}`
+              : "")
             + (f.place ? ` (${f.place})` : ""),
         })),
       ];
