@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-16 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-17 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -714,12 +714,10 @@
     favModalLines.innerHTML = '<span style="color:var(--muted);font-size:13px">Lade Linien …</span>';
     favModal.hidden = false;
 
-    // Linien dieser Haltestelle laden (frisch, nicht aus lastDeps)
+    // Alle Linien der Haltestelle laden – OHNE filterTypes-Filter damit auch Bus etc. sichtbar sind
     let stationDeps = [];
     try {
-      const types = fav.filterTypes || "";
-      const data = await api("departures/" + encodeURIComponent(fav.globalId) +
-        "?limit=60" + (types ? "&types=" + encodeURIComponent(types) : ""));
+      const data = await api("departures/" + encodeURIComponent(fav.globalId) + "?limit=60");
       stationDeps = data.departures || [];
     } catch (e) { stationDeps = []; }
 
