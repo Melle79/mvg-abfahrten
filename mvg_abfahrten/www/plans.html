@@ -115,9 +115,8 @@
   .line-input input { flex: 1; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font-size: 13px; font-family: inherit; outline: none; }
   .line-input input:focus { border-color: var(--amber); }
   .line-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-  .line-chip { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--amber); background: rgba(255,179,0,0.1); color: var(--ink); font-size: 12px; font-weight: 600; }
-  .line-chip .rm { cursor: pointer; color: var(--muted); margin-left: 2px; }
-  .line-chip .rm:hover { color: var(--red); }
+  .line-chips-avail { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; min-height: 28px; }
+  .line-chips-avail .chip { display: inline-flex; align-items: center; gap: 5px; }
   .btn-add-entry { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; border: 1px dashed var(--amber); background: transparent; color: var(--amber); font-size: 14px; cursor: pointer; font-family: inherit; width: 100%; justify-content: center; margin-top: 10px; }
   .btn-add-entry:hover { background: rgba(255,179,0,0.06); }
   .sheet-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 20px 0; }
@@ -447,12 +446,13 @@
         </div>
         <!-- Linien -->
         <span class="chip-label">Linien (leer = alle)</span>
-        <div class="line-input" data-idx="${idx}">
-          <input type="text" placeholder="Linie hinzufügen (z. B. S5, U3) …" class="line-add-input">
-          <button class="chip" style="border-radius:8px;padding:6px 12px" data-add="${idx}">＋</button>
-        </div>
-        <div class="line-chips" data-idx="${idx}">
-          ${[...entry.lines].map(l => `<span class="line-chip">${badgeHtml(l,"")}<span class="lname">${esc(l)}</span><span class="rm" data-line="${esc(l)}" data-idx="${idx}">✕</span></span>`).join("")}
+        <div class="line-chips-avail" data-idx="${idx}">
+          ${entry._lines.length
+            ? entry._lines.map(l => `<button class="chip${entry.lines.has(l)?" on":""}" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`).join("")
+            : entry.globalId
+              ? '<span style="color:var(--muted);font-size:12px">Lade Linien …</span>'
+              : '<span style="color:var(--muted);font-size:12px">Erst Haltestelle wählen</span>'
+          }
         </div>
         <!-- Richtung -->
         <span class="chip-label">Richtung (leer = beide)</span>
@@ -468,7 +468,7 @@
       });
       _bindStationSearch(card.querySelector(".search-drop-sheet"), idx);
       _bindTypeChips(card.querySelector(".types-row"), idx);
-      _bindLineInput(card.querySelector(".line-input"), card.querySelector(".line-chips"), idx);
+      _bindLineChips(card.querySelector(".line-chips-avail"), idx);
       _bindDirChips(card.querySelector(".dir-row"), idx);
     });
   }
@@ -494,13 +494,19 @@
             sheetEntries[idx].globalId = st.globalId;
             sheetEntries[idx].stationName = st.name;
             sheetEntries[idx].place = st.place || "";
+            sheetEntries[idx]._lines = [];
+            sheetEntries[idx].lines = new Set();
             renderEntries();
-            // Verfügbare Linien nachladen
+            // Linien nachladen und Chips neu rendern
             api("lines/" + encodeURIComponent(st.globalId)).then(d => {
               sheetEntries[idx]._lines = d.lines || [];
-              // Linien-Input Autocomplete befüllen (einfach als Placeholder)
-              const lineInput = $("entriesList").querySelectorAll(".line-add-input")[idx];
-              if (lineInput) lineInput.placeholder = `z. B. ${(d.lines||[]).slice(0,3).join(", ")} …`;
+              const avail = $("entriesList").querySelectorAll(".line-chips-avail")[idx];
+              if (avail) {
+                avail.innerHTML = (d.lines||[]).map(l =>
+                  `<button class="chip" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
+                ).join("") || '<span style="color:var(--muted);font-size:12px">Keine Linien gefunden</span>';
+                _bindLineChips(avail, idx);
+              }
             }).catch(()=>{});
           });
           drop.appendChild(b);
@@ -521,22 +527,18 @@
     });
   }
 
-  function _bindLineInput(inputWrap, chipsEl, idx) {
-    const input = inputWrap.querySelector(".line-add-input");
-    const addBtn = inputWrap.querySelector("[data-add]");
-    const addLine = () => {
-      const val = input.value.trim().toUpperCase();
-      if (!val) return;
-      sheetEntries[idx].lines.add(val);
-      input.value = "";
-      renderEntries();
-    };
-    addBtn.addEventListener("click", addLine);
-    input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addLine(); } });
-    chipsEl.querySelectorAll(".rm").forEach(rm => {
-      rm.addEventListener("click", () => {
-        sheetEntries[idx].lines.delete(rm.dataset.line);
-        renderEntries();
+  function _bindLineChips(container, idx) {
+    if (!container) return;
+    container.querySelectorAll(".chip[data-line]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const line = btn.dataset.line;
+        if (sheetEntries[idx].lines.has(line)) {
+          sheetEntries[idx].lines.delete(line);
+          btn.classList.remove("on");
+        } else {
+          sheetEntries[idx].lines.add(line);
+          btn.classList.add("on");
+        }
       });
     });
   }
