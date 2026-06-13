@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.21
+/* MVG Abfahrten – Lovelace-Karte v2.2.22
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -103,15 +103,22 @@
     .badge.long { font-size: 10.5px; letter-spacing: -0.01em; }
     .dest { min-width: 0; }
     .to { font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .meta { color: var(--mvg-muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; }
+    .meta { color: var(--mvg-muted); font-size: 11.5px; }
     .meta .delay { color: var(--mvg-red); font-weight: 700; }
     .meta .sev { color: var(--mvg-accent); font-weight: 700; }
-    .meta .ticker {
+    .ticker-row {
+      grid-column: 1 / -1;
+      overflow: hidden;
+      height: 14px;
+      padding: 0 16px 0 0;
+    }
+    .ticker {
       display: inline-block;
+      font-size: 11px;
       color: var(--mvg-red);
-      padding-left: 100%;
-      animation: ticker 18s linear infinite;
       white-space: nowrap;
+      padding-left: 60%;
+      animation: ticker 20s linear infinite;
     }
     @keyframes ticker {
       0%   { transform: translateX(0); }
@@ -613,17 +620,18 @@
         const tickerText = this._config.show_ticker && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
-        const metaHtml = tickerText
-          ? `<div class="meta"><span class="ticker">${esc(tickerText)}</span></div>`
-          : `<div class="meta">${stationTxt}${planned}${delay}${sev}</div>`;
-        return `<div class="row${d.cancelled ? " cancelled" : ""}">
+        const tickerRow = tickerText
+          ? `<div class="ticker-row"><span class="ticker">${esc(tickerText)}</span></div>`
+          : "";
+        return `<div class="row${d.cancelled ? " cancelled" : ""}${tickerText ? " has-ticker" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
             <div class="to">${destHtml}${infoBadge}</div>
-            ${metaHtml}
+            <div class="meta">${stationTxt}${planned}${delay}${sev}</div>
           </div>
           <span class="platform${d.platformChanged ? " platform-changed" : ""}">${platTxt}</span>
           ${minHtml}
+          ${tickerRow}
         </div>`;
       }).join("");
     }
@@ -685,10 +693,11 @@
         const tickerText2 = this._config.show_ticker && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
-        const metaHtml2 = tickerText2
-          ? `<div class="meta"><span class="ticker">${esc(tickerText2)}</span></div>`
-          : `<div class="meta">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</div>`;
-        return `<div class="row${d.cancelled ? " cancelled" : ""}">
+        const tickerRow2 = tickerText2
+          ? `<div class="ticker-row"><span class="ticker">${esc(tickerText2)}</span></div>`
+          : "";
+        const metaHtml2 = `<div class="meta">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</div>`;
+        return `<div class="row${d.cancelled ? " cancelled" : ""}${tickerText2 ? " has-ticker" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
             <div class="to">${esc(d.destination)}${infoBadge}</div>
@@ -696,6 +705,7 @@
           </div>
           <span class="platform${d.platformChanged ? ' platform-changed' : ''}">${platformTxt}</span>
           ${minHtml}
+          ${tickerRow2}
         </div>`;
       }).join("");
     }
