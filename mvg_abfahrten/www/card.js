@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.24
+/* MVG Abfahrten – Lovelace-Karte v2.2.25
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -610,7 +610,7 @@
           : esc(d.destination);
         const hasInfo = (d.infos||[]).some(x => x.type !== "EARLY_TERMINATION") || (d.messages||[]).length > 0;
         const _infoItems = [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.type+"::"+i.message), ...(d.messages||[]).map(m=>"Info::"+m)].join("|||");
-        const infoBadge = hasInfo ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems)}">ⓘ</button>` : "";
+        const infoBadge = hasInfo && !this._config.show_ticker ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems)}">ⓘ</button>` : "";
         const platTxt = d.platform != null ? (d.platformChanged ? `⚠ ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
         const minHtml = d.cancelled ? '<span class="min">entfällt</span>' : `<span class="min">${mins}<small>min</small></span>`;
         const stationTxt = this._config.show_station !== false && d.stationName
@@ -679,7 +679,7 @@
         const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
         const hasInfo = (d.infos && d.infos.length > 0) || (d.messages && d.messages.length > 0);
         const _infoItems2 = [...(d.infos||[]).map(i=>i.type+"::"+i.message), ...(d.messages||[]).map(m=>"Info::"+m)].join("|||");
-        const infoBadge = hasInfo
+        const infoBadge = hasInfo && !this._config.show_ticker
           ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems2)}">ⓘ</button>` : "";
         const occIcon = {"LOW":"🟢","MEDIUM":"🟡","HIGH":"🔴","FULL":"🔴"}[d.occupancy] || "";
         const platformTxt = d.platform != null
