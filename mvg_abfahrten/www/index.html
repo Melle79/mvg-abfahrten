@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-18 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-19 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -114,19 +114,68 @@
   .fav .edit { color: var(--muted); font-size: 13px; padding: 0 2px; }
   .fav .edit:hover { color: var(--amber); }
 
-  .fav-modal { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; }
-  .fav-modal[hidden] { display: none; }
-  .fav-modal-box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; width: min(440px,92vw); max-height: 85vh; overflow-y: auto; box-shadow: 0 16px 48px rgba(0,0,0,0.6); }
-  .fav-modal-box h3 { margin: 0 0 16px; font-size: 16px; }
-  .fav-section { margin-bottom: 16px; }
-  .fav-section-label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; display: block; }
-  .fav-check-grid { display: flex; flex-wrap: wrap; gap: 6px; }
-  .fav-check { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); font-size: 13px; cursor: pointer; user-select: none; }
+  /* ------- Favoriten-Assistent (Sheet von unten) ------- */
+  .fav-sheet {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.65);
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .fav-sheet[hidden] { display: none; }
+  .fav-sheet-box {
+    background: var(--panel); border-radius: 18px 18px 0 0;
+    width: min(560px, 100%); max-height: 88vh; overflow-y: auto;
+    padding: 0 0 32px; box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+  }
+  .fav-sheet-handle {
+    width: 40px; height: 4px; border-radius: 2px;
+    background: var(--line); margin: 12px auto 16px;
+  }
+  .fav-sheet-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px 16px; border-bottom: 1px solid var(--line);
+  }
+  .fav-sheet-head h3 { margin: 0; font-size: 17px; font-weight: 700; }
+  .fav-sheet-close {
+    background: none; border: 0; color: var(--muted);
+    font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1;
+  }
+  .fav-step {
+    padding: 16px 20px; border-bottom: 1px solid var(--line);
+  }
+  .fav-step[hidden] { display: none; }
+  .fav-step-label {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--muted); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px;
+  }
+  .fav-step-label .step-num {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--line); color: var(--muted);
+    font-size: 11px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .fav-step-label .step-num.active { background: var(--amber); color: #000; }
+  .fav-check-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .fav-check {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--muted); font-size: 13px; cursor: pointer; user-select: none;
+    font-family: inherit;
+  }
   .fav-check.on { border-color: var(--amber); color: var(--ink); background: rgba(255,179,0,0.08); }
-  .fav-check input[type=checkbox] { accent-color: var(--amber); }
-  .fav-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
-  .btn { padding: 8px 18px; border-radius: 8px; border: 0; font-size: 14px; cursor: pointer; font-family: inherit; }
-  .btn-primary { background: var(--amber); color: #000; font-weight: 700; }
+  .fav-check input[type=checkbox] { accent-color: var(--amber); pointer-events: none; }
+  .fav-check-loading { color: var(--muted); font-size: 13px; font-style: italic; }
+  .fav-sheet-save {
+    margin: 20px 20px 0; display: flex; align-items: center; gap: 12px;
+  }
+  .fav-name-input {
+    flex: 1; padding: 10px 13px; border-radius: 9px;
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink); font-size: 14px; font-family: inherit; outline: none;
+  }
+  .fav-name-input:focus { border-color: var(--amber); }
+  .btn { padding: 9px 20px; border-radius: 9px; border: 0; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600; }
+  .btn-primary { background: var(--amber); color: #000; }
   .btn-secondary { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); }
 
   /* ------- Tafel ------- */
@@ -271,24 +320,51 @@
   <footer>Daten: inoffizielle MVG-API · nur für private Nutzung · Auto-Aktualisierung alle 30 s</footer>
 </div>
 <div class="info-popup" id="infoPopup"></div>
-<div class="fav-modal" id="favModal" hidden>
-  <div class="fav-modal-box">
-    <h3 id="favModalTitle">Favorit bearbeiten</h3>
-    <div class="fav-section">
-      <span class="fav-section-label">Verkehrsmittel</span>
-      <div class="fav-check-grid" id="favModalTypes"></div>
+
+<!-- Favoriten-Assistent -->
+<div class="fav-sheet" id="favSheet" hidden>
+  <div class="fav-sheet-box">
+    <div class="fav-sheet-handle"></div>
+    <div class="fav-sheet-head">
+      <h3 id="favSheetTitle">Favorit</h3>
+      <button class="fav-sheet-close" id="favSheetClose">✕</button>
     </div>
-    <div class="fav-section">
-      <span class="fav-section-label">Linien (leer = alle)</span>
-      <div class="fav-check-grid" id="favModalLines"></div>
+
+    <!-- Schritt 2: Verkehrsmittel -->
+    <div class="fav-step" id="favStepTypes">
+      <div class="fav-step-label">
+        <span class="step-num active">2</span> Verkehrsmittel
+        <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:4px">(leer = alle)</span>
+      </div>
+      <div class="fav-check-grid" id="favTypeChecks"></div>
     </div>
-    <div class="fav-section">
-      <span class="fav-section-label">Richtung</span>
-      <div class="fav-check-grid" id="favModalDir"></div>
+
+    <!-- Schritt 3: Linie -->
+    <div class="fav-step" id="favStepLines">
+      <div class="fav-step-label">
+        <span class="step-num active">3</span> Linie
+        <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:4px">(leer = alle)</span>
+      </div>
+      <div class="fav-check-grid" id="favLineChecks">
+        <span class="fav-check-loading">Lade Linien …</span>
+      </div>
     </div>
-    <div class="fav-modal-actions">
-      <button class="btn btn-secondary" id="favModalCancel">Abbrechen</button>
-      <button class="btn btn-primary" id="favModalSave">Speichern</button>
+
+    <!-- Schritt 4: Richtung -->
+    <div class="fav-step" id="favStepDir">
+      <div class="fav-step-label">
+        <span class="step-num active">4</span> Richtung
+        <span style="color:var(--muted);font-weight:400;font-size:11px;margin-left:4px">(leer = beide)</span>
+      </div>
+      <div class="fav-check-grid" id="favDirChecks">
+        <span class="fav-check-loading">Lade Richtungen …</span>
+      </div>
+    </div>
+
+    <!-- Name + Speichern -->
+    <div class="fav-sheet-save">
+      <input class="fav-name-input" id="favNameInput" type="text" placeholder="Name des Favoriten">
+      <button class="btn btn-primary" id="favSheetSave">★ Speichern</button>
     </div>
   </div>
 </div>
@@ -645,7 +721,7 @@
       el.innerHTML = `★ ${esc(f.name)}${tag}${pf} <span class="edit" title="Favorit bearbeiten">✎</span><span class="x" title="Favorit entfernen">✕</span>`;
       el.addEventListener("click", (e) => {
         if (e.target.classList.contains("x"))    { removeFavorite(f); return; }
-        if (e.target.classList.contains("edit")) { openFavModal(f); return; }
+        if (e.target.classList.contains("edit")) { openFavSheet(f); return; }
         qInput.value = f.name;
         applyFilterChips(f.filterTypes || "");
         selectStation(f);
@@ -670,130 +746,144 @@
     starBtn.title = fav ? "Favorit entfernen" : "Als Favorit speichern (mit Verkehrsmittel- und Richtungsfilter)";
   }
 
-  starBtn.addEventListener("click", async () => {
+  starBtn.addEventListener("click", () => {
     if (!current) return;
     const existing = findFavorite();
     if (existing) { removeFavorite(existing); return; }
-    favorites = await fetch("./api/favorites", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({}, current, {
-        filterTypes:    filterForSave(),
-        platformFilter: platformForSave(),
-      }))
-    }).then(r => r.json());
-    renderFavorites();
+    // Assistenten mit aktueller Station öffnen
+    openFavSheet(Object.assign({}, current, {
+      filterTypes: filterForSave(),
+      lineFilter: "",
+      platformFilter: platformForSave(),
+    }));
   });
 
   async function removeFavorite(fav) {
     const url = "./api/favorites/" + encodeURIComponent(fav.globalId) +
       "?types="    + encodeURIComponent(fav.filterTypes    || "") +
-      "&platform=" + encodeURIComponent(fav.platformFilter || "");
+      "&platform=" + encodeURIComponent(fav.platformFilter || "") +
+      "&line="     + encodeURIComponent(fav.lineFilter     || "");
     favorites = await fetch(url, { method: "DELETE" }).then(r => r.json());
     renderFavorites();
   }
 
-  // ---------- Favoriten-Modal ----------
-  const favModal       = $("favModal");
-  const favModalTitle  = $("favModalTitle");
-  const favModalTypes  = $("favModalTypes");
-  const favModalLines  = $("favModalLines");
-  const favModalDir    = $("favModalDir");
-  const favModalCancel = $("favModalCancel");
-  const favModalSave   = $("favModalSave");
-  let   _editingFav    = null;
+  // ---------- Favoriten-Assistent ----------
+  const favSheet     = $("favSheet");
+  const favSheetTitle = $("favSheetTitle");
+  const favSheetClose = $("favSheetClose");
+  const favTypeChecks = $("favTypeChecks");
+  const favLineChecks = $("favLineChecks");
+  const favDirChecks  = $("favDirChecks");
+  const favNameInput  = $("favNameInput");
+  const favSheetSave  = $("favSheetSave");
+  let   _editingFav   = null; // null = neuer Favorit, sonst bestehender
 
   const ALL_TYPES = [
     {value:"UBAHN",label:"U-Bahn"}, {value:"SBAHN",label:"S-Bahn"},
     {value:"TRAM",label:"Tram"}, {value:"BUS,REGIONAL_BUS",label:"Bus"}, {value:"BAHN",label:"Bahn"}
   ];
-  const DIR_OPTIONS = [{value:"1",label:"H · Hinfahrt"},{value:"2",label:"R · Rückfahrt"}];
 
-  async function openFavModal(fav) {
-    _editingFav = fav;
-    favModalTitle.textContent = `${fav.name} bearbeiten`;
-    favModalLines.innerHTML = '<span style="color:var(--muted);font-size:13px">Lade Linien …</span>';
-    favModal.hidden = false;
-
-    // Alle Linien der Haltestelle direkt von MVG laden – kein Cache, kein Filter
-    let knownLines = new Set((fav.lineFilter || "").split(",").filter(Boolean));
-    try {
-      const data = await api("lines/" + encodeURIComponent(fav.globalId));
-      (data.lines || []).forEach(l => knownLines.add(l));
-    } catch (e) { /* Fallback: nur gespeicherte Linien */ }
-    _renderFavModal(fav, [...knownLines].sort());
-  }
-
-  function _renderFavModal(fav, lines) {
-    favModalTitle.textContent = `${fav.name} bearbeiten`;
-
-    // Verkehrsmittel
-    const selTypes = new Set((fav.filterTypes || "").split(",").filter(Boolean));
-    favModalTypes.innerHTML = ALL_TYPES.map(t => {
-      const on = selTypes.size === 0 || t.value.split(",").some(v => selTypes.has(v));
-      return `<label class="fav-check ${on ? "on" : ""}">
-        <input type="checkbox" value="${t.value}" ${on ? "checked" : ""}> ${t.label}
-      </label>`;
+  function _makeChecks(container, items, selectedSet) {
+    container.innerHTML = items.map(item => {
+      const v = typeof item === "string" ? item : item.value;
+      const l = typeof item === "string" ? item : item.label;
+      const on = selectedSet.has(v);
+      return `<button class="fav-check${on ? " on" : ""}" data-value="${esc(v)}" type="button">${esc(l)}</button>`;
     }).join("");
-
-    // Linien
-    const selLines = new Set((fav.lineFilter || "").split(",").filter(Boolean));
-    favModalLines.innerHTML = lines.length
-      ? lines.map(l => {
-          const on = selLines.has(l);
-          return `<label class="fav-check ${on ? "on" : ""}">
-            <input type="checkbox" value="${esc(l)}" ${on ? "checked" : ""}> ${esc(l)}
-          </label>`;
-        }).join("")
-      : '<span style="color:var(--muted);font-size:13px">Keine Linien gefunden</span>';
-
-    // Richtung
-    const selDirs = new Set((fav.platformFilter || "").split(",").filter(Boolean));
-    favModalDir.innerHTML = DIR_OPTIONS.map(d => {
-      const on = selDirs.has(d.value);
-      return `<label class="fav-check ${on ? "on" : ""}">
-        <input type="checkbox" value="${d.value}" ${on ? "checked" : ""}> ${d.label}
-      </label>`;
-    }).join("");
-
-    // Toggle-Logik für alle Checkboxen
-    [favModalTypes, favModalLines, favModalDir].forEach(container => {
-      container.querySelectorAll(".fav-check").forEach(label => {
-        label.addEventListener("click", () => {
-          const cb = label.querySelector("input");
-          cb.checked = !cb.checked;
-          label.classList.toggle("on", cb.checked);
-        });
-        label.querySelector("input").addEventListener("click", e => e.stopPropagation());
-      });
+    container.querySelectorAll(".fav-check").forEach(btn => {
+      btn.addEventListener("click", () => btn.classList.toggle("on"));
     });
   }
 
-  favModalCancel.addEventListener("click", () => { favModal.hidden = true; });
-  favModal.addEventListener("click", (e) => { if (e.target === favModal) favModal.hidden = true; });
+  function _checkedValues(container) {
+    return [...container.querySelectorAll(".fav-check.on")].map(b => b.dataset.value);
+  }
 
-  favModalSave.addEventListener("click", async () => {
+  async function openFavSheet(fav) {
+    _editingFav = fav;
+    const isNew = !fav.globalId;
+    favSheetTitle.textContent = fav.name + (isNew ? "" : " bearbeiten");
+    favNameInput.value = fav.name || "";
+
+    // Schritt 2: Verkehrsmittel
+    const selTypes = new Set((fav.filterTypes || "").split(",").filter(Boolean));
+    _makeChecks(favTypeChecks, ALL_TYPES, selTypes);
+
+    // Schritt 3: Linien – direkt von MVG, kein Cache, kein Filter
+    favLineChecks.innerHTML = '<span class="fav-check-loading">Lade Linien …</span>';
+    favDirChecks.innerHTML  = '<span class="fav-check-loading">Lade Richtungen …</span>';
+    favSheet.hidden = false;
+
+    let allLines = [];
+    try {
+      const data = await api("lines/" + encodeURIComponent(fav.globalId));
+      allLines = data.lines || [];
+    } catch (e) {}
+
+    const selLines = new Set((fav.lineFilter || "").split(",").filter(Boolean));
+    if (allLines.length) {
+      _makeChecks(favLineChecks, allLines, selLines);
+    } else {
+      favLineChecks.innerHTML = '<span class="fav-check-loading">Keine Linien gefunden (Bus fährt gerade nicht?)</span>';
+    }
+
+    // Schritt 4: Richtung – aus Abfahrten ermitteln (alle Verkehrsmittel, kein Filter)
+    await _loadDirChecks(fav);
+  }
+
+  async function _loadDirChecks(fav) {
+    const selDirs = new Set((fav.platformFilter || "").split(",").filter(Boolean));
+    favDirChecks.innerHTML = '<span class="fav-check-loading">Lade Richtungen …</span>';
+    try {
+      const data = await api("departures/" + encodeURIComponent(fav.globalId) + "?limit=80");
+      const deps = data.departures || [];
+      const dirs = new Map(); // direction → Set<destination>
+      for (const d of deps) {
+        if (!d.direction) continue;
+        if (!dirs.has(d.direction)) dirs.set(d.direction, new Set());
+        dirs.get(d.direction).add(d.destination);
+      }
+      if (dirs.size >= 2) {
+        const items = [...dirs.entries()].sort((a,b) => a[0]-b[0]).map(([dir, dests]) => ({
+          value: String(dir),
+          label: (dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt") +
+                 " (" + [...dests].slice(0,2).join(", ") + ")"
+        }));
+        _makeChecks(favDirChecks, items, selDirs);
+      } else {
+        favDirChecks.innerHTML = '<span class="fav-check-loading">Richtung nicht unterscheidbar</span>';
+      }
+    } catch (e) {
+      favDirChecks.innerHTML = '<span class="fav-check-loading">Fehler beim Laden</span>';
+    }
+  }
+
+  favSheetClose.addEventListener("click", () => { favSheet.hidden = true; });
+  favSheet.addEventListener("click", (e) => { if (e.target === favSheet) favSheet.hidden = true; });
+
+  favSheetSave.addEventListener("click", async () => {
     if (!_editingFav) return;
-    const checkedTypes = [...favModalTypes.querySelectorAll("input:checked")].map(i => i.value);
-    const allTypes = ALL_TYPES.length === checkedTypes.length;
-    const filterTypes = allTypes ? "" : checkedTypes.join(",");
+    const checkedTypes = _checkedValues(favTypeChecks);
+    const filterTypes  = checkedTypes.length === ALL_TYPES.length ? "" : checkedTypes.join(",");
+    const lineFilter   = _checkedValues(favLineChecks).join(",");
+    const platformFilter = _checkedValues(favDirChecks).join(",");
+    const name = favNameInput.value.trim() || _editingFav.name;
 
-    const checkedLines = [...favModalLines.querySelectorAll("input:checked")].map(i => i.value);
-    const lineFilter = checkedLines.join(",");
-
-    const checkedDirs = [...favModalDir.querySelectorAll("input:checked")].map(i => i.value);
-    const platformFilter = checkedDirs.join(",");
-
-    // Alten Favoriten löschen, neuen mit aktualisierten Filtern speichern
-    await fetch("./api/favorites/" + encodeURIComponent(_editingFav.globalId) +
-      "?types=" + encodeURIComponent(_editingFav.filterTypes || "") +
-      "&platform=" + encodeURIComponent(_editingFav.platformFilter || "") +
-      "&line=" + encodeURIComponent(_editingFav.lineFilter || ""),
-      { method: "DELETE" });
+    // Alten löschen wenn Bearbeitung
+    if (_editingFav.filterTypes !== undefined) {
+      await fetch("./api/favorites/" + encodeURIComponent(_editingFav.globalId) +
+        "?types="    + encodeURIComponent(_editingFav.filterTypes    || "") +
+        "&platform=" + encodeURIComponent(_editingFav.platformFilter || "") +
+        "&line="     + encodeURIComponent(_editingFav.lineFilter     || ""),
+        { method: "DELETE" });
+    }
     favorites = await fetch("./api/favorites", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.assign({}, _editingFav, { filterTypes: filterTypes, lineFilter: lineFilter, platformFilter: platformFilter }))
+      body: JSON.stringify(Object.assign({}, _editingFav, {
+        name, filterTypes, lineFilter, platformFilter
+      }))
     }).then(r => r.json());
-    favModal.hidden = true;
+    favSheet.hidden = true;
     renderFavorites();
   });
   api("config").then(cfg => { if (cfg?.default_limit) DEFAULT_LIMIT = cfg.default_limit; }).catch(() => {});
