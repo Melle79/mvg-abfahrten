@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v2.1.0 – Cache: 2026-06-13-26 */
+  /* Anzeigetafel v2.1.0 – Cache: 2026-06-13-27 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -213,6 +213,12 @@
       }
     }
     dropdown.style.display = "block";
+    if (list.length >= 30) {
+      const hint = document.createElement("div");
+      hint.style.cssText = "padding:8px 14px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);font-style:italic";
+      hint.textContent = "⚠ Mehr als 30 Treffer – Suche bitte konkretisieren";
+      dropdown.appendChild(hint);
+    }
   }
 
   // ---------- Station ----------

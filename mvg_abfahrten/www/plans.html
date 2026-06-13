@@ -575,6 +575,12 @@
           drop.appendChild(b);
         });
         drop.style.display = res?.length ? "block" : "none";
+        if ((res||[]).length >= 30) {
+          const hint = document.createElement("div");
+          hint.style.cssText = "padding:8px 14px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);font-style:italic";
+          hint.textContent = "⚠ Mehr als 30 Treffer – Suche bitte konkretisieren";
+          drop.appendChild(hint);
+        }
       }, 300);
     });
     document.addEventListener("click", e => { if (!wrap.contains(e.target)) drop.style.display = "none"; });
