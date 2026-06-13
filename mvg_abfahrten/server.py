@@ -215,7 +215,7 @@ def api_lines(global_id: str):
     try:
         resp = requests.get(
             MVG_BASE + "/departures",
-            params={"globalId": global_id, "limit": 80},
+            params={"globalId": global_id, "limit": 200},
             headers=HEADERS, timeout=10
         )
         resp.raise_for_status()
