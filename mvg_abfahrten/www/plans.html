@@ -117,6 +117,7 @@
   .line-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .line-chips-avail { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; min-height: 28px; }
   .line-chips-avail .chip { display: inline-flex; align-items: center; gap: 5px; }
+  .dir-chip-full { display: flex; flex-direction: column; align-items: flex-start; padding: 7px 12px; border-radius: 10px; text-align: left; min-width: 140px; }
   .btn-add-entry { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; border: 1px dashed var(--amber); background: transparent; color: var(--amber); font-size: 14px; cursor: pointer; font-family: inherit; width: 100%; justify-content: center; margin-top: 10px; }
   .btn-add-entry:hover { background: rgba(255,179,0,0.06); }
   .sheet-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 20px 0; }
@@ -403,9 +404,47 @@
       types: e.types || "",
       lines: new Set((e.lines||"").split(",").filter(Boolean)),
       direction: e.direction || "",
-      _lines: [],   // verfügbare Linien (nachladen)
+      _lines: [],
+      _dirs: new Map(),
     }));
     renderEntries();
+    // Linien und Richtungen für bestehende Einträge nachladen
+    sheetEntries.forEach((entry, idx) => {
+      if (!entry.globalId) return;
+      api("lines/" + encodeURIComponent(entry.globalId)).then(d => {
+        sheetEntries[idx]._lines = d.lines || [];
+        const avail = $("entriesList").querySelectorAll(".line-chips-avail")[idx];
+        if (avail) {
+          avail.innerHTML = (d.lines||[]).map(l =>
+            `<button class="chip${entry.lines.has(l)?" on":""}" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
+          ).join("") || '<span style="color:var(--muted);font-size:12px">Keine Linien gefunden</span>';
+          _bindLineChips(avail, idx);
+        }
+      }).catch(()=>{});
+      api("departures/" + encodeURIComponent(entry.globalId) + "?limit=80").then(d => {
+        const deps = d.departures || [];
+        const dirs = new Map();
+        for (const dep of deps) {
+          if (!dep.direction) continue;
+          if (!dirs.has(dep.direction)) dirs.set(dep.direction, new Set());
+          dirs.get(dep.direction).add(dep.destination);
+        }
+        sheetEntries[idx]._dirs = dirs;
+        const dirRow = $("entriesList").querySelectorAll(".dir-row")[idx];
+        if (dirRow && dirs.size >= 2) {
+          dirRow.innerHTML = [...dirs.entries()].sort((a,b)=>a[0]-b[0]).map(([dir, dests]) => {
+            const label = dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt";
+            const sub = [...dests].slice(0,2).join(", ");
+            const on = sheetEntries[idx].direction === (dir===1?"H":"R");
+            return `<button class="chip dir-chip-full${on?" on":""}" data-dir="${dir===1?"H":"R"}">
+              <span style="font-weight:700">${esc(label)}</span>
+              <span style="font-size:11px;color:var(--muted);display:block">${esc(sub)}</span>
+            </button>`;
+          }).join("");
+          _bindDirChips(dirRow, idx);
+        }
+      }).catch(()=>{});
+    });
     sheet.hidden = false;
   }
 
@@ -506,6 +545,30 @@
                   `<button class="chip" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
                 ).join("") || '<span style="color:var(--muted);font-size:12px">Keine Linien gefunden</span>';
                 _bindLineChips(avail, idx);
+              }
+            }).catch(()=>{});
+            // Richtungen mit Endzielen nachladen
+            api("departures/" + encodeURIComponent(st.globalId) + "?limit=80").then(d => {
+              const deps = d.departures || [];
+              const dirs = new Map();
+              for (const dep of deps) {
+                if (!dep.direction) continue;
+                if (!dirs.has(dep.direction)) dirs.set(dep.direction, new Set());
+                dirs.get(dep.direction).add(dep.destination);
+              }
+              sheetEntries[idx]._dirs = dirs;
+              const dirRow = $("entriesList").querySelectorAll(".dir-row")[idx];
+              if (dirRow && dirs.size >= 2) {
+                dirRow.innerHTML = [...dirs.entries()].sort((a,b)=>a[0]-b[0]).map(([dir, dests]) => {
+                  const label = dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt";
+                  const sub = [...dests].slice(0,2).join(", ");
+                  const on = sheetEntries[idx].direction === (dir===1?"H":"R");
+                  return `<button class="chip dir-chip-full${on?" on":""}" data-dir="${dir===1?"H":"R"}">
+                    <span style="font-weight:700">${esc(label)}</span>
+                    <span style="font-size:11px;color:var(--muted);display:block">${esc(sub)}</span>
+                  </button>`;
+                }).join("");
+                _bindDirChips(dirRow, idx);
               }
             }).catch(()=>{});
           });
