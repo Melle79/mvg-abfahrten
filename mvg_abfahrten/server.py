@@ -170,6 +170,7 @@ def api_departures(global_id: str):
             "realtime":      dep.get("realtimeDepartureTime") or dep.get("plannedDepartureTime"),
             "delay":         dep.get("delayInMinutes") or 0,
             "platform":      dep.get("platform"),
+            "platformChanged": bool(dep.get("platformChanged")),
             "cancelled":     bool(dep.get("cancelled")),
             "sev":           bool(dep.get("sev")),
             "messages":      dep.get("messages") or [],
