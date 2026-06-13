@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.9.0
+/* MVG Abfahrten – Lovelace-Karte v2.2.14
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -171,12 +171,13 @@
     }
 
     setConfig(config) {
-      this._config = Object.assign({ favorites: true, limit: 8, refresh: 30 }, config);
+      this._config = Object.assign({ favorites: true, limit: 8, refresh: 60 }, config);
       this._apiUrl = (config.api_url ||
         `${location.protocol}//${location.hostname}:8099`).replace(/\/+$/, "");
-      this._storageKey = "mvg-card:" + (config.global_id || "favs");
+      this._storageKey = "mvg-card:" + (config.global_id || config.plan_id || "favs");
       this._current = null;
       this._favorites = [];
+      this._plan = null;
 
       if (!this.shadowRoot) this.attachShadow({ mode: "open" });
       this.shadowRoot.innerHTML = `
@@ -242,7 +243,8 @@
     }
 
     _refresh() {
-      if (this._config.layout === "list" && !this._config.global_id) this._loadAll();
+      if (this._config.plan_id) this._loadPlan();
+      else if (this._config.layout === "list" && !this._config.global_id) this._loadAll();
       else this._loadDepartures();
     }
 
@@ -254,6 +256,26 @@
     }
 
     async _init() {
+      // Plan-Modus: plan_id konfiguriert
+      if (this._config.plan_id) {
+        try {
+          const resp = await fetch(this._apiUrl + "/api/plans");
+          const plans = await resp.json();
+          this._plan = plans.find(p => p.id === this._config.plan_id) || null;
+          if (!this._plan) {
+            this._error("Plan nicht gefunden. Bitte plan_id in der Kartenkonfiguration prüfen.");
+            return;
+          }
+          this._els.name.textContent = this._config.title || this._plan.name;
+          this._els.place.textContent = "";
+          this._els.chips.hidden = true;
+          this._els.dirBar.hidden = true;
+          this._loadPlan();
+        } catch(err) {
+          this._error("Add-on-API nicht erreichbar: " + esc(String(err)));
+        }
+        return;
+      }
       if (this._config.global_id) {
         this._current = {
           globalId: this._config.global_id,
@@ -425,6 +447,50 @@
       }).join("");
     }
 
+    async _loadPlan() {
+      if (!this._plan) return;
+      const limit = this._config.limit || 8;
+      try {
+        const resp = await fetch(this._apiUrl + "/api/plans/" +
+          encodeURIComponent(this._plan.id) + "/departures?limit=" + limit);
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const data = await resp.json();
+        const deps = data.departures || [];
+        if (!deps.length) {
+          this._els.rows.innerHTML = '<div class="note">Keine Abfahrten für diesen Plan.</div>';
+          return;
+        }
+        // Plan-Abfahrten haben ein stationName-Feld
+        const now = Date.now();
+        this._els.rows.innerHTML = deps.map(d => {
+          const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
+          const planned = new Date(d.planned).toLocaleTimeString("de-DE",
+            { hour: "2-digit", minute: "2-digit" });
+          const delay = d.delay > 0 ? ` <span class="delay">+${d.delay}</span>` : "";
+          const sev = d.sev ? ' <span class="sev">SEV</span>' : "";
+          const earlyTerm = (d.infos||[]).find(x => x.type === "EARLY_TERMINATION");
+          const destHtml = earlyTerm
+            ? `<span style="text-decoration:line-through;color:var(--mvg-red)">${esc(d.destination)}</span> <span style="color:var(--mvg-accent)">${esc(earlyTerm.message.replace(/^Fährt nur bis /i,""))}</span>`
+            : esc(d.destination);
+          const hasInfo = (d.infos||[]).some(x => x.type !== "EARLY_TERMINATION") || (d.messages||[]).length > 0;
+          const infoBadge = hasInfo ? `<span class="info-btn" title="${esc((d.infos||[]).map(i=>i.message).join(" · "))}">ⓘ</span>` : "";
+          const platTxt = d.platform != null ? (d.platformChanged ? `⚠ ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
+          const minHtml = d.cancelled ? '<span class="min">entfällt</span>' : `<span class="min">${mins}<small>min</small></span>`;
+          return `<div class="row${d.cancelled ? " cancelled" : ""}">
+            ${this._badge(d.label, d.transportType)}
+            <div class="dest">
+              <div class="to">${destHtml}${infoBadge}</div>
+              <div class="meta">${esc(d.stationName)} · ${planned}${delay}${sev}</div>
+            </div>
+            <span class="platform${d.platformChanged ? " platform-changed" : ""}">${platTxt}</span>
+            ${minHtml}
+          </div>`;
+        }).join("");
+      } catch(err) {
+        this._error("Fehler beim Laden: " + esc(String(err)));
+      }
+    }
+
     _badge(label, type) {
       const shown = SHORT_LABELS[label] || label || "?";
       let bg = LINE_GRADIENTS[label] || LINE_COLORS[label] || TYPE_COLORS[type] || "#36428D";
@@ -497,17 +563,18 @@
   ];
 
   const LABELS = {
-    station: "Haltestelle",
+    plan_id: "Abfahrtsplan",
+    station: "Haltestelle / Favorit",
     layout: "Darstellung der Favoriten",
     design: "Design",
-    show_title: "Titel (Haltestellenname) anzeigen",
+    show_title: "Titel anzeigen",
     show_clock: "Uhrzeit anzeigen",
     limit: "Anzahl Abfahrten",
-    types: "Verkehrsmittel (leer = alle)",
     refresh: "Aktualisierung",
     api_url: "API-URL (leer = Standard)",
   };
   const HELPERS_TXT = {
+    plan_id: "Abfahrtspläne erstellst du unter MVG → Pläne. Bei Auswahl wird der Plan angezeigt.",
     station: "Favoriten verwaltest du im Add-on (★) – inkl. Beförderungsart.",
     layout: "Tabs: eine Haltestelle, umschaltbar. Untereinander: alle Favoriten als eigene Blöcke.",
     design: "Dashboard-Theme passt sich deinem HA-Theme an.",
@@ -571,11 +638,16 @@
 
     async _loadFavorites() {
       try {
-        const resp = await fetch(this._apiUrl + "/api/favorites");
-        this._favorites = await resp.json();
+        const [favResp, planResp] = await Promise.all([
+          fetch(this._apiUrl + "/api/favorites"),
+          fetch(this._apiUrl + "/api/plans"),
+        ]);
+        this._favorites = await favResp.json();
+        this._plans = await planResp.json();
         this._favError = false;
       } catch (e) {
         this._favorites = [];
+        this._plans = [];
         this._favError = true;
       }
       this._render();
@@ -596,6 +668,11 @@
 
     _schema() {
       const current = this._currentStationValue();
+      // Plan-Dropdown
+      const planOptions = [
+        { value: "", label: "— Kein Plan (Favoriten/Haltestelle nutzen) —" },
+        ...(this._plans || []).map(p => ({ value: p.id, label: "📋 " + p.name })),
+      ];
       const stationOptions = [
         { value: "__favs__", label: "★ Alle Favoriten" },
         ...(this._favorites || []).map(f => ({
@@ -612,18 +689,24 @@
         stationOptions.push({ value: current, label: "Aktuell: " + (this._config.title || this._config.global_id) });
       }
       const fields = [];
-      if (!this._favError && this._favorites?.length) {
-        fields.push({ name: "station", selector: { select: { mode: "dropdown", options: stationOptions } } });
+      // Plan-Auswahl immer zeigen wenn Pläne vorhanden
+      if (this._plans?.length) {
+        fields.push({ name: "plan_id", selector: { select: { mode: "dropdown", options: planOptions } } });
       }
-      if (current === "__favs__" && !this._favError) {
-        fields.push({ name: "layout", selector: { select: { mode: "dropdown", options: LAYOUT_OPTIONS } } });
+      // Favoriten/Station nur zeigen wenn kein Plan gewählt
+      if (!this._config.plan_id) {
+        if (!this._favError && this._favorites?.length) {
+          fields.push({ name: "station", selector: { select: { mode: "dropdown", options: stationOptions } } });
+        }
+        if (current === "__favs__" && !this._favError) {
+          fields.push({ name: "layout", selector: { select: { mode: "dropdown", options: LAYOUT_OPTIONS } } });
+        }
       }
       fields.push(
         { name: "design",     selector: { select: { mode: "dropdown", options: DESIGN_OPTIONS } } },
         { name: "show_title", selector: { boolean: {} } },
         { name: "show_clock", selector: { boolean: {} } },
         { name: "limit",      selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
-        { name: "types",      selector: { select: { multiple: true, mode: "list", options: TYPE_OPTIONS } } },
         { name: "refresh",    selector: { number: { min: 20, max: 300, step: 5, mode: "box", unit_of_measurement: "s" } } },
         { name: "api_url",    selector: { text: {} } },
       );
@@ -632,6 +715,7 @@
 
     _formData() {
       return {
+        plan_id: this._config.plan_id || "",
         station: this._currentStationValue(),
         global_id: this._config.global_id || "",
         layout: this._config.layout || "tabs",
@@ -639,8 +723,7 @@
         show_title: this._config.show_title !== false,
         show_clock: this._config.show_clock !== false,
         limit: Number(this._config.limit) || 8,
-        types: (this._config.types || "").split(",").map(s => s.trim()).filter(Boolean),
-        refresh: Number(this._config.refresh) || 30,
+        refresh: Number(this._config.refresh) || 60,
         api_url: this._config.api_url || "",
       };
     }
@@ -735,6 +818,18 @@
       const prevStation = this._currentStationValue();
       const stationChanged = v.station !== undefined && v.station !== prevStation;
 
+      // Plan-Modus
+      if (v.plan_id !== undefined) {
+        if (v.plan_id) {
+          cfg.plan_id = v.plan_id;
+          const plan = (this._plans || []).find(p => p.id === v.plan_id);
+          if (plan && !cfg.title) cfg.title = plan.name;
+          delete cfg.global_id; delete cfg.types;
+        } else {
+          delete cfg.plan_id;
+        }
+      }
+
       if (v.station !== undefined) {
         if (v.station && v.station !== "__favs__") {
           const [gid, ftypes] = v.station.split("|");
@@ -754,13 +849,8 @@
       if (v.show_title === false) cfg.show_title = false; else delete cfg.show_title;
       if (v.show_clock === false) cfg.show_clock = false; else delete cfg.show_clock;
 
-      cfg.limit = Number(v.limit) || 8;
-      cfg.refresh = Number(v.refresh) || 30;
-
-      if (!stationChanged) {
-        const types = Array.isArray(v.types) ? v.types.filter(Boolean) : [];
-        if (types.length) cfg.types = types.join(","); else delete cfg.types;
-      }
+      cfg.limit   = Number(v.limit)   || 8;
+      cfg.refresh = Number(v.refresh) || 60;
 
       if ((v.api_url || "").trim()) cfg.api_url = v.api_url.trim(); else delete cfg.api_url;
 
