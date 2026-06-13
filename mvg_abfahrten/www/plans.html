@@ -523,9 +523,8 @@
         drop.innerHTML = "";
         (res||[]).slice(0,30).forEach(st => {
           const b = document.createElement("button");
-          const typeIcons = {"SBAHN":"🟢","UBAHN":"🔵","TRAM":"🔴","BUS":"🟡","REGIONAL_BUS":"🟡","BAHN":"⚫"};
-          const icons = (st.transportTypes||[]).map(t => typeIcons[t]||"").filter(Boolean).slice(0,3).join("");
-          b.innerHTML = `<span>${icons} ${esc(st.name)}</span><span class="splace">${esc(st.place||"")}</span>`;
+          const badges = (st.transportTypes||[]).slice(0,4).map(t => badgeHtml(TYPE_SHORT[t]||t, t)).join("");
+          b.innerHTML = `<span style="display:flex;align-items:center;gap:6px">${badges} ${esc(st.name)}</span><span class="splace">${esc(st.place||"")}</span>`;
           b.addEventListener("mousedown", ev => {
             ev.preventDefault();
             drop.style.display = "none";
