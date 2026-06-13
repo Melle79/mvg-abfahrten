@@ -99,6 +99,8 @@ def _save_favorites(favs: list) -> None:
         )
 
 
+app = Flask(__name__, static_folder=WWW_DIR, static_url_path="")
+
 # ---------------------------------------------------------------- CORS
 # Die Dashboard-Karte läuft im HA-Frontend (Port 8123) und ruft die API
 # auf Port 8099 auf – dafür braucht es CORS-Freigaben.
