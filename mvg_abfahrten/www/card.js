@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.8.3
+/* MVG Abfahrten – Lovelace-Karte v1.8.4
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -118,6 +118,31 @@
     }
     .note { padding: 18px 16px; color: var(--mvg-muted); font-size: 13px; border-top: 1px solid var(--mvg-line); }
     .note.err { color: var(--mvg-red); }
+    .dir-bar {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+      padding: 8px 16px; border-top: 1px solid var(--mvg-line);
+    }
+    .dir-bar[hidden] { display: none; }
+    .dir-label { color: var(--mvg-muted); font-size: 11.5px; white-space: nowrap; }
+    .dir-chip {
+      display: flex; flex-direction: column; align-items: flex-start;
+      padding: 5px 10px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--mvg-line); background: var(--mvg-chip-bg);
+      color: var(--mvg-muted); font-family: inherit; text-align: left;
+    }
+    .dir-chip .gleis { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; }
+    .dir-chip .dest-list { font-size: 11px; color: var(--mvg-muted); }
+    .dir-chip[aria-pressed="true"] {
+      border-color: var(--mvg-accent); background: var(--mvg-chip-on);
+      color: var(--mvg-ink);
+    }
+    .dir-chip[aria-pressed="true"] .dest-list { color: var(--mvg-ink); }
+    .dir-clear {
+      background: none; border: 0; color: var(--mvg-muted);
+      font-size: 11px; cursor: pointer; padding: 3px 6px;
+      border-radius: 6px; white-space: nowrap; margin-left: auto;
+    }
+    .dir-clear:hover { color: var(--mvg-ink); }
     .section-head {
       display: flex; align-items: baseline; gap: 8px;
       padding: 13px 16px 7px; border-top: 2px solid var(--mvg-line);
@@ -162,6 +187,11 @@
             <div class="clock" id="clock"></div>
           </div>
           <div class="chips" id="chips" hidden></div>
+          <div class="dir-bar" id="dirBar" hidden>
+            <span class="dir-label">Richtung</span>
+            <div id="dirChips" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"></div>
+            <button class="dir-clear" id="dirClear">✕</button>
+          </div>
           <div id="rows"><div class="note">Lade …</div></div>
         </ha-card>`;
       this._els = {
@@ -172,8 +202,12 @@
         place: this.shadowRoot.getElementById("place"),
         clock: this.shadowRoot.getElementById("clock"),
         chips: this.shadowRoot.getElementById("chips"),
+        dirBar: this.shadowRoot.getElementById("dirBar"),
+        dirChips: this.shadowRoot.getElementById("dirChips"),
+        dirClear: this.shadowRoot.getElementById("dirClear"),
         rows: this.shadowRoot.getElementById("rows"),
       };
+      this._dirFilter = new Set(); // aktive Richtungen (1=H, 2=R)
       // Design: HA-Theme (Standard) oder dunkle Anzeigetafel
       this._els.card.classList.toggle("board", this._config.design === "board");
       // Titel und Uhr optional
@@ -194,6 +228,12 @@
         this._clockTimer = setInterval(() => this._tick(), 1000);
         this._tick();
       }
+      this._els.dirClear.addEventListener("click", () => {
+        this._dirFilter.clear();
+        this._els.dirChips.querySelectorAll(".dir-chip")
+          .forEach(c => c.setAttribute("aria-pressed", "false"));
+        this._renderRows(this._lastDeps || []);
+      });
     }
 
     disconnectedCallback() {
@@ -298,19 +338,56 @@
       this._els.place.textContent = this._current.place || "";
     }
 
-    async _fetchDepartures(globalId, types, platformFilter) {
-      const raw = Math.min(80, Math.max(30, (this._config.limit || 8) * 4));
-      const params = new URLSearchParams({ limit: raw });
+    async _fetchRaw(globalId, types) {
+      const limit = Math.min(80, Math.max(30, (this._config.limit || 8) * 4));
+      const params = new URLSearchParams({ limit });
       if (types) params.set("types", types);
       const resp = await fetch(this._apiUrl + "/api/departures/" +
         encodeURIComponent(globalId) + "?" + params);
       if (!resp.ok) throw new Error("HTTP " + resp.status);
-      const data = await resp.json();
-      let deps = data.departures || [];
-      if (platformFilter?.size) {
-        deps = deps.filter(d => platformFilter.has(d.direction));
+      return (await resp.json()).departures || [];
+    }
+
+    _applyDirFilter(deps, savedPf) {
+      let filtered = deps;
+      if (savedPf?.size)       filtered = filtered.filter(d => savedPf.has(d.direction));
+      if (this._dirFilter?.size) filtered = filtered.filter(d => this._dirFilter.has(d.direction));
+      return filtered.slice(0, this._config.limit || 8);
+    }
+
+    _parsePlatformFilter(pf) {
+      if (!pf) return null;
+      const nums = String(pf).split(",").map(Number).filter(Boolean);
+      return nums.length ? new Set(nums) : null;
+    }
+
+    _updateDirBar(deps) {
+      const byDir = new Map();
+      for (const d of deps) {
+        if (!d.direction) continue;
+        if (!byDir.has(d.direction)) byDir.set(d.direction, new Set());
+        byDir.get(d.direction).add(d.destination);
       }
-      return deps.slice(0, this._config.limit || 8);
+      if (byDir.size < 2) { this._els.dirBar.hidden = true; return; }
+      this._els.dirChips.innerHTML = "";
+      for (const [dir, dests] of [...byDir.entries()].sort((a,b) => a[0]-b[0])) {
+        const label = dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt";
+        const sub = [...dests].slice(0, 3).join(", ");
+        const btn = document.createElement("button");
+        btn.className = "dir-chip";
+        btn.setAttribute("aria-pressed", this._dirFilter.has(dir) ? "true" : "false");
+        btn.innerHTML = `<span class="gleis">${esc(label)}</span>
+                         <span class="dest-list">${esc(sub)}</span>`;
+        btn.addEventListener("click", () => {
+          if (this._dirFilter.has(dir)) this._dirFilter.delete(dir);
+          else this._dirFilter.add(dir);
+          btn.setAttribute("aria-pressed", this._dirFilter.has(dir) ? "true" : "false");
+          const pf = this._parsePlatformFilter(this._current?.platformFilter);
+          this._els.rows.innerHTML = this._rowsHtml(this._applyDirFilter(this._lastDeps || [], pf));
+        });
+        this._els.dirChips.appendChild(btn);
+      }
+      this._els.dirBar.hidden = false;
     }
 
     async _loadDepartures() {
@@ -318,46 +395,33 @@
       const types = this._current.filterTypes || this._config.types || "";
       const pf = this._parsePlatformFilter(this._current.platformFilter);
       try {
-        const deps = await this._fetchDepartures(this._current.globalId, types, pf);
-        this._els.rows.innerHTML = this._rowsHtml(deps);
-        if (deps.length === 0 && pf?.size) {
-          this._els.rows.innerHTML = '<div class="note">Keine Abfahrten für Richtung ' +
-            esc([...pf].map(v => v === 1 ? "H" : v === 2 ? "R" : v).join("/")) + '. Favorit im Add-on neu setzen?</div>';
-        }
+        const raw = await this._fetchRaw(this._current.globalId, types);
+        this._lastDeps = raw;
+        this._updateDirBar(raw);
+        this._els.rows.innerHTML = this._rowsHtml(this._applyDirFilter(raw, pf));
       } catch (err) {
-        this._error("Fehler beim Laden: " + esc(String(err)) +
-          "<br><small>" + esc(this._current.globalId) + "</small>");
+        this._error("Fehler beim Laden: " + esc(String(err)));
       }
-    }
-
-    _parsePlatformFilter(platformFilter) {
-      if (!platformFilter) return null;
-      const nums = String(platformFilter).split(",").map(Number).filter(Boolean);
-      return nums.length ? new Set(nums) : null;
     }
 
     // Listen-Layout: alle Favoriten untereinander
     async _loadAll() {
-      const results = await Promise.allSettled(
+      const raws = await Promise.allSettled(
         this._favorites.map(f =>
-          this._fetchDepartures(
-            f.globalId,
-            f.filterTypes || this._config.types || "",
-            this._parsePlatformFilter(f.platformFilter)
-          ))
+          this._fetchRaw(f.globalId, f.filterTypes || this._config.types || ""))
       );
       this._els.rows.innerHTML = this._favorites.map((f, i) => {
         const tag = f.filterTypes    ? `<span class="tag">${esc(typesLabel(f.filterTypes))}</span>` : "";
         const plf = f.platformFilter
-          ? `<span class="tag">${f.platformFilter.split(",").map(v => v === "1" ? "H · Hinfahrt" : v === "2" ? "R · Rückfahrt" : esc(v)).join(" / ")}</span>`
+          ? `<span class="tag">${f.platformFilter.split(",").map(v => v === "1" ? "H" : v === "2" ? "R" : esc(v)).join("/")}</span>`
           : "";
         const head = `<div class="section-head"><h3>${esc(f.name)}</h3>${tag}${plf}
           <span class="place2">${esc(f.place || "")}</span></div>`;
-        const res = results[i];
-        const body = (res.status === "fulfilled")
-          ? this._rowsHtml(res.value)
-          : '<div class="note err">MVG-Daten nicht erreichbar.</div>';
-        return head + body;
+        const res = raws[i];
+        if (res.status !== "fulfilled") return head + '<div class="note err">Nicht erreichbar.</div>';
+        const pf = this._parsePlatformFilter(f.platformFilter);
+        const deps = this._applyDirFilter(res.value, pf);
+        return head + this._rowsHtml(deps);
       }).join("");
     }
 
