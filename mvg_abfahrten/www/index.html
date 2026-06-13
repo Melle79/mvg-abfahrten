@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-01 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-02 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -315,6 +315,8 @@
     const on = chips.filter(c => c.getAttribute("aria-pressed") === "true");
     return on.length === chips.length ? "" : on.map(c => c.dataset.type).join(",");
   }
+
+  function directionForSave() { return dirFilter || ""; }
 
   // Gespeicherten Favoriten-Filter auf die Chips anwenden
   function applyFilterChips(filterTypes) {
