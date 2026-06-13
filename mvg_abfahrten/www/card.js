@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.6.3
+/* MVG Abfahrten – Lovelace-Karte v1.6.4
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -294,7 +294,9 @@
     }
 
     async _fetchDepartures(globalId, types, lineFilter, dirFilter) {
-      const params = new URLSearchParams({ limit: Math.max(30, this._config.limit) });
+      // Wir laden genug Rohdaten (mind. 4× limit) damit nach dem Filter noch genug übrig bleiben
+      const raw = Math.min(80, Math.max(30, (this._config.limit || 8) * 4));
+      const params = new URLSearchParams({ limit: raw });
       if (types) params.set("types", types);
       const resp = await fetch(this._apiUrl + "/api/departures/" +
         encodeURIComponent(globalId) + "?" + params);
@@ -303,7 +305,7 @@
       let deps = data.departures || [];
       if (lineFilter) deps = deps.filter(d => d.label === lineFilter);
       if (dirFilter)  deps = deps.filter(d => d.destination === dirFilter);
-      return deps.slice(0, this._config.limit);
+      return deps.slice(0, this._config.limit || 8);
     }
 
     async _loadDepartures() {

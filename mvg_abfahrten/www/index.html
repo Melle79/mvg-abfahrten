@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-06 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-07 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -284,6 +284,8 @@
   let dirFilter  = "";       // aktiver Zielfilter (z. B. "Wolfratshausen")
   let lastDeps   = [];       // letzte Abfahrtsliste für Re-Filter ohne API-Call
 
+  let DEFAULT_LIMIT = 10; // wird aus /api/config überschrieben
+
   // ---------- Uhr ----------
   function tickClock() {
     const d = new Date();
@@ -426,8 +428,9 @@
     try {
       const types = activeTypes();
       // Wir laden mehr als angezeigt, damit der Richtungsfilter genug Treffer hat
+      const raw = Math.min(80, Math.max(30, DEFAULT_LIMIT * 4));
       const data = await api("departures/" + encodeURIComponent(current.globalId) +
-                             "?limit=30" + (types ? "&types=" + encodeURIComponent(types) : ""));
+                             "?limit=" + raw + (types ? "&types=" + encodeURIComponent(types) : ""));
       lastDeps = data.departures || [];
       updateDirOptions(lastDeps);
       renderRows(lastDeps);
@@ -463,7 +466,7 @@
     let filtered = deps;
     if (lineFilter) filtered = filtered.filter(d => d.label === lineFilter);
     if (dirFilter)  filtered = filtered.filter(d => d.destination === dirFilter);
-    const visible = filtered.slice(0, 15);
+    const visible = filtered.slice(0, DEFAULT_LIMIT);
     if (!visible.length) {
       rowsEl.innerHTML = '<div class="empty">Keine Abfahrten für die gewählten Filter.</div>';
       return;
@@ -588,6 +591,7 @@
   }
 
   // ---------- Start ----------
+  api("config").then(cfg => { if (cfg?.default_limit) DEFAULT_LIMIT = cfg.default_limit; }).catch(() => {});
   loadFavorites();
   const last = localStorage.getItem("mvg:last");
   if (last) {
