@@ -17,6 +17,7 @@ Abfahrtsmonitor für **MVG/MVV** als Home-Assistant-Add-on – mit Haltestellens
 - Live-Haltestellensuche mit Autocomplete und Verkehrsmittel-Badges
 - Echtzeit-Abfahrten mit Verspätung, Gleis, SEV-Kennzeichnung
 - **EARLY_TERMINATION**: Originalziel durchgestrichen, tatsächliches Ziel daneben
+- **Gleisänderung** (⚠) in Bernstein hervorgehoben
 - **Info-Popup** (ⓘ) bei Störungen und Betriebshinweisen
 - 60s Auto-Refresh mit Countdown-Timer
 - Hinweis wenn mehr als 30 Suchergebnisse

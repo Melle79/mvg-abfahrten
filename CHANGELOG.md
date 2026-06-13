@@ -22,6 +22,7 @@
 
 ### App verbessert
 - **EARLY_TERMINATION**: Originalziel rot durchgestrichen, tatsächliches Ziel in Bernstein daneben
+- **Gleisänderung** (`platformChanged`) mit ⚠ in Bernstein hervorgehoben
 - **Info-Popup** beim Klick auf ⓘ (Störungen, Betriebsstörungen)
 - **60s-Refresh** statt 30s, mit Countdown-Timer in der Fußzeile
 - **Suche** zeigt Hinweis bei mehr als 30 Treffern
