@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-02 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-03 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -128,14 +128,14 @@
   .board-head .star:focus-visible { outline: 2px solid var(--focus); border-radius: 4px; }
 
   .dir-bar {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
     padding: 9px 16px; border-bottom: 1px solid var(--line);
-    min-height: 0;
   }
   .dir-bar[hidden] { display: none; }
+  .dir-group { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
   .dir-label { color: var(--muted); font-size: 12px; white-space: nowrap; }
   .dir-select {
-    flex: 1; background: var(--panel); color: var(--ink);
+    flex: 1; min-width: 0; background: var(--panel); color: var(--ink);
     border: 1px solid var(--line); border-radius: 8px;
     padding: 6px 10px; font-size: 13px; font-family: inherit;
     cursor: pointer; outline: none;
@@ -143,9 +143,13 @@
   .dir-select:focus { border-color: var(--focus); }
   .dir-clear {
     background: none; border: 0; color: var(--muted);
-    font-size: 16px; cursor: pointer; padding: 2px 4px; line-height: 1;
+    font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1;
+    border-radius: 6px; white-space: nowrap;
   }
-  .dir-clear:hover { color: var(--ink); }
+  .dir-clear:hover { color: var(--ink); background: rgba(255,255,255,0.05); }
+  @media (max-width: 520px) {
+    .dir-group { flex: 1 1 100%; }
+  }
 
   .row {
     display: grid; align-items: center;
@@ -221,11 +225,19 @@
       <button class="star" id="star" title="Als Favorit speichern" aria-label="Als Favorit speichern">★</button>
     </div>
     <div class="dir-bar" id="dirBar" hidden>
-      <span class="dir-label">Richtung</span>
-      <select class="dir-select" id="dirSelect" aria-label="Richtung filtern">
-        <option value="">Alle Ziele</option>
-      </select>
-      <button class="dir-clear" id="dirClear" title="Richtungsfilter entfernen" aria-label="Filter entfernen">✕</button>
+      <div class="dir-group">
+        <span class="dir-label">Linie</span>
+        <select class="dir-select" id="lineSelect" aria-label="Linie filtern">
+          <option value="">Alle</option>
+        </select>
+      </div>
+      <div class="dir-group">
+        <span class="dir-label">Ziel</span>
+        <select class="dir-select" id="dirSelect" aria-label="Ziel filtern">
+          <option value="">Alle</option>
+        </select>
+      </div>
+      <button class="dir-clear" id="dirClear" title="Filter zurücksetzen" aria-label="Filter zurücksetzen">✕ Reset</button>
     </div>
     <div id="rows"></div>
   </div>
@@ -261,13 +273,15 @@
   const board = $("board"), rowsEl = $("rows");
   const favsEl = $("favs"), starBtn = $("star");
   const dirBar = $("dirBar"), dirSelect = $("dirSelect"), dirClear = $("dirClear");
+  const lineSelect = $("lineSelect");
 
   let current = null;
   let favorites = [];
   let refreshTimer = null;
   let debounceTimer = null;
   let searchAbort = null;
-  let dirFilter = "";        // aktiver Richtungsfilter (Destination-String)
+  let lineFilter = "";       // aktiver Linienfilter (z. B. "S7")
+  let dirFilter  = "";       // aktiver Zielfilter (z. B. "Wolfratshausen")
   let lastDeps   = [];       // letzte Abfahrtsliste für Re-Filter ohne API-Call
 
   // ---------- Uhr ----------
@@ -317,6 +331,7 @@
   }
 
   function directionForSave() { return dirFilter || ""; }
+  function lineForSave()      { return lineFilter || ""; }
 
   // Gespeicherten Favoriten-Filter auf die Chips anwenden
   function applyFilterChips(filterTypes) {
@@ -390,13 +405,15 @@
   // ---------- Station & Tafel ----------
   function selectStation(st) {
     current = st;
-    dirFilter = st.directionFilter || "";
+    lineFilter = st.lineFilter    || "";
+    dirFilter  = st.directionFilter || "";
     localStorage.setItem("mvg:last", JSON.stringify(st));
     $("stationName").textContent = st.name;
     $("stationSub").textContent = st.place || "";
     board.hidden = false;
     dirBar.hidden = true;
-    dirSelect.innerHTML = '<option value="">Alle Ziele</option>';
+    lineSelect.innerHTML = '<option value="">Alle</option>';
+    dirSelect.innerHTML  = '<option value="">Alle</option>';
     updateStar();
     loadDepartures(true);
     clearInterval(refreshTimer);
@@ -420,16 +437,32 @@
   }
 
   function updateDirOptions(deps) {
-    const destinations = [...new Set(deps.map(d => d.destination).filter(Boolean))].sort();
-    if (destinations.length < 2) { dirBar.hidden = true; return; }
-    const current_val = dirSelect.value;
+    if (deps.length < 2) { dirBar.hidden = true; return; }
+
+    // Linie-Dropdown: alle vorkommenden Linien, mit Badge-Hintergrundfarbe als Swatch
+    const lines = [...new Set(deps.map(d => d.label).filter(Boolean))].sort((a, b) => {
+      const n = (s) => s.replace(/\D/g, "") ? parseInt(s.replace(/\D/g, "")) : 0;
+      return a.replace(/\d+/, "") < b.replace(/\d+/, "") ? -1 :
+             a.replace(/\d+/, "") > b.replace(/\d+/, "") ? 1 : n(a) - n(b);
+    });
+    const prevLine = lineSelect.value;
+    lineSelect.innerHTML = '<option value="">Alle Linien</option>' +
+      lines.map(l => `<option value="${esc(l)}"${l === prevLine ? " selected" : ""}>${esc(l)}</option>`).join("");
+
+    // Ziel-Dropdown: nach gewählter Linie gefiltert
+    const depsForDir = lineFilter ? deps.filter(d => d.label === lineFilter) : deps;
+    const destinations = [...new Set(depsForDir.map(d => d.destination).filter(Boolean))].sort();
+    const prevDir = dirSelect.value;
     dirSelect.innerHTML = '<option value="">Alle Ziele</option>' +
-      destinations.map(d => `<option value="${esc(d)}"${d === current_val ? " selected" : ""}>${esc(d)}</option>`).join("");
+      destinations.map(d => `<option value="${esc(d)}"${d === prevDir ? " selected" : ""}>${esc(d)}</option>`).join("");
+
     dirBar.hidden = false;
   }
 
   function renderRows(deps) {
-    const filtered = dirFilter ? deps.filter(d => d.destination === dirFilter) : deps;
+    let filtered = deps;
+    if (lineFilter) filtered = filtered.filter(d => d.label === lineFilter);
+    if (dirFilter)  filtered = filtered.filter(d => d.destination === dirFilter);
     const visible = filtered.slice(0, 15);
     if (!visible.length) {
       rowsEl.innerHTML = '<div class="empty">Keine Abfahrten für die gewählten Filter.</div>';
@@ -456,15 +489,23 @@
     }).join("");
   }
 
-  // ---------- Richtungsfilter ----------
+  // ---------- Linie/Ziel-Filter ----------
+  lineSelect.addEventListener("change", () => {
+    lineFilter = lineSelect.value;
+    dirFilter  = "";              // Zielfilter zurücksetzen wenn Linie wechselt
+    updateDirOptions(lastDeps);   // Ziel-Dropdown neu befüllen
+    updateStar();
+    renderRows(lastDeps);
+  });
   dirSelect.addEventListener("change", () => {
     dirFilter = dirSelect.value;
     updateStar();
     renderRows(lastDeps);
   });
   dirClear.addEventListener("click", () => {
-    dirFilter = "";
-    dirSelect.value = "";
+    lineFilter = ""; dirFilter = "";
+    lineSelect.value = ""; dirSelect.value = "";
+    updateDirOptions(lastDeps);
     updateStar();
     renderRows(lastDeps);
   });
@@ -489,14 +530,16 @@
     for (const f of favorites) {
       const el = document.createElement("button");
       el.className = "fav";
-      const tag = f.filterTypes ? ` · ${esc(typesLabel(f.filterTypes))}` : "";
+      const tag = f.filterTypes   ? ` · ${esc(typesLabel(f.filterTypes))}` : "";
+      const lin = f.lineFilter    ? ` · ${esc(f.lineFilter)}` : "";
       const dir = f.directionFilter ? ` → ${esc(f.directionFilter)}` : "";
-      el.innerHTML = `★ ${esc(f.name)}${tag}${dir} <span class="x" title="Favorit entfernen">✕</span>`;
+      el.innerHTML = `★ ${esc(f.name)}${tag}${lin}${dir} <span class="x" title="Favorit entfernen">✕</span>`;
       el.addEventListener("click", (e) => {
         if (e.target.classList.contains("x")) { removeFavorite(f); return; }
         qInput.value = f.name;
         applyFilterChips(f.filterTypes || "");
-        dirFilter = f.directionFilter || "";
+        lineFilter = f.lineFilter      || "";
+        dirFilter  = f.directionFilter || "";
         selectStation(f);
       });
       favsEl.appendChild(el);
@@ -506,18 +549,18 @@
 
   function findFavorite() {
     if (!current) return null;
-    const ft = filterForSave();
-    const df = directionForSave();
+    const ft = filterForSave(), df = directionForSave(), lf = lineForSave();
     return favorites.find(f =>
       f.globalId === current.globalId &&
-      (f.filterTypes || "") === ft &&
-      (f.directionFilter || "") === df
+      (f.filterTypes     || "") === ft &&
+      (f.directionFilter || "") === df &&
+      (f.lineFilter      || "") === lf
     ) || null;
   }
   function updateStar() {
     const fav = findFavorite();
     starBtn.classList.toggle("on", !!fav);
-    starBtn.title = fav ? "Favorit entfernen" : "Als Favorit speichern (mit Filter und Richtung)";
+    starBtn.title = fav ? "Favorit entfernen" : "Als Favorit speichern (mit Linie, Ziel und Verkehrsmittel-Filter)";
   }
 
   starBtn.addEventListener("click", async () => {
@@ -527,8 +570,9 @@
     favorites = await fetch("./api/favorites", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(Object.assign({}, current, {
-        filterTypes: filterForSave(),
+        filterTypes:     filterForSave(),
         directionFilter: directionForSave(),
+        lineFilter:      lineForSave(),
       }))
     }).then(r => r.json());
     renderFavorites();
@@ -536,8 +580,9 @@
 
   async function removeFavorite(fav) {
     const url = "./api/favorites/" + encodeURIComponent(fav.globalId) +
-      "?types=" + encodeURIComponent(fav.filterTypes || "") +
-      "&direction=" + encodeURIComponent(fav.directionFilter || "");
+      "?types="     + encodeURIComponent(fav.filterTypes     || "") +
+      "&direction=" + encodeURIComponent(fav.directionFilter || "") +
+      "&line="      + encodeURIComponent(fav.lineFilter      || "");
     favorites = await fetch(url, { method: "DELETE" }).then(r => r.json());
     renderFavorites();
   }

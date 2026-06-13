@@ -190,22 +190,25 @@ def api_favorites_add():
     global_id = body.get("globalId")
     if not global_id:
         return jsonify({"error": "globalId fehlt"}), 400
-    filter_types = (body.get("filterTypes") or "").strip()
-    direction = (body.get("directionFilter") or "").strip()
+    filter_types = (body.get("filterTypes")     or "").strip()
+    direction    = (body.get("directionFilter") or "").strip()
+    line         = (body.get("lineFilter")      or "").strip()
     favs = _load_favorites()
     if not any(
         f.get("globalId") == global_id and
-        (f.get("filterTypes") or "") == filter_types and
-        (f.get("directionFilter") or "") == direction
+        (f.get("filterTypes")     or "") == filter_types and
+        (f.get("directionFilter") or "") == direction and
+        (f.get("lineFilter")      or "") == line
         for f in favs
     ):
         favs.append({
-            "globalId": global_id,
-            "name": body.get("name", global_id),
-            "place": body.get("place", ""),
-            "transportTypes": body.get("transportTypes", []),
-            "filterTypes": filter_types,
+            "globalId":        global_id,
+            "name":            body.get("name", global_id),
+            "place":           body.get("place", ""),
+            "transportTypes":  body.get("transportTypes", []),
+            "filterTypes":     filter_types,
             "directionFilter": direction,
+            "lineFilter":      line,
         })
         _save_favorites(favs)
     return jsonify(favs)
@@ -213,14 +216,16 @@ def api_favorites_add():
 
 @app.delete("/api/favorites/<path:global_id>")
 def api_favorites_delete(global_id: str):
-    filter_types = (request.args.get("types") or "").strip()
-    direction = (request.args.get("direction") or "").strip()
+    filter_types = (request.args.get("types")     or "").strip()
+    direction    = (request.args.get("direction") or "").strip()
+    line         = (request.args.get("line")      or "").strip()
     favs = [
         f for f in _load_favorites()
         if not (
             f.get("globalId") == global_id and
-            (f.get("filterTypes") or "") == filter_types and
-            (f.get("directionFilter") or "") == direction
+            (f.get("filterTypes")     or "") == filter_types and
+            (f.get("directionFilter") or "") == direction and
+            (f.get("lineFilter")      or "") == line
         )
     ]
     _save_favorites(favs)
