@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v2.2.18
+/* MVG Abfahrten – Lovelace-Karte v2.2.19
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -537,17 +537,21 @@
           ? this._planRowsHtml(deps)
           : '<div class="note">Keine Abfahrten für diesen Plan.</div>';
 
-        // Filter-Info: Endziele pro Haltestelle aus den Abfahrten
+        // Filter-Info: Fahrtrichtungen pro Haltestelle aus den Abfahrten
         if (this._config.show_filter !== false && this._els.filterInfo && deps.length) {
           const byStation = new Map();
           for (const d of deps) {
             if (!byStation.has(d.stationName)) byStation.set(d.stationName, new Set());
             byStation.get(d.stationName).add(d.destination);
           }
-          const parts = [...byStation.entries()].map(([station, dests]) =>
-            `<b>${esc(station)}</b>: ${[...dests].slice(0,3).map(d => esc(d)).join(", ")}`
-          );
-          this._els.filterInfo.innerHTML = parts.join(" &nbsp;|&nbsp; ");
+          const showStation = this._config.show_station !== false;
+          const parts = [...byStation.entries()].map(([station, dests]) => {
+            const destList = [...dests].slice(0, 3).map(d => esc(d)).join(", ");
+            return showStation
+              ? `<b>${esc(station)}</b> · Fahrtrichtung: ${destList}`
+              : `Fahrtrichtung: ${destList}`;
+          });
+          this._els.filterInfo.innerHTML = parts.join("<br>");
           this._els.filterInfo.hidden = false;
         } else if (this._els.filterInfo) {
           this._els.filterInfo.hidden = true;
