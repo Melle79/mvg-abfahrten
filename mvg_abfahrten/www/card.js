@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Lovelace-Karte v1.6.1
+/* MVG Abfahrten – Lovelace-Karte v1.6.2
  *
  * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
  * Konfiguration (YAML):
@@ -221,13 +221,21 @@
         return;
       }
       // Favoriten aus dem Add-on
+      let rawFavs;
       try {
         const resp = await fetch(this._apiUrl + "/api/favorites");
-        this._favorites = await resp.json();
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        rawFavs = await resp.json();
       } catch (err) {
-        this._error("Add-on-API nicht erreichbar (" + esc(this._apiUrl) + "). Läuft das Add-on und ist Port 8099 freigegeben?");
+        this._error("Add-on-API nicht erreichbar: " + esc(String(err)) +
+          "<br><small>URL: " + esc(this._apiUrl) + "</small>");
         return;
       }
+      if (!Array.isArray(rawFavs)) {
+        this._error("Ungültige Antwort von der Add-on-API (kein Array).");
+        return;
+      }
+      this._favorites = rawFavs;
       if (!this._favorites.length) {
         this._error("Keine Favoriten vorhanden – im Add-on eine Haltestelle suchen und mit ★ speichern.");
         return;
@@ -296,8 +304,14 @@
       try {
         const deps = await this._fetchDepartures(this._current.globalId, types, line, dir);
         this._els.rows.innerHTML = this._rowsHtml(deps);
+        if (deps.length === 0 && (line || dir)) {
+          this._els.rows.innerHTML = '<div class="note">Keine Abfahrten für Linie ' +
+            esc(line || "–") + (dir ? " → " + esc(dir) : "") +
+            '. Favorit im Add-on neu setzen?</div>';
+        }
       } catch (err) {
-        this._error("MVG-Daten nicht erreichbar – nächster Versuch beim Refresh.");
+        this._error("Fehler beim Laden: " + esc(String(err)) +
+          "<br><small>" + esc(this._current.globalId) + "</small>");
       }
     }
 
