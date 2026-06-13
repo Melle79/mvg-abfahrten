@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrten</title>
 <style>
-  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-20 */
+  /* Anzeigetafel v1.5.1 – Cache: 2026-06-13-21 */
   :root {
     --bg: #0C141F;
     --panel: #131F30;
@@ -536,11 +536,12 @@
     infoPopup.style.top  = top  + "px";
   }
 
-  document.addEventListener("click", (e) => {
+  document.addEventListener("click", e => {
     if (!e.target.closest(".info-btn") && !e.target.closest("#infoPopup")) {
       infoPopup.style.display = "none";
     }
     if (!e.target.closest(".search")) dropdown.style.display = "none";
+    if (!e.target.closest("#favStepStation")) favStationDrop.style.display = "none";
   });
 
   async function search(query) {
@@ -827,13 +828,15 @@
             const b = document.createElement("button");
             b.style.cssText = "display:flex;width:100%;padding:10px 14px;background:none;border:0;border-bottom:1px solid var(--line);color:var(--ink);font-size:14px;text-align:left;cursor:pointer;gap:8px";
             b.innerHTML = `<span style="flex:1">${esc(st.name)}</span><span style="color:var(--muted);font-size:12px">${esc(st.place||"")}</span>`;
-            b.addEventListener("click", () => {
+            b.addEventListener("mousedown", (ev) => {
+              ev.preventDefault(); // verhindert Blur/Close vor dem Click
+              ev.stopPropagation();
               favStationDrop.style.display = "none";
               favStationInput.value = st.name;
-              favStationSelected.textContent = st.name + (st.place ? `, ${st.place}` : "");
+              favStationSelected.textContent = "✓ " + st.name + (st.place ? `, ${st.place}` : "");
+              favStationSelected.style.color = "var(--amber)";
               _sheetStation = st;
               favNameInput.value = st.name;
-              // Linien und Richtungen nachladen
               _loadSheetLinien(st.globalId);
             });
             favStationDrop.appendChild(b);
@@ -847,9 +850,6 @@
         favStationDrop.style.overflow = "hidden";
       } catch(e) {}
     }, 300);
-  });
-  document.addEventListener("click", e => {
-    if (!favStationInput.contains(e.target)) favStationDrop.style.display = "none";
   });
 
   async function _loadSheetLinien(globalId) {
