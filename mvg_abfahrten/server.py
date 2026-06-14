@@ -161,6 +161,9 @@ def _fresh_get(path: str, params: dict, ttl: int):
                 for k in [k for k, (t, _) in _cache.items() if t < cutoff]:
                     _cache.pop(k, None)
     return data
+
+
+@app.get("/api/search")
 def api_search():
     query = (request.args.get("q") or "").strip()
     if len(query) < 2:
@@ -505,30 +508,30 @@ def api_plans_departures(plan_id: str):
             raw = []
             try:
                 ck = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
-                # Alten Cache-Eintrag sichern bevor API-Call
+                # Alten Cache-Stand sichern (vor API-Call)
                 with _cache_lock:
                     old_hit = _cache.get(ck)
                 old_raw = old_hit[1] if old_hit else None
 
-                # Immer direkt von API abfragen für korrekten Status
+                # Frisch von API holen
                 fresh = _fresh_get("/departures", params, CACHE_TTL)
                 if fresh:
                     entry_source = "live"
                     raw = fresh
                 elif old_raw:
-                    # API leer → alten bekannten Stand anzeigen
+                    # API liefert 0 → letzten bekannten Stand zeigen
                     entry_source = "cached"
                     raw = old_raw
                 else:
                     entry_source = "live"
                     raw = []
             except requests.RequestException:
-                # API nicht erreichbar → Cache als Fallback
+                # API nicht erreichbar
                 with _cache_lock:
-                    old_hit = _cache.get(ck)
-                if old_hit:
+                    fb = _cache.get(ck) if 'ck' in dir() else None
+                if fb:
                     entry_source = "cached"
-                    raw = old_hit[1]
+                    raw = fb[1]
                 else:
                     entry_source = "unavailable"
                     raw = []
