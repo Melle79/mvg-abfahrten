@@ -239,6 +239,10 @@
       const raw = Math.min(80, Math.max(30, DEFAULT_LIMIT * 4));
       const data = await api("departures/" + encodeURIComponent(current.globalId) + "?limit=" + raw);
       lastDeps = data.departures || [];
+      if (!lastDeps.length) {
+        rowsEl.innerHTML = '<div class="empty">Keine Abfahrten.<br><span style="font-size:12px;color:var(--muted)">MVG liefert gerade keine Daten für diese Haltestelle.</span></div>';
+        return;
+      }
       renderRows(lastDeps);
     } catch (err) {
       rowsEl.innerHTML = '<div class="error">MVG-API nicht erreichbar – nächster Versuch in 30 s.</div>';
@@ -247,7 +251,7 @@
 
   function renderRows(deps) {
     const visible = deps.slice(0, DEFAULT_LIMIT);
-    if (!visible.length) { rowsEl.innerHTML = '<div class="empty">Keine Abfahrten.</div>'; return; }
+    if (!visible.length) { rowsEl.innerHTML = '<div class="empty">Keine Abfahrten.<br><span style="font-size:12px;color:var(--muted)">MVG liefert gerade keine Daten für diese Haltestelle.</span></div>'; return; }
     const now = Date.now();
     rowsEl.innerHTML = visible.map((d, i) => {
       const mins = Math.max(0, Math.round((d.realtime - now) / 60000));
