@@ -203,14 +203,19 @@ def api_departures(global_id: str):
             found_types = {dep.get("transportType") for dep in data if dep.get("transportType")}
             all_types = ["UBAHN", "SBAHN", "TRAM", "BUS", "REGIONAL_BUS", "BAHN"]
             missing = [t for t in all_types if t not in found_types]
-            for t in missing:
-                try:
-                    extra = _cached_get("/departures",
-                        {"globalId": global_id, "limit": limit, "transportTypes": t},
-                        CACHE_TTL) or []
-                    data = data + extra
-                except requests.RequestException:
-                    pass
+            if missing:
+                from concurrent.futures import ThreadPoolExecutor, as_completed
+                def fetch_type(t):
+                    try:
+                        return _cached_get("/departures",
+                            {"globalId": global_id, "limit": limit, "transportTypes": t},
+                            CACHE_TTL) or []
+                    except Exception:
+                        return []
+                with ThreadPoolExecutor(max_workers=len(missing)) as ex:
+                    futures = {ex.submit(fetch_type, t): t for t in missing}
+                    for f in as_completed(futures):
+                        data = data + f.result()
 
     except requests.RequestException as err:
         log.warning("MVG-Abfahrten fehlgeschlagen: %s", err)
