@@ -497,36 +497,32 @@ def api_plans_departures(plan_id: str):
         if not global_id:
             continue
         types_key = entry.get("types") or ""
-        cache_group = (global_id, types_key)
+        cache_group = global_id  # nur nach globalId gruppieren
 
         if cache_group not in raw_cache:
+            # Nur nach globalId fragen – kein transportTypes-Filter
+            # damit derselbe Cache-Key wie die App-Suche verwendet wird
             params = {"globalId": global_id, "limit": 80}
-            if types_key:
-                params["transportTypes"] = types_key
 
             entry_source = "unavailable"
             raw = []
             try:
                 ck = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
-                # Alten Cache-Stand sichern (vor API-Call)
                 with _cache_lock:
                     old_hit = _cache.get(ck)
                 old_raw = old_hit[1] if old_hit else None
 
-                # Frisch von API holen
                 fresh = _fresh_get("/departures", params, CACHE_TTL)
                 if fresh:
                     entry_source = "live"
                     raw = fresh
                 elif old_raw:
-                    # API liefert 0 → letzten bekannten Stand zeigen
                     entry_source = "cached"
                     raw = old_raw
                 else:
                     entry_source = "live"
                     raw = []
             except requests.RequestException:
-                # API nicht erreichbar
                 with _cache_lock:
                     fb = _cache.get(ck) if 'ck' in dir() else None
                 if fb:
@@ -541,14 +537,20 @@ def api_plans_departures(plan_id: str):
 
         lines = set((entry.get("lines") or "").split(",")) - {""}
         direction = entry.get("direction") or ""
+        # types clientseitig filtern (API-Call geht ohne types-Filter)
+        types = set((types_key or "").split(",")) - {""}
 
         line_key = entry.get("lines") or "*"
         line_status[line_key] = entry_source
 
-        matching = [dep for dep in raw if not lines or dep.get("label") in lines]
+        matching = [dep for dep in raw
+                    if (not lines or dep.get("label") in lines)
+                    and (not types or dep.get("transportType") in types)]
         entry_sources.append((entry_source, len(matching)))
 
         for dep in raw:
+            if types and dep.get("transportType") not in types:
+                continue
             if lines and dep.get("label") not in lines:
                 continue
             line_id = dep.get("lineId") or ""
