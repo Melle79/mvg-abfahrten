@@ -612,6 +612,8 @@
         const _infoItems = [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.type+"::"+i.message), ...(d.messages||[]).map(m=>"Info::"+m)].join("|||");
         const infoBadge = hasInfo && !this._config.show_ticker ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems)}">ⓘ</button>` : "";
         const platTxt = d.platform != null ? (d.platformChanged ? `⚠ ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
+        const stationTxt = this._config.show_station !== false && d.stationName
+          ? `${esc(d.stationName)} · ` : "";
         const swap = this._config.swap_times;
         const minHtml = d.cancelled
           ? '<span class="min">entfällt</span>'
@@ -621,8 +623,6 @@
         const metaTimeTxt = swap
           ? `${stationTxt}${mins}<small style="font-size:10px;margin-left:2px">min</small>${delay}${sev}`
           : `${stationTxt}${planned}${delay}${sev}`;
-        const stationTxt = this._config.show_station !== false && d.stationName
-          ? `${esc(d.stationName)} · ` : "";
         const tickerText = this._config.show_ticker && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
