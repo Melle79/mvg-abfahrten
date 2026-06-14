@@ -237,8 +237,14 @@
     if (showLoading) rowsEl.innerHTML = '<div class="empty">Lade Abfahrten …</div>';
     try {
       const raw = Math.min(80, Math.max(30, DEFAULT_LIMIT * 4));
-      const data = await api("departures/" + encodeURIComponent(current.globalId) + "?limit=" + raw);
+      let data = await api("departures/" + encodeURIComponent(current.globalId) + "?limit=" + raw);
       lastDeps = data.departures || [];
+      // MVG-API-Bug: manche Haltestellen liefern nur mit transportTypes-Filter Daten
+      if (!lastDeps.length) {
+        data = await api("departures/" + encodeURIComponent(current.globalId) +
+          "?limit=" + raw + "&types=UBAHN,SBAHN,TRAM,BUS,REGIONAL_BUS,BAHN");
+        lastDeps = data.departures || [];
+      }
       if (!lastDeps.length) {
         rowsEl.innerHTML = '<div class="empty">Keine Abfahrten.<br><span style="font-size:12px;color:var(--muted)">MVG liefert gerade keine Daten für diese Haltestelle.</span></div>';
         return;

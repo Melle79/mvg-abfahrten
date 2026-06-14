@@ -198,6 +198,10 @@ def api_departures(global_id: str):
         params["transportTypes"] = types
     try:
         data = _cached_get("/departures", params, CACHE_TTL)
+        # MVG-API-Bug: manche Haltestellen liefern nur mit transportTypes Daten
+        if not data and not types:
+            params2 = dict(params, transportTypes="UBAHN,SBAHN,TRAM,BUS,REGIONAL_BUS,BAHN")
+            data = _cached_get("/departures", params2, CACHE_TTL)
     except requests.RequestException as err:
         log.warning("MVG-Abfahrten fehlgeschlagen: %s", err)
         return jsonify({"error": "MVG-API nicht erreichbar"}), 502
