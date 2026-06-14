@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-03 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-04 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -422,28 +422,9 @@
         const card = avail.closest(".entry-card");
         if (card) _bindManualLineInput(card, idx);
       }).catch(()=>{});
-      api("departures/" + encodeURIComponent(entry.globalId) + "?limit=80").then(d => {
-        const deps = d.departures || [];
-        const dirs = new Map();
-        for (const dep of deps) {
-          if (!dep.direction) continue;
-          if (!dirs.has(dep.direction)) dirs.set(dep.direction, new Set());
-          dirs.get(dep.direction).add(dep.destination);
-        }
-        sheetEntries[idx]._dirs = dirs;
-        const dirRow = $("entriesList").querySelectorAll(".dir-row")[idx];
-        if (dirRow && dirs.size >= 2) {
-          dirRow.innerHTML = [...dirs.entries()].sort((a,b)=>a[0]-b[0]).map(([dir, dests]) => {
-            const label = dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt";
-            const sub = [...dests].slice(0,2).join(", ");
-            const on = sheetEntries[idx].direction === (dir===1?"H":"R");
-            return `<button class="chip dir-chip-full${on?" on":""}" data-dir="${dir===1?"H":"R"}">
-              <span style="font-weight:700">${esc(label)}</span>
-              <span style="font-size:11px;color:var(--muted);display:block">${esc(sub)}</span>
-            </button>`;
-          }).join("");
-          _bindDirChips(dirRow, idx);
-        }
+      api("departures/" + encodeURIComponent(entry.globalId) + "?limit=80").then(async () => {
+        const card = $("entriesList").querySelectorAll(".entry-card")[idx];
+        if (card) await _loadDirChips(card, idx);
       }).catch(()=>{});
     });
     sheet.hidden = false;
@@ -566,31 +547,8 @@
               }
             }).catch(()=>{});
 
-            // Richtungen nachladen – NUR die dir-row updaten, kein renderEntries()
-            api("departures/" + encodeURIComponent(st.globalId) + "?limit=80").then(d => {
-              const deps = d.departures || [];
-              const dirs = new Map();
-              for (const dep of deps) {
-                if (!dep.direction) continue;
-                if (!dirs.has(dep.direction)) dirs.set(dep.direction, new Set());
-                dirs.get(dep.direction).add(dep.destination);
-              }
-              sheetEntries[idx]._dirs = dirs;
-              const card = $("entriesList").querySelectorAll(".entry-card")[idx];
-              if (!card) return;
-              const dirRow = card.querySelector(".dir-row");
-              if (dirRow && dirs.size >= 2) {
-                dirRow.innerHTML = [...dirs.entries()].sort((a,b)=>a[0]-b[0]).map(([dir, dests]) => {
-                  const label = dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt";
-                  const sub = [...dests].slice(0,2).join(", ");
-                  return `<button class="chip dir-chip-full" data-dir="${dir===1?"H":"R"}">
-                    <span style="font-weight:700">${esc(label)}</span>
-                    <span style="font-size:11px;color:var(--muted);display:block">${esc(sub)}</span>
-                  </button>`;
-                }).join("");
-                _bindDirChips(dirRow, idx);
-              }
-            }).catch(()=>{});
+            // Richtungen nachladen
+            _loadDirChips(card, idx);
           });
           drop.appendChild(b);
         });
@@ -612,8 +570,51 @@
         btn.classList.toggle("on");
         const on = [...row.querySelectorAll(".chip.on")].map(b => b.dataset.type);
         sheetEntries[idx].types = on.join(",");
+        // Richtungen neu laden mit aktuellem Verkehrsmittel-Filter
+        if (sheetEntries[idx].globalId) {
+          const card = $("entriesList").querySelectorAll(".entry-card")[idx];
+          if (card) _loadDirChips(card, idx);
+        }
       });
     });
+  }
+
+  async function _loadDirChips(card, idx) {
+    const entry = sheetEntries[idx];
+    if (!entry.globalId) return;
+    const dirRow = card.querySelector(".dir-row");
+    if (!dirRow) return;
+    dirRow.innerHTML = '<span style="color:var(--muted);font-size:12px">Lade Richtungen …</span>';
+    const types = entry.types || "";
+    const url = "departures/" + encodeURIComponent(entry.globalId) + "?limit=80" +
+      (types ? "&types=" + encodeURIComponent(types) : "");
+    try {
+      const d = await api(url);
+      const deps = d.departures || [];
+      const dirs = new Map();
+      for (const dep of deps) {
+        if (!dep.direction) continue;
+        if (!dirs.has(dep.direction)) dirs.set(dep.direction, new Set());
+        dirs.get(dep.direction).add(dep.destination);
+      }
+      sheetEntries[idx]._dirs = dirs;
+      if (dirs.size >= 2) {
+        dirRow.innerHTML = [...dirs.entries()].sort((a,b)=>a[0]-b[0]).map(([dir, dests]) => {
+          const label = dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt";
+          const sub = [...dests].slice(0,2).join(", ");
+          const on = entry.direction === (dir===1?"H":"R");
+          return `<button class="chip dir-chip-full${on?" on":""}" data-dir="${dir===1?"H":"R"}">
+            <span style="font-weight:700">${esc(label)}</span>
+            <span style="font-size:11px;color:var(--muted);display:block">${esc(sub)}</span>
+          </button>`;
+        }).join("");
+        _bindDirChips(dirRow, idx);
+      } else {
+        dirRow.innerHTML = '<span style="color:var(--muted);font-size:12px">Keine Richtungsunterscheidung möglich</span>';
+      }
+    } catch(e) {
+      dirRow.innerHTML = '<span style="color:var(--muted);font-size:12px">Fehler beim Laden</span>';
+    }
   }
 
   const TYPE_ORDER = ["UBAHN","SBAHN","TRAM","BUS","REGIONAL_BUS","BAHN",""];
