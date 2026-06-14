@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-05 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-06 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -522,6 +522,38 @@
       if (!lines.length) {
         wizLineChips.innerHTML += '<span style="color:var(--muted);font-size:12px;margin-left:8px">Keine Linien von API</span>';
       }
+      // Immer: manuelle Eingabe als Ergänzung
+      const manualWrap = document.createElement("div");
+      manualWrap.style.cssText = "display:flex;gap:8px;margin-top:8px";
+      manualWrap.innerHTML = `<input type="text" class="sheet-input" id="wizManualInput" style="padding:6px 10px;font-size:13px;flex:1" placeholder="Linie manuell eingeben (z. B. 212) …">
+        <button class="chip" id="wizManualAdd" style="padding:6px 12px;border-radius:8px;white-space:nowrap">＋</button>`;
+      wizLineChips.appendChild(manualWrap);
+      const manualInput = manualWrap.querySelector("#wizManualInput");
+      const manualAdd   = manualWrap.querySelector("#wizManualAdd");
+      const addManual = () => {
+        const val = manualInput.value.trim().toUpperCase();
+        if (!val) return;
+        // Chip hinzufügen
+        const btn = document.createElement("button");
+        btn.className = "chip";
+        btn.innerHTML = badgeHtml(val,"") + " " + esc(val);
+        btn.style.cssText = "display:inline-flex;align-items:center;gap:5px";
+        btn.addEventListener("click", () => {
+          wizLineChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
+          btn.classList.add("on");
+          wiz.line = val;
+          _loadWizDir();
+        });
+        wizLineChips.insertBefore(btn, manualWrap);
+        manualInput.value = "";
+        // Direkt anwählen
+        wizLineChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
+        btn.classList.add("on");
+        wiz.line = val;
+        _loadWizDir();
+      };
+      manualAdd.addEventListener("click", addManual);
+      manualInput.addEventListener("keydown", e => { if (e.key==="Enter") { e.preventDefault(); addManual(); } });
     } catch(e) {
       wizLineChips.innerHTML = '<span style="color:var(--muted);font-size:12px">Fehler beim Laden</span>';
     }
