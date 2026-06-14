@@ -156,6 +156,7 @@
     .data-status.live     { background: #4caf50; color: #4caf50; }
     .data-status.cached   { background: #ff9800; color: #ff9800; }
     .data-status.unavailable { background: #f44336; color: #f44336; }
+    .filter-info {
       padding: 5px 16px 7px;
       font-size: 11px;
       color: var(--mvg-muted);
@@ -163,6 +164,7 @@
       line-height: 1.5;
     }
     .filter-info[hidden] { display: none; }
+    .dir-bar {
       display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
       padding: 8px 16px; border-top: 1px solid var(--mvg-line);
     }
@@ -955,7 +957,9 @@
     _formData() {
       return {
         plan_ids: Array.isArray(this._config.plan_ids)
-          ? this._config.plan_ids.filter(id => (this._plans||[]).some(p => p.id === id))
+          ? (this._plans?.length
+              ? this._config.plan_ids.filter(id => this._plans.some(p => p.id === id))
+              : this._config.plan_ids)
           : [],
         station: this._currentStationValue(),
         layout: this._config.layout || "tabs",
@@ -1035,9 +1039,11 @@
     _renderSortWidget() {
       const ids = Array.isArray(this._config.plan_ids) ? this._config.plan_ids : [];
       const planMap = new Map((this._plans || []).map(p => [p.id, p.name]));
-      // Unbekannte IDs herausfiltern
-      const validIds = ids.filter(id => planMap.has(id));
-      if (validIds.length !== ids.length) {
+      // Unbekannte IDs nur herausfiltern wenn Pläne bereits geladen sind
+      const validIds = this._plans?.length
+        ? ids.filter(id => planMap.has(id))
+        : ids;
+      if (this._plans?.length && validIds.length !== ids.length) {
         // Config bereinigen
         const cfg = Object.assign({}, this._config, { plan_ids: validIds });
         this._config = cfg;
