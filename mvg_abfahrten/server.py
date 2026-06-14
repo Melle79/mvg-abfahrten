@@ -495,14 +495,13 @@ def api_plans_departures(plan_id: str):
                     hit = _cache.get(ck)
 
                 if hit and (time.time() - hit[0]) < CACHE_TTL:
-                    # Frischer Cache-Treffer
-                    entry_source = "cached"
+                    # Frischer Cache-Treffer → gilt als live
+                    entry_source = "live"
                     raw = hit[1]
                 else:
-                    # Direkt von API
+                    # Cache abgelaufen → direkt von API
                     fresh = _cached_get("/departures", params, CACHE_TTL)
                     if fresh:
-                        # API hat Daten geliefert
                         entry_source = "live"
                         raw = fresh
                     else:
@@ -513,7 +512,7 @@ def api_plans_departures(plan_id: str):
                             entry_source = "cached"
                             raw = old_hit[1]
                         else:
-                            entry_source = "live"  # API erreichbar, aber wirklich leer
+                            entry_source = "live"
                             raw = []
             except requests.RequestException:
                 # API nicht erreichbar → alten Cache verwenden
