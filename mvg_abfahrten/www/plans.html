@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-01 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-02 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -413,10 +413,22 @@
       api("lines/" + encodeURIComponent(entry.globalId)).then(d => {
         sheetEntries[idx]._lines = d.lines || [];
         const avail = $("entriesList").querySelectorAll(".line-chips-avail")[idx];
-        if (avail) {
-          avail.innerHTML = _renderLineChipsHtml(d.lines || [], entry.lines);
-          _bindLineChips(avail, idx);
+        if (!avail) return;
+        if (d.lines && d.lines.length) {
+          avail.innerHTML = _renderLineChipsHtml(d.lines, entry.lines);
+        } else {
+          // API leer → manuelle Eingabe mit gespeicherten Linien vorbelegt
+          const saved = [...sheetEntries[idx].lines];
+          avail.innerHTML = `<span style="color:var(--muted);font-size:12px">Keine Linien von API – manuell eingeben:</span>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px" placeholder="z. B. 212, S5 …">
+              <button class="chip" style="padding:6px 12px;border-radius:8px" data-manual-add="${idx}">＋</button>
+            </div>
+            <div class="manual-line-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+              ${saved.map(l => `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`).join("")}
+            </div>`;
         }
+        _bindLineChips(avail, idx);
       }).catch(()=>{});
       api("departures/" + encodeURIComponent(entry.globalId) + "?limit=80").then(d => {
         const deps = d.departures || [];
@@ -633,7 +645,12 @@
       if (!merged.has(key)) merged.set(key, []);
       merged.get(key).push(...ls);
     }
-    if (!merged.size) return '<span style="color:var(--muted);font-size:12px">Keine Linien gefunden</span>';
+    if (!merged.size) return `<span style="color:var(--muted);font-size:12px">Keine Linien von API – manuell eingeben:</span>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px" placeholder="z. B. 212, S5 …">
+        <button class="chip" style="padding:6px 12px;border-radius:8px">＋</button>
+      </div>
+      <div class="manual-line-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>`;
     return [...merged.entries()].map(([groupLabel, ls]) => {
       const chips = ls.map(l =>
         `<button class="chip${selectedSet.has(l)?" on":""}" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
