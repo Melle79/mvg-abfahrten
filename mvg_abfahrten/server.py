@@ -527,23 +527,29 @@ def api_plans_departures(plan_id: str):
                 "messages":      dep.get("messages") or [],
             })
 
-    # Status nur aus Einträgen ableiten die tatsächlich Abfahrten geliefert haben
-    # Einträge ohne Abfahrten (Bus fährt gerade nicht) werden ignoriert
+    results.sort(key=lambda d: d["realtime"])
+
+    # Status pro Linie für das Frontend
+    line_status = {}
+    for (entry_source, count), entry in zip(entry_sources, [e for e in plan.get("entries", []) if e.get("globalId")]):
+        key = entry.get("lines") or "*"
+        line_status[key] = entry_source
+
+    # Gesamtstatus aus aktiven Einträgen
     priority = {"unavailable": 0, "cached": 1, "live": 2}
     active_sources = [s for s, count in entry_sources if count > 0]
     if not active_sources:
-        # Kein Eintrag hat Abfahrten geliefert → schlechtesten Gesamtstatus nehmen
         all_sources = [s for s, _ in entry_sources]
         data_source = min(all_sources, key=lambda s: priority.get(s, 0)) if all_sources else "unavailable"
     else:
         data_source = min(active_sources, key=lambda s: priority.get(s, 0))
 
-    results.sort(key=lambda d: d["realtime"])
     return jsonify({
-        "plan":       {"id": plan["id"], "name": plan["name"]},
-        "departures": results[:limit],
-        "fetchedAt":  int(time.time() * 1000),
-        "dataSource": data_source,
+        "plan":        {"id": plan["id"], "name": plan["name"]},
+        "departures":  results[:limit],
+        "fetchedAt":   int(time.time() * 1000),
+        "dataSource":  data_source,
+        "lineStatus":  line_status,
     })
 
 

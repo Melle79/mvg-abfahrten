@@ -565,36 +565,37 @@
         this._els.rows.innerHTML = this._plans.map((plan, i) => {
           const res = results[i];
           const src = res.status === "fulfilled"
-            ? (res.value.dataSource || (res.value.departures?.length ? "live" : "unavailable"))
-            : "unavailable";
+            ? (res.value.dataSource || "live") : "unavailable";
+          const lineStatus = res.status === "fulfilled" ? (res.value.lineStatus || {}) : {};
           const deps = res.status === "fulfilled" ? (res.value.departures || []) : [];
           const showStatus  = this._config.show_status !== false;
           const showFilter  = this._config.show_filter !== false;
           const showStation = this._config.show_station !== false;
           const titles = { live: "Live-Daten", cached: "Cache", unavailable: "Keine Daten" };
 
-          // Filter-Info mit Bubble pro Linie
           let filterHtml = "";
-          if (showFilter && deps.length) {
+          if (showFilter) {
             const byLine = new Map();
             for (const d of deps) {
               if (!byLine.has(d.label)) byLine.set(d.label, { dests: new Set(), stations: new Set() });
               byLine.get(d.label).dests.add(d.destination);
               byLine.get(d.label).stations.add(d.stationName);
             }
-            const bubble = showStatus
-              ? `<span class="data-status ${src}" title="${titles[src] || src}" style="margin-right:5px"></span>`
-              : "";
-            filterHtml = [...byLine.entries()].map(([label, {dests, stations}]) => {
-              const destList = [...dests].slice(0,3).map(d=>esc(d)).join(", ");
-              const stationTxt = showStation && stations.size
-                ? `<span style="color:var(--mvg-muted)"> (${[...stations].map(s=>esc(s)).join(", ")})</span>`
+            const parts = [...byLine.entries()].map(([label, {dests, stations}]) => {
+              const lsrc = lineStatus[label] || lineStatus["*"] || src;
+              const bubble = showStatus
+                ? `<span class="data-status ${lsrc}" title="${titles[lsrc]||lsrc}" style="margin-right:4px;flex-shrink:0"></span>`
                 : "";
-              return `${bubble}<b>${esc(label)}</b>${stationTxt} · Fahrtrichtung: ${destList}`;
-            }).join("<br>");
+              const destList = [...dests].map(d=>esc(d)).join(", ");
+              const stationTxt = showStation && stations.size
+                ? ` <span style="color:var(--mvg-muted)">(${[...stations].map(s=>esc(s)).join(", ")})</span>`
+                : "";
+              return `<span style="display:inline-flex;align-items:center;white-space:nowrap;margin-right:12px">${bubble}<b>${esc(label)}</b>${stationTxt}&thinsp;·&thinsp;${destList}</span>`;
+            });
+            if (parts.length) filterHtml = `<div style="display:flex;flex-wrap:wrap;gap:4px 0;margin-top:3px">${parts.join("")}</div>`;
           }
 
-          const head = `<div class="section-head"><h3>${esc(plan.name)}</h3>${filterHtml ? `<div class="place2" style="margin-top:3px">${filterHtml}</div>` : ""}</div>`;
+          const head = `<div class="section-head"><h3>${esc(plan.name)}</h3>${filterHtml}</div>`;
           if (res.status !== "fulfilled") return head + '<div class="note err">Nicht erreichbar.</div>';
           return head + (deps.length ? this._planRowsHtml(deps) : '<div class="note">Keine Abfahrten.</div>');
         }).join("");
@@ -610,8 +611,7 @@
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const data = await resp.json();
         const deps = data.departures || [];
-        const src  = data.dataSource || (deps.length ? "live" : "unavailable");
-        // Tab-Chip Bubble ausblenden — Status steht jetzt in der Filter-Info
+        const lineStatus = data.lineStatus || {};
         if (this._els.dataStatus) this._els.dataStatus.hidden = true;
         const tabBubble = this.shadowRoot.getElementById("status-" + plan.id);
         if (tabBubble) tabBubble.hidden = true;
@@ -620,9 +620,9 @@
           ? this._planRowsHtml(deps)
           : '<div class="note">Keine Abfahrten für diesen Plan.</div>';
 
-        // Filter-Info: pro Linie gruppiert mit Bubble + Richtung
+        // Filter-Info: alle Linien, Status pro Linie, nebeneinander wenn Platz
         if (this._config.show_filter !== false && this._els.filterInfo) {
-          const byLine = new Map(); // label → {dests, stationNames}
+          const byLine = new Map();
           for (const d of deps) {
             if (!byLine.has(d.label)) byLine.set(d.label, { dests: new Set(), stations: new Set() });
             byLine.get(d.label).dests.add(d.destination);
@@ -631,18 +631,19 @@
           const showStation = this._config.show_station !== false;
           const showStatus  = this._config.show_status !== false;
           const titles = { live: "Live-Daten", cached: "Cache", unavailable: "Keine Daten" };
-          const bubble = showStatus
-            ? `<span class="data-status ${src}" title="${titles[src] || src}" style="margin-right:5px"></span>`
-            : "";
           const parts = [...byLine.entries()].map(([label, {dests, stations}]) => {
-            const destList = [...dests].slice(0, 3).map(d => esc(d)).join(", ");
-            const stationTxt = showStation && stations.size
-              ? `<span style="color:var(--mvg-muted)"> (${[...stations].map(s=>esc(s)).join(", ")})</span>`
+            const src = lineStatus[label] || lineStatus["*"] || "live";
+            const bubble = showStatus
+              ? `<span class="data-status ${src}" title="${titles[src] || src}" style="margin-right:4px;flex-shrink:0"></span>`
               : "";
-            return `${bubble}<b>${esc(label)}</b>${stationTxt} · Fahrtrichtung: ${destList}`;
+            const destList = [...dests].map(d => esc(d)).join(", ");
+            const stationTxt = showStation && stations.size
+              ? ` <span style="color:var(--mvg-muted)">(${[...stations].map(s=>esc(s)).join(", ")})</span>`
+              : "";
+            return `<span style="display:inline-flex;align-items:center;white-space:nowrap;margin-right:12px">${bubble}<b>${esc(label)}</b>${stationTxt}&thinsp;·&thinsp;${destList}</span>`;
           });
           if (parts.length) {
-            this._els.filterInfo.innerHTML = parts.join("<br>");
+            this._els.filterInfo.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:4px 0">${parts.join("")}</div>`;
             this._els.filterInfo.hidden = false;
           } else {
             this._els.filterInfo.hidden = true;
