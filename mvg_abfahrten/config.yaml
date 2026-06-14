@@ -1,5 +1,5 @@
 name: MVG Abfahrten
-version: "2.2.37"
+version: "2.2.39"
 slug: mvg_abfahrten
 description: Abfahrtsmonitor für MVG/MVV mit Abfahrtsplänen, Dashboard-Karte und Echtzeitdaten
 url: https://github.com/Melle79/mvg-abfahrten
@@ -17,7 +17,7 @@ ports_description:
 panel_icon: mdi:bus-clock
 panel_title: MVG
 options:
-  cache_ttl: 45
+  cache_ttl: 65
   default_limit: 12
 schema:
   cache_ttl: int(10,300)
@@ -39,7 +39,7 @@ ports_description:
 panel_icon: mdi:bus-clock
 panel_title: MVG
 options:
-  cache_ttl: 45
+  cache_ttl: 65
   default_limit: 12
 schema:
   cache_ttl: int(10,300)

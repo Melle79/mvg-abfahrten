@@ -147,7 +147,15 @@
     ha-card { position: relative; }
     .note { padding: 18px 16px; color: var(--mvg-muted); font-size: 13px; border-top: 1px solid var(--mvg-line); }
     .note.err { color: var(--mvg-red); }
-    .filter-info {
+    .data-status {
+      width: 9px; height: 9px; border-radius: 50%;
+      display: inline-block; flex-shrink: 0;
+      margin-left: 6px; vertical-align: middle;
+      box-shadow: 0 0 4px currentColor;
+    }
+    .data-status.live     { background: #4caf50; color: #4caf50; }
+    .data-status.cached   { background: #ff9800; color: #ff9800; }
+    .data-status.unavailable { background: #f44336; color: #f44336; }
       padding: 5px 16px 7px;
       font-size: 11px;
       color: var(--mvg-muted);
@@ -222,6 +230,7 @@
           <div class="head" id="head">
             <div id="titleWrap"><h2 id="name">MVG Abfahrten</h2><div class="place" id="place"></div></div>
             <div class="clock" id="clock"></div>
+            <span class="data-status" id="dataStatus" hidden title="Datenquelle"></span>
           </div>
           <div class="chips" id="chips" hidden></div>
           <div class="dir-bar" id="dirBar" hidden>
@@ -239,7 +248,8 @@
         titleWrap: this.shadowRoot.getElementById("titleWrap"),
         name: this.shadowRoot.getElementById("name"),
         place: this.shadowRoot.getElementById("place"),
-        clock: this.shadowRoot.getElementById("clock"),
+        clock:      this.shadowRoot.getElementById("clock"),
+        dataStatus: this.shadowRoot.getElementById("dataStatus"),
         chips: this.shadowRoot.getElementById("chips"),
         dirBar: this.shadowRoot.getElementById("dirBar"),
         dirChips: this.shadowRoot.getElementById("dirChips"),
@@ -569,6 +579,14 @@
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const data = await resp.json();
         const deps = data.departures || [];
+        const src  = data.dataSource || (deps.length ? "live" : "unavailable");
+        // Status-Bubble aktualisieren
+        if (this._config.show_status !== false && this._els.dataStatus) {
+          const titles = { live: "Live-Daten von MVG", cached: "Zwischengespeicherte Daten", unavailable: "Keine Daten verfügbar" };
+          this._els.dataStatus.className = `data-status ${src}`;
+          this._els.dataStatus.title = titles[src] || src;
+          this._els.dataStatus.hidden = false;
+        }
         this._els.rows.innerHTML = deps.length
           ? this._planRowsHtml(deps)
           : '<div class="note">Keine Abfahrten für diesen Plan.</div>';
@@ -758,6 +776,7 @@
     show_station: "Haltestellenname unter Ziel anzeigen",
     show_filter:  "Filter-Info unter Plan-Tabs anzeigen",
     show_ticker:  "Störungstext als Laufschrift anzeigen",
+    show_status:  "Datenstatus-Bubble anzeigen (🟢 Live · 🟠 Cache · 🔴 Keine Daten)",
     swap_times:   "Uhrzeit und Minuten tauschen (Uhrzeit groß rechts)",
     limit: "Anzahl Abfahrten",
     refresh: "Aktualisierung",
@@ -924,6 +943,7 @@
         { name: "show_station", selector: { boolean: {} } },
         { name: "show_filter",  selector: { boolean: {} } },
         { name: "show_ticker",  selector: { boolean: {} } },
+        { name: "show_status",  selector: { boolean: {} } },
         { name: "swap_times",   selector: { boolean: {} } },
         { name: "limit",      selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
         { name: "refresh",    selector: { number: { min: 20, max: 300, step: 5, mode: "box", unit_of_measurement: "s" } } },
@@ -945,6 +965,7 @@
         show_station: this._config.show_station !== false,
         show_filter:  this._config.show_filter !== false,
         show_ticker:  this._config.show_ticker === true,
+        show_status:  this._config.show_status !== false,
         swap_times:   this._config.swap_times === true,
         limit: Number(this._config.limit) || 8,
         refresh: Number(this._config.refresh) || 60,
@@ -1121,6 +1142,7 @@
       if (v.show_station === false) cfg.show_station = false; else delete cfg.show_station;
       if (v.show_filter  === false) cfg.show_filter  = false; else delete cfg.show_filter;
       if (v.show_ticker  === true)  cfg.show_ticker  = true;  else delete cfg.show_ticker;
+      if (v.show_status  === false) cfg.show_status  = false; else delete cfg.show_status;
       if (v.swap_times   === true)  cfg.swap_times   = true;  else delete cfg.swap_times;
 
       cfg.limit   = Number(v.limit)   || 8;

@@ -28,7 +28,7 @@ HEADERS = {
     "Accept": "application/json",
 }
 
-CACHE_TTL = int(os.environ.get("CACHE_TTL", "45"))
+CACHE_TTL = int(os.environ.get("CACHE_TTL", "65"))
 DEFAULT_LIMIT = int(os.environ.get("DEFAULT_LIMIT", "12"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 FAV_FILE = DATA_DIR / "favorites.json"
@@ -467,6 +467,7 @@ def api_plans_departures(plan_id: str):
 
     limit = min(int(request.args.get("limit", DEFAULT_LIMIT)), 80)
     results = []
+    data_source = "live"  # live, cached, unavailable
 
     for entry in plan.get("entries", []):
         global_id = entry.get("globalId")
@@ -475,10 +476,30 @@ def api_plans_departures(plan_id: str):
         params = {"globalId": global_id, "limit": limit * 4}
         if entry.get("types"):
             params["transportTypes"] = entry["types"]
+
+        entry_source = "unavailable"
         try:
-            raw = _cached_get("/departures", params, CACHE_TTL)
+            cache_key = str(sorted(params.items()))
+            with _cache_lock:
+                hit = _cache.get(cache_key)
+            if hit and (time.time() - hit[0]) < CACHE_TTL:
+                entry_source = "cached"
+                raw = hit[1]
+            else:
+                raw = _cached_get("/departures", params, CACHE_TTL)
+                if raw:
+                    entry_source = "live"
         except requests.RequestException:
+            raw = []
+
+        if not raw:
+            if data_source == "live":
+                data_source = "unavailable"
             continue
+        elif entry_source == "cached" and data_source == "live":
+            data_source = "cached"
+        elif entry_source == "live":
+            pass  # bleibt live
 
         lines = set((entry.get("lines") or "").split(",")) - {""}
         direction = entry.get("direction") or ""  # "H", "R" oder ""
@@ -510,12 +531,14 @@ def api_plans_departures(plan_id: str):
                 "messages":      dep.get("messages") or [],
             })
 
-    # Zeitlich sortieren, auf limit kürzen
     results.sort(key=lambda d: d["realtime"])
+    if not results:
+        data_source = "unavailable"
     return jsonify({
-        "plan": {"id": plan["id"], "name": plan["name"]},
+        "plan":       {"id": plan["id"], "name": plan["name"]},
         "departures": results[:limit],
-        "fetchedAt": int(time.time() * 1000),
+        "fetchedAt":  int(time.time() * 1000),
+        "dataSource": data_source,
     })
 
 
