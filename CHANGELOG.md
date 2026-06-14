@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.2.67 (2026-06-15)
+
+### Fixes & Verbesserungen
+- **Filter-Info in Kachel-Vorschau** — Linie · Fahrtrichtung klein über den Abfahrten
+- **Fix**: `.preview-row` CSS durch `.preview-filter` zerstört (Layout-Bug)
+- **MVG-API-Bug Workaround**: Fehlende Verkehrsmittel werden parallel nachgefragt (ThreadPoolExecutor)
+- **Abfahrten zeitlich sortiert** — Bus und S-Bahn gemischt nach Abfahrtszeit
+- **App**: Hinweis wenn MVG keine Daten liefert
+- **Status-Bubble**: 🟢 Live · 🟠 Veraltete Daten · 🔴 Keine Daten — pro Linie in Filter-Info
+- **Leere API-Antworten** nicht gecacht — alter Cache als Fallback
+
 ## v2.2.65 (2026-06-15)
 
 ### Abfahrtspläne – Wizard überarbeitet
