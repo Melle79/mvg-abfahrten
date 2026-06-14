@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-02 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-03 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -414,21 +414,13 @@
         sheetEntries[idx]._lines = d.lines || [];
         const avail = $("entriesList").querySelectorAll(".line-chips-avail")[idx];
         if (!avail) return;
-        if (d.lines && d.lines.length) {
-          avail.innerHTML = _renderLineChipsHtml(d.lines, entry.lines);
-        } else {
-          // API leer → manuelle Eingabe mit gespeicherten Linien vorbelegt
-          const saved = [...sheetEntries[idx].lines];
-          avail.innerHTML = `<span style="color:var(--muted);font-size:12px">Keine Linien von API – manuell eingeben:</span>
-            <div style="display:flex;gap:8px;margin-top:6px">
-              <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px" placeholder="z. B. 212, S5 …">
-              <button class="chip" style="padding:6px 12px;border-radius:8px" data-manual-add="${idx}">＋</button>
-            </div>
-            <div class="manual-line-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-              ${saved.map(l => `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`).join("")}
-            </div>`;
-        }
+        avail.innerHTML = d.lines && d.lines.length
+          ? _renderLineChipsHtml(d.lines, entry.lines)
+          : '<span style="color:var(--muted);font-size:12px">Keine Linien von API</span>';
         _bindLineChips(avail, idx);
+        // manuelle Eingabe neu binden (refreshChips zeigt gespeicherte Linien)
+        const card = avail.closest(".entry-card");
+        if (card) _bindManualLineInput(card, idx);
       }).catch(()=>{});
       api("departures/" + encodeURIComponent(entry.globalId) + "?limit=80").then(d => {
         const deps = d.departures || [];
@@ -502,6 +494,16 @@
               : '<span style="color:var(--muted);font-size:12px">Erst Haltestelle wählen</span>'
           }
         </div>
+        <!-- Immer: manuelle Linieneingabe als Ergänzung -->
+        <div class="line-manual-add" style="display:flex;gap:8px;margin-top:6px">
+          <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px;flex:1" placeholder="Linie ergänzen (z. B. 212) …">
+          <button class="chip" style="padding:6px 12px;border-radius:8px;white-space:nowrap" data-manual-add="${idx}">＋</button>
+        </div>
+        <div class="manual-line-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+          ${[...entry.lines].filter(l => !entry._lines.some(x => (x.label||x) === l)).map(l =>
+            `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
+          ).join("")}
+        </div>
         <!-- Richtung -->
         <span class="chip-label">Richtung (leer = beide)</span>
         <div class="chip-row dir-row" data-idx="${idx}">
@@ -518,6 +520,7 @@
       _bindTypeChips(card.querySelector(".types-row"), idx);
       const lineAvail = card.querySelector(".line-chips-avail");
       _bindLineChips(lineAvail, idx);
+      _bindManualLineInput(card, idx);
       _bindDirChips(card.querySelector(".dir-row"), idx);
     });
   }
@@ -555,19 +558,11 @@
               if (!card) return;
               const avail = card.querySelector(".line-chips-avail");
               if (avail) {
-                if (d.lines && d.lines.length) {
-                  avail.innerHTML = _renderLineChipsHtml(d.lines, new Set());
-                  _bindLineChips(avail, idx);
-                } else {
-                  // API leer → manuelle Eingabe zeigen
-                  avail.innerHTML = `<span style="color:var(--muted);font-size:12px">Keine Linien von API – manuell eingeben:</span>
-                    <div style="display:flex;gap:8px;margin-top:6px">
-                      <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px" placeholder="z. B. 212, S5 …">
-                      <button class="chip" style="padding:6px 12px;border-radius:8px" data-manual-add="${idx}">＋</button>
-                    </div>
-                    <div class="manual-line-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>`;
-                  _bindLineChips(avail, idx);
-                }
+                avail.innerHTML = d.lines && d.lines.length
+                  ? _renderLineChipsHtml(d.lines, new Set())
+                  : '<span style="color:var(--muted);font-size:12px">Keine Linien von API</span>';
+                _bindLineChips(avail, idx);
+                _bindManualLineInput(card, idx);
               }
             }).catch(()=>{});
 
@@ -676,28 +671,43 @@
         }
       });
     });
-    // Manuelle Eingabe — direkt im container suchen
-    const manualInput = container.querySelector(".manual-line-input");
-    const manualAdd   = container.querySelector("[data-manual-add]");
-    const manualChips = container.querySelector(".manual-line-chips");
-    if (manualInput && manualAdd && manualChips) {
-      const addManual = () => {
-        const vals = manualInput.value.split(",").map(v => v.trim().toUpperCase()).filter(Boolean);
-        if (!vals.length) return;
-        vals.forEach(v => sheetEntries[idx].lines.add(v));
-        manualInput.value = "";
-        manualChips.innerHTML = [...sheetEntries[idx].lines].map(l =>
-          `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
-        ).join("");
-        _bindLineChips(manualChips, idx);
-      };
-      // Mehrfaches Binden verhindern
-      if (!manualAdd._bound) {
-        manualAdd._bound = true;
-        manualAdd.addEventListener("click", addManual);
-        manualInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addManual(); } });
-      }
+  }
+
+  function _bindManualLineInput(card, idx) {
+    const input     = card.querySelector(".manual-line-input");
+    const addBtn    = card.querySelector("[data-manual-add]");
+    const chipsEl   = card.querySelector(".manual-line-chips");
+    if (!input || !addBtn || !chipsEl) return;
+
+    const refreshChips = () => {
+      // Zeige nur manuell hinzugefügte Linien (die nicht von der API kommen)
+      const apiLines = new Set((sheetEntries[idx]._lines || []).map(l => l.label || l));
+      const manualLines = [...sheetEntries[idx].lines].filter(l => !apiLines.has(l));
+      chipsEl.innerHTML = manualLines.map(l =>
+        `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
+      ).join("");
+      chipsEl.querySelectorAll(".chip[data-line]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          sheetEntries[idx].lines.delete(btn.dataset.line);
+          refreshChips();
+        });
+      });
+    };
+
+    const addManual = () => {
+      const vals = input.value.split(",").map(v => v.trim().toUpperCase()).filter(Boolean);
+      if (!vals.length) return;
+      vals.forEach(v => sheetEntries[idx].lines.add(v));
+      input.value = "";
+      refreshChips();
+    };
+
+    if (!addBtn._bound) {
+      addBtn._bound = true;
+      addBtn.addEventListener("click", addManual);
+      input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addManual(); } });
     }
+    refreshChips();
   }
 
   function _bindDirChips(row, idx) {
