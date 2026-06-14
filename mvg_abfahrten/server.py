@@ -198,22 +198,19 @@ def api_departures(global_id: str):
     try:
         data = _cached_get("/departures", params, CACHE_TTL) or []
 
-        # MVG-API-Bug: manche Haltestellen liefern nur mit transportTypes Daten
+        # MVG-API-Bug: manche Haltestellen liefern nicht alle Verkehrsmittel ohne Filter
         if not types:
             found_types = {dep.get("transportType") for dep in data if dep.get("transportType")}
-            # Bekannte Typen für diese globalId aus dem Locations-Cache suchen
-            known_types = set()
-            for cached_key, (_, cached_data) in list(_cache.items()):
-                if "/locations?" in cached_key and isinstance(cached_data, list):
-                    for loc in cached_data:
-                        if loc.get("globalId") == global_id:
-                            known_types.update(loc.get("transportTypes", []))
-            missing_types = known_types - found_types
-            for t in missing_types:
-                extra = _cached_get("/departures",
-                    {"globalId": global_id, "limit": limit, "transportTypes": t},
-                    CACHE_TTL) or []
-                data = data + extra
+            all_types = ["UBAHN", "SBAHN", "TRAM", "BUS", "REGIONAL_BUS", "BAHN"]
+            missing = [t for t in all_types if t not in found_types]
+            for t in missing:
+                try:
+                    extra = _cached_get("/departures",
+                        {"globalId": global_id, "limit": limit, "transportTypes": t},
+                        CACHE_TTL) or []
+                    data = data + extra
+                except requests.RequestException:
+                    pass
 
     except requests.RequestException as err:
         log.warning("MVG-Abfahrten fehlgeschlagen: %s", err)
