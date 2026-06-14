@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-04 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-05 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -117,7 +117,9 @@
   .line-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
   .line-chips-avail { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; min-height: 28px; }
   .line-chips-avail .chip { display: inline-flex; align-items: center; gap: 5px; }
-  .dir-chip-full { display: flex; flex-direction: column; align-items: flex-start; padding: 7px 12px; border-radius: 10px; text-align: left; min-width: 140px; }
+  .wiz-step { margin-bottom: 14px; transition: opacity 0.2s; }
+  .wiz-disabled { opacity: 0.35; pointer-events: none; }
+  .wiz-disabled .chip-label { color: var(--muted); }
   .btn-add-entry { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; border: 1px dashed var(--amber); background: transparent; color: var(--amber); font-size: 14px; cursor: pointer; font-family: inherit; width: 100%; justify-content: center; margin-top: 10px; }
   .btn-add-entry:hover { background: rgba(255,179,0,0.06); }
   .sheet-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 20px 0; }
@@ -178,11 +180,52 @@
       <span class="sheet-section-label">Name des Plans</span>
       <input class="sheet-input" id="planName" type="text" placeholder="z. B. Heimweg, Büro, Ausflug …">
     </div>
+
+    <!-- Eintrags-Liste -->
     <div class="sheet-section" id="entriesSection">
-      <span class="sheet-section-label">Haltestellen &amp; Filter</span>
+      <span class="sheet-section-label">Einträge</span>
       <div class="entries-list" id="entriesList"></div>
-      <button class="btn-add-entry" id="btnAddEntry">＋ Haltestelle hinzufügen</button>
     </div>
+
+    <!-- Mini-Wizard: neuen Eintrag hinzufügen -->
+    <div class="sheet-section" id="wizardSection">
+      <span class="sheet-section-label">Eintrag hinzufügen</span>
+
+      <!-- Schritt 1: Haltestelle -->
+      <div class="wiz-step" id="wizStep1">
+        <div class="chip-label">1 · Haltestelle</div>
+        <div class="search-drop-sheet" id="wizStationWrap">
+          <input class="sheet-input" id="wizStationInput" type="text" placeholder="Haltestelle suchen …" autocomplete="off">
+          <div class="drop" id="wizStationDrop"></div>
+        </div>
+        <div id="wizStationSelected" style="margin-top:6px;font-size:13px;color:var(--amber)"></div>
+      </div>
+
+      <!-- Schritt 2: Verkehrsmittel -->
+      <div class="wiz-step wiz-disabled" id="wizStep2">
+        <div class="chip-label">2 · Verkehrsmittel <span style="font-weight:400;color:var(--muted)">(leer = alle)</span></div>
+        <div class="chip-row" id="wizTypeChips"></div>
+      </div>
+
+      <!-- Schritt 3: Linie -->
+      <div class="wiz-step wiz-disabled" id="wizStep3">
+        <div class="chip-label">3 · Linie <span id="wizLineHint" style="font-weight:400;color:var(--muted)">(eine wählen oder „Alle")</span></div>
+        <div class="fav-check-grid" id="wizLineChips">
+          <span style="color:var(--muted);font-size:12px">Erst Haltestelle wählen</span>
+        </div>
+      </div>
+
+      <!-- Schritt 4: Richtung -->
+      <div class="wiz-step wiz-disabled" id="wizStep4">
+        <div class="chip-label">4 · Richtung <span style="font-weight:400;color:var(--muted)">(leer = beide)</span></div>
+        <div class="chip-row" id="wizDirChips">
+          <span style="color:var(--muted);font-size:12px">Erst Linie wählen</span>
+        </div>
+      </div>
+
+      <button class="btn-add-entry" id="btnAddEntry" disabled style="opacity:0.4;margin-top:12px">＋ Eintrag hinzufügen</button>
+    </div>
+
     <div class="sheet-actions">
       <button class="btn btn-secondary" id="sheetCancel">Abbrechen</button>
       <button class="btn btn-primary" id="sheetSave">Speichern</button>
@@ -390,43 +433,250 @@
   }
 
   // ---------------------------------------------------------------- Sheet (Erstellen/Bearbeiten)
-  const sheet = $("sheet");
+  const sheet      = $("sheet");
+  const wizStep2   = $("wizStep2");
+  const wizStep3   = $("wizStep3");
+  const wizStep4   = $("wizStep4");
+  const wizTypeChips  = $("wizTypeChips");
+  const wizLineChips  = $("wizLineChips");
+  const wizDirChips   = $("wizDirChips");
+  const wizStationInput  = $("wizStationInput");
+  const wizStationDrop   = $("wizStationDrop");
+  const wizStationSelected = $("wizStationSelected");
+  const btnAddEntry = $("btnAddEntry");
+
+  // ALL_TYPES bereits oben definiert
+
+  // Wizard-State
+  let wiz = { globalId:"", stationName:"", place:"", types:"", line:"", direction:"" };
+
+  function wizReset() {
+    wiz = { globalId:"", stationName:"", place:"", types:"", line:"", direction:"" };
+    wizStationInput.value = "";
+    wizStationSelected.textContent = "";
+    wizStep2.classList.add("wiz-disabled");
+    wizStep3.classList.add("wiz-disabled");
+    wizStep4.classList.add("wiz-disabled");
+    btnAddEntry.disabled = true;
+    btnAddEntry.style.opacity = "0.4";
+    wizTypeChips.innerHTML = ALL_TYPES.map(t =>
+      `<button class="chip" data-type="${t.v}">${t.l}</button>`
+    ).join("");
+    wizLineChips.innerHTML = '<span style="color:var(--muted);font-size:12px">Erst Haltestelle wählen</span>';
+    wizDirChips.innerHTML  = '<span style="color:var(--muted);font-size:12px">Erst Linie wählen</span>';
+    _bindWizTypeChips();
+  }
+
+  function _bindWizTypeChips() {
+    wizTypeChips.querySelectorAll(".chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("on");
+        wiz.types = [...wizTypeChips.querySelectorAll(".chip.on")].map(b=>b.dataset.type).join(",");
+        wiz.line = ""; wiz.direction = "";
+        wizStep4.classList.add("wiz-disabled");
+        btnAddEntry.disabled = true; btnAddEntry.style.opacity = "0.4";
+        _loadWizLines();
+      });
+    });
+  }
+
+  async function _loadWizLines() {
+    if (!wiz.globalId) return;
+    wizLineChips.innerHTML = '<span style="color:var(--muted);font-size:12px">Lade Linien …</span>';
+    try {
+      const d = await api("lines/" + encodeURIComponent(wiz.globalId));
+      let lines = d.lines || [];
+      // nach types filtern wenn gesetzt
+      if (wiz.types) {
+        const typeSet = new Set(wiz.types.split(","));
+        const typeMap = {UBAHN:"UBAHN",SBAHN:"SBAHN",TRAM:"TRAM",BUS:"BUS",REGIONAL_BUS:"BUS"};
+        lines = lines.filter(l => typeSet.has(l.type) || typeSet.has("BUS,REGIONAL_BUS") && (l.type==="BUS"||l.type==="REGIONAL_BUS"));
+      }
+      wizLineChips.innerHTML = "";
+      // "Alle Linien" Chip
+      const allBtn = document.createElement("button");
+      allBtn.className = "chip" + (wiz.line===""?" on":"");
+      allBtn.textContent = "Alle Linien";
+      allBtn.addEventListener("click", () => {
+        wizLineChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
+        allBtn.classList.add("on");
+        wiz.line = "";
+        _loadWizDir();
+      });
+      wizLineChips.appendChild(allBtn);
+      // Linien-Chips
+      lines.forEach(l => {
+        const label = l.label || l;
+        const btn = document.createElement("button");
+        btn.className = "chip" + (wiz.line===label?" on":"");
+        btn.innerHTML = badgeHtml(label, l.type||"") + " " + esc(label);
+        btn.style.cssText = "display:inline-flex;align-items:center;gap:5px";
+        btn.addEventListener("click", () => {
+          wizLineChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
+          btn.classList.add("on");
+          wiz.line = label;
+          _loadWizDir();
+        });
+        wizLineChips.appendChild(btn);
+      });
+      if (!lines.length) {
+        wizLineChips.innerHTML += '<span style="color:var(--muted);font-size:12px;margin-left:8px">Keine Linien von API</span>';
+      }
+    } catch(e) {
+      wizLineChips.innerHTML = '<span style="color:var(--muted);font-size:12px">Fehler beim Laden</span>';
+    }
+    wizStep3.classList.remove("wiz-disabled");
+  }
+
+  async function _loadWizDir() {
+    wizStep4.classList.remove("wiz-disabled");
+    wizDirChips.innerHTML = '<span style="color:var(--muted);font-size:12px">Lade Richtungen …</span>';
+    // Eintrag ohne Richtung ist gültig → Button aktivieren
+    btnAddEntry.disabled = false; btnAddEntry.style.opacity = "1";
+    wiz.direction = "";
+    const types = wiz.types || "";
+    const url = "departures/" + encodeURIComponent(wiz.globalId) + "?limit=80" +
+      (types ? "&types=" + encodeURIComponent(types) : "");
+    try {
+      const d = await api(url);
+      const deps = (d.departures || []).filter(dep => !wiz.line || dep.label === wiz.line);
+      const dirs = new Map();
+      for (const dep of deps) {
+        if (!dep.direction) continue;
+        if (!dirs.has(dep.direction)) dirs.set(dep.direction, new Set());
+        dirs.get(dep.direction).add(dep.destination);
+      }
+      wizDirChips.innerHTML = "";
+      // "Beide" Chip
+      const bothBtn = document.createElement("button");
+      bothBtn.className = "chip on";
+      bothBtn.textContent = "Beide Richtungen";
+      bothBtn.addEventListener("click", () => {
+        wizDirChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
+        bothBtn.classList.add("on");
+        wiz.direction = "";
+      });
+      wizDirChips.appendChild(bothBtn);
+      // H/R Chips
+      [...dirs.entries()].sort((a,b)=>a[0]-b[0]).forEach(([dir, dests]) => {
+        const key = dir===1?"H":"R";
+        const label = dir===1?"H · Hinfahrt":"R · Rückfahrt";
+        const sub = [...dests].slice(0,2).join(", ");
+        const btn = document.createElement("button");
+        btn.className = "chip dir-chip-full";
+        btn.innerHTML = `<span style="font-weight:700">${esc(label)}</span><span style="font-size:11px;color:var(--muted);display:block">${esc(sub)}</span>`;
+        btn.addEventListener("click", () => {
+          wizDirChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
+          btn.classList.add("on");
+          wiz.direction = key;
+        });
+        wizDirChips.appendChild(btn);
+      });
+      if (dirs.size === 0) {
+        wizDirChips.innerHTML += '<span style="color:var(--muted);font-size:12px">Keine Richtungsinfo verfügbar</span>';
+      }
+    } catch(e) {
+      wizDirChips.innerHTML = '<span style="color:var(--muted);font-size:12px">Fehler beim Laden</span>';
+    }
+  }
+
+  // Haltestellensuche im Wizard
+  let _wizSearchTimer;
+  wizStationInput.addEventListener("input", () => {
+    clearTimeout(_wizSearchTimer);
+    const q = wizStationInput.value.trim();
+    wizStationDrop.style.display = "none";
+    if (q.length < 2) return;
+    _wizSearchTimer = setTimeout(async () => {
+      const res = await api("search?q=" + encodeURIComponent(q)).catch(()=>[]);
+      wizStationDrop.innerHTML = "";
+      (res||[]).slice(0,30).forEach(st => {
+        const b = document.createElement("button");
+        const badges = (st.transportTypes||[]).slice(0,4).map(t=>badgeHtml(TYPE_SHORT[t]||t,t)).join("");
+        b.innerHTML = `<span style="display:flex;align-items:center;gap:6px">${badges} ${esc(st.name)}</span><span class="splace">${esc(st.place||"")}</span>`;
+        b.addEventListener("mousedown", ev => {
+          ev.preventDefault();
+          wizStationDrop.style.display = "none";
+          wizStationInput.value = st.name;
+          wizStationSelected.textContent = "✓ " + st.name + (st.place?`, ${st.place}`:"");
+          wiz.globalId = st.globalId; wiz.stationName = st.name; wiz.place = st.place||"";
+          wiz.line = ""; wiz.direction = "";
+          wizStep2.classList.remove("wiz-disabled");
+          wizStep3.classList.remove("wiz-disabled");
+          wizStep4.classList.add("wiz-disabled");
+          btnAddEntry.disabled = true; btnAddEntry.style.opacity = "0.4";
+          _loadWizLines();
+        });
+        wizStationDrop.appendChild(b);
+      });
+      if ((res||[]).length >= 30) {
+        const hint = document.createElement("div");
+        hint.style.cssText = "padding:8px 14px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);font-style:italic";
+        hint.textContent = "⚠ Mehr als 30 Treffer – Suche bitte konkretisieren";
+        wizStationDrop.appendChild(hint);
+      }
+      wizStationDrop.style.display = (res||[]).length ? "block" : "none";
+      wizStationDrop.style.cssText += ";background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);max-height:220px;overflow-y:auto";
+    }, 300);
+  });
+
+  btnAddEntry.addEventListener("click", () => {
+    if (!wiz.globalId) return;
+    sheetEntries.push({
+      globalId:    wiz.globalId,
+      stationName: wiz.stationName,
+      place:       wiz.place,
+      types:       wiz.types,
+      lines:       wiz.line,
+      direction:   wiz.direction,
+    });
+    renderEntries();
+    wizReset();
+  });
+
+  function renderEntries() {
+    const list = $("entriesList");
+    if (!sheetEntries.length) {
+      list.innerHTML = '<span style="color:var(--muted);font-size:13px;display:block;padding:4px 0">Noch keine Einträge.</span>';
+      return;
+    }
+    list.innerHTML = sheetEntries.map((e, idx) => {
+      const lineTxt = e.lines || "Alle Linien";
+      const dirTxt  = e.direction === "H" ? "· Hinfahrt" : e.direction === "R" ? "· Rückfahrt" : "";
+      const typeTxt = e.types ? `<span style="font-size:11px;color:var(--muted)">${esc(e.types.split(",").map(t=>TYPE_LABELS_SHORT[t]||t).join("+"))}</span>` : "";
+      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+        <span style="flex:1;font-size:13px">
+          <b>${esc(e.stationName)}</b>
+          ${e.place ? `<span style="color:var(--muted);font-size:11px"> ${esc(e.place)}</span>` : ""}
+          · ${esc(lineTxt)} ${esc(dirTxt)} ${typeTxt}
+        </span>
+        <button class="icon-btn del" data-idx="${idx}" title="Entfernen">✕</button>
+      </div>`;
+    }).join("");
+    list.querySelectorAll(".icon-btn.del").forEach(btn => {
+      btn.addEventListener("click", () => {
+        sheetEntries.splice(parseInt(btn.dataset.idx), 1);
+        renderEntries();
+      });
+    });
+  }
+
+  const TYPE_LABELS_SHORT = {UBAHN:"U",SBAHN:"S",TRAM:"T",BUS:"Bus",REGIONAL_BUS:"Bus",BAHN:"R","BUS,REGIONAL_BUS":"Bus"};
 
   function openSheet(plan = null) {
     editingPlanId = plan?.id || null;
     $("sheetTitle").textContent = plan ? "Plan bearbeiten" : "Neuer Abfahrtsplan";
     $("planName").value = plan?.name || "";
     sheetEntries = (plan?.entries || []).map(e => ({
-      globalId: e.globalId,
+      globalId:    e.globalId,
       stationName: e.stationName,
-      place: e.place || "",
-      types: e.types || "",
-      lines: new Set((e.lines||"").split(",").filter(Boolean)),
-      direction: e.direction || "",
-      _lines: [],
-      _dirs: new Map(),
+      place:       e.place || "",
+      types:       e.types || "",
+      lines:       e.lines || "",
+      direction:   e.direction || "",
     }));
     renderEntries();
-    // Linien und Richtungen für bestehende Einträge nachladen
-    sheetEntries.forEach((entry, idx) => {
-      if (!entry.globalId) return;
-      api("lines/" + encodeURIComponent(entry.globalId)).then(d => {
-        sheetEntries[idx]._lines = d.lines || [];
-        const avail = $("entriesList").querySelectorAll(".line-chips-avail")[idx];
-        if (!avail) return;
-        avail.innerHTML = d.lines && d.lines.length
-          ? _renderLineChipsHtml(d.lines, entry.lines)
-          : '<span style="color:var(--muted);font-size:12px">Keine Linien von API</span>';
-        _bindLineChips(avail, idx);
-        // manuelle Eingabe neu binden (refreshChips zeigt gespeicherte Linien)
-        const card = avail.closest(".entry-card");
-        if (card) _bindManualLineInput(card, idx);
-      }).catch(()=>{});
-      api("departures/" + encodeURIComponent(entry.globalId) + "?limit=80").then(async () => {
-        const card = $("entriesList").querySelectorAll(".entry-card")[idx];
-        if (card) await _loadDirChips(card, idx);
-      }).catch(()=>{});
-    });
+    wizReset();
     sheet.hidden = false;
   }
 
@@ -435,312 +685,17 @@
   $("sheetCancel").addEventListener("click", () => { sheet.hidden = true; });
   sheet.addEventListener("click", e => { if (e.target === sheet) sheet.hidden = true; });
 
-  // Haltestelle hinzufügen
-  $("btnAddEntry").addEventListener("click", () => {
-    sheetEntries.push({ globalId:"", stationName:"", place:"", types:"", lines: new Set(), direction:"", _lines:[] });
-    renderEntries();
-    // letzten Eintrag scrollen
-    const cards = $("entriesList").querySelectorAll(".entry-card");
-    cards[cards.length-1]?.scrollIntoView({behavior:"smooth", block:"nearest"});
-  });
-
-  function renderEntries() {
-    const list = $("entriesList");
-    list.innerHTML = "";
-    sheetEntries.forEach((entry, idx) => {
-      const card = document.createElement("div");
-      card.className = "entry-card";
-      card.innerHTML = `
-        <div class="entry-card-head">
-          <span class="entry-station">${entry.stationName ? esc(entry.stationName) + (entry.place ? `<small>${esc(entry.place)}</small>` : "") : '<span style="color:var(--muted)">Haltestelle wählen</span>'}</span>
-          <button class="icon-btn del" data-idx="${idx}" title="Eintrag entfernen">✕</button>
-        </div>
-        <!-- Haltestelle suchen -->
-        <div class="search-drop-sheet" data-idx="${idx}">
-          <input class="sheet-input station-search" type="text" placeholder="Haltestelle suchen …" value="${esc(entry.stationName)}" autocomplete="off">
-          <div class="drop"></div>
-        </div>
-        <!-- Verkehrsmittel -->
-        <span class="chip-label">Verkehrsmittel (leer = alle)</span>
-        <div class="chip-row types-row" data-idx="${idx}">
-          ${ALL_TYPES.map(t => `<button class="chip${entry.types.split(",").some(v=>v===t.v||(!entry.types&&true))&&entry.types?"":" "}${entry.types.split(",").includes(t.v)?" on":""}" data-type="${t.v}">${t.l}</button>`).join("")}
-        </div>
-        <!-- Linien -->
-        <span class="chip-label">Linien (leer = alle)</span>
-        <div class="line-chips-avail" data-idx="${idx}">
-          ${entry._lines.length
-            ? _renderLineChipsHtml(entry._lines, entry.lines)
-            : entry.globalId
-              ? '<span style="color:var(--muted);font-size:12px">Lade Linien …</span>'
-              : '<span style="color:var(--muted);font-size:12px">Erst Haltestelle wählen</span>'
-          }
-        </div>
-        <!-- Immer: manuelle Linieneingabe als Ergänzung -->
-        <div class="line-manual-add" style="display:flex;gap:8px;margin-top:6px">
-          <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px;flex:1" placeholder="Linie ergänzen (z. B. 212) …">
-          <button class="chip" style="padding:6px 12px;border-radius:8px;white-space:nowrap" data-manual-add="${idx}">＋</button>
-        </div>
-        <div class="manual-line-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-          ${[...entry.lines].filter(l => !entry._lines.some(x => (x.label||x) === l)).map(l =>
-            `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
-          ).join("")}
-        </div>
-        <!-- Richtung -->
-        <span class="chip-label">Richtung (leer = beide)</span>
-        <div class="chip-row dir-row" data-idx="${idx}">
-          <button class="chip${entry.direction==="H"?" on":""}" data-dir="H">H · Hinfahrt</button>
-          <button class="chip${entry.direction==="R"?" on":""}" data-dir="R">R · Rückfahrt</button>
-        </div>`;
-      list.appendChild(card);
-
-      // Events
-      card.querySelector(".icon-btn.del").addEventListener("click", () => {
-        sheetEntries.splice(idx, 1); renderEntries();
-      });
-      _bindStationSearch(card.querySelector(".search-drop-sheet"), idx);
-      _bindTypeChips(card.querySelector(".types-row"), idx);
-      const lineAvail = card.querySelector(".line-chips-avail");
-      _bindLineChips(lineAvail, idx);
-      _bindManualLineInput(card, idx);
-      _bindDirChips(card.querySelector(".dir-row"), idx);
-    });
-  }
-
-  function _bindStationSearch(wrap, idx) {
-    const input = wrap.querySelector(".station-search");
-    const drop = wrap.querySelector(".drop");
-    let timer;
-    input.addEventListener("input", () => {
-      clearTimeout(timer);
-      const q = input.value.trim();
-      if (q.length < 2) { drop.style.display = "none"; return; }
-      timer = setTimeout(async () => {
-        const res = await api("search?q=" + encodeURIComponent(q)).catch(()=>[]);
-        drop.innerHTML = "";
-        (res||[]).slice(0,30).forEach(st => {
-          const b = document.createElement("button");
-          const badges = (st.transportTypes||[]).slice(0,4).map(t => badgeHtml(TYPE_SHORT[t]||t, t)).join("");
-          b.innerHTML = `<span style="display:flex;align-items:center;gap:6px">${badges} ${esc(st.name)}</span><span class="splace">${esc(st.place||"")}</span>`;
-          b.addEventListener("mousedown", ev => {
-            ev.preventDefault();
-            drop.style.display = "none";
-            input.value = st.name;
-            sheetEntries[idx].globalId = st.globalId;
-            sheetEntries[idx].stationName = st.name;
-            sheetEntries[idx].place = st.place || "";
-            sheetEntries[idx]._lines = [];
-            sheetEntries[idx].lines = new Set();
-            renderEntries();
-
-            // Linien nachladen – NUR den Container updaten, kein renderEntries()
-            api("lines/" + encodeURIComponent(st.globalId)).then(d => {
-              sheetEntries[idx]._lines = d.lines || [];
-              const card = $("entriesList").querySelectorAll(".entry-card")[idx];
-              if (!card) return;
-              const avail = card.querySelector(".line-chips-avail");
-              if (avail) {
-                avail.innerHTML = d.lines && d.lines.length
-                  ? _renderLineChipsHtml(d.lines, new Set())
-                  : '<span style="color:var(--muted);font-size:12px">Keine Linien von API</span>';
-                _bindLineChips(avail, idx);
-                _bindManualLineInput(card, idx);
-              }
-            }).catch(()=>{});
-
-            // Richtungen nachladen
-            _loadDirChips(card, idx);
-          });
-          drop.appendChild(b);
-        });
-        drop.style.display = res?.length ? "block" : "none";
-        if ((res||[]).length >= 30) {
-          const hint = document.createElement("div");
-          hint.style.cssText = "padding:8px 14px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);font-style:italic";
-          hint.textContent = "⚠ Mehr als 30 Treffer – Suche bitte konkretisieren";
-          drop.appendChild(hint);
-        }
-      }, 300);
-    });
-    document.addEventListener("click", e => { if (!wrap.contains(e.target)) drop.style.display = "none"; });
-  }
-
-  function _bindTypeChips(row, idx) {
-    row.querySelectorAll(".chip").forEach(btn => {
-      btn.addEventListener("click", () => {
-        btn.classList.toggle("on");
-        const on = [...row.querySelectorAll(".chip.on")].map(b => b.dataset.type);
-        sheetEntries[idx].types = on.join(",");
-        // Richtungen neu laden mit aktuellem Verkehrsmittel-Filter
-        if (sheetEntries[idx].globalId) {
-          const card = $("entriesList").querySelectorAll(".entry-card")[idx];
-          if (card) _loadDirChips(card, idx);
-        }
-      });
-    });
-  }
-
-  async function _loadDirChips(card, idx) {
-    const entry = sheetEntries[idx];
-    if (!entry.globalId) return;
-    const dirRow = card.querySelector(".dir-row");
-    if (!dirRow) return;
-    dirRow.innerHTML = '<span style="color:var(--muted);font-size:12px">Lade Richtungen …</span>';
-    const types = entry.types || "";
-    const url = "departures/" + encodeURIComponent(entry.globalId) + "?limit=80" +
-      (types ? "&types=" + encodeURIComponent(types) : "");
-    try {
-      const d = await api(url);
-      const deps = d.departures || [];
-      const dirs = new Map();
-      for (const dep of deps) {
-        if (!dep.direction) continue;
-        if (!dirs.has(dep.direction)) dirs.set(dep.direction, new Set());
-        dirs.get(dep.direction).add(dep.destination);
-      }
-      sheetEntries[idx]._dirs = dirs;
-      if (dirs.size >= 2) {
-        dirRow.innerHTML = [...dirs.entries()].sort((a,b)=>a[0]-b[0]).map(([dir, dests]) => {
-          const label = dir === 1 ? "H · Hinfahrt" : "R · Rückfahrt";
-          const sub = [...dests].slice(0,2).join(", ");
-          const on = entry.direction === (dir===1?"H":"R");
-          return `<button class="chip dir-chip-full${on?" on":""}" data-dir="${dir===1?"H":"R"}">
-            <span style="font-weight:700">${esc(label)}</span>
-            <span style="font-size:11px;color:var(--muted);display:block">${esc(sub)}</span>
-          </button>`;
-        }).join("");
-        _bindDirChips(dirRow, idx);
-      } else {
-        dirRow.innerHTML = '<span style="color:var(--muted);font-size:12px">Keine Richtungsunterscheidung möglich</span>';
-      }
-    } catch(e) {
-      dirRow.innerHTML = '<span style="color:var(--muted);font-size:12px">Fehler beim Laden</span>';
-    }
-  }
-
-  const TYPE_ORDER = ["UBAHN","SBAHN","TRAM","BUS","REGIONAL_BUS","BAHN",""];
-  const TYPE_GROUP_LABEL = { UBAHN:"U-Bahn", SBAHN:"S-Bahn", TRAM:"Tram", BUS:"Bus", REGIONAL_BUS:"Bus", BAHN:"Bahn", "":"Sonstige" };
-
-  function _renderLineChipsHtml(lines, selectedSet) {
-    // lines = [{label, type}] oder [string] (Rückwärtskompatibilität)
-    const norm = lines.map(l => typeof l === "string" ? {label:l, type:""} : l);
-    // Gruppieren nach Typ
-    const groups = new Map();
-    for (const {label, type} of norm) {
-      const t = type || "";
-      if (!groups.has(t)) groups.set(t, []);
-      groups.get(t).push(label);
-    }
-    // Sortieren: erst nach TYPE_ORDER, dann innerhalb der Gruppe numerisch/alphabetisch
-    const sorted = [...groups.entries()].sort((a,b) =>
-      (TYPE_ORDER.indexOf(a[0]) + 1 || 99) - (TYPE_ORDER.indexOf(b[0]) + 1 || 99)
-    );
-    // Doppelte Bus-Gruppen zusammenführen
-    const merged = new Map();
-    for (const [t, ls] of sorted) {
-      const key = TYPE_GROUP_LABEL[t] || "Sonstige";
-      if (!merged.has(key)) merged.set(key, []);
-      merged.get(key).push(...ls);
-    }
-    if (!merged.size) return `<span style="color:var(--muted);font-size:12px">Keine Linien von API – manuell eingeben:</span>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <input type="text" class="sheet-input manual-line-input" style="padding:6px 10px;font-size:13px" placeholder="z. B. 212, S5 …">
-        <button class="chip" style="padding:6px 12px;border-radius:8px">＋</button>
-      </div>
-      <div class="manual-line-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>`;
-    return [...merged.entries()].map(([groupLabel, ls]) => {
-      const chips = ls.map(l =>
-        `<button class="chip${selectedSet.has(l)?" on":""}" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
-      ).join("");
-      return `<div style="margin-bottom:8px">
-        <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px">${esc(groupLabel)}</span>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">${chips}</div>
-      </div>`;
-    }).join("");
-  }
-
-  function _bindLineChips(container, idx) {
-    if (!container) return;
-    container.querySelectorAll(".chip[data-line]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const line = btn.dataset.line;
-        if (sheetEntries[idx].lines.has(line)) {
-          sheetEntries[idx].lines.delete(line);
-          btn.classList.remove("on");
-        } else {
-          sheetEntries[idx].lines.add(line);
-          btn.classList.add("on");
-        }
-      });
-    });
-  }
-
-  function _bindManualLineInput(card, idx) {
-    const input     = card.querySelector(".manual-line-input");
-    const addBtn    = card.querySelector("[data-manual-add]");
-    const chipsEl   = card.querySelector(".manual-line-chips");
-    if (!input || !addBtn || !chipsEl) return;
-
-    const refreshChips = () => {
-      // Zeige nur manuell hinzugefügte Linien (die nicht von der API kommen)
-      const apiLines = new Set((sheetEntries[idx]._lines || []).map(l => l.label || l));
-      const manualLines = [...sheetEntries[idx].lines].filter(l => !apiLines.has(l));
-      chipsEl.innerHTML = manualLines.map(l =>
-        `<button class="chip on" data-line="${esc(l)}">${badgeHtml(l,"")} ${esc(l)}</button>`
-      ).join("");
-      chipsEl.querySelectorAll(".chip[data-line]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          sheetEntries[idx].lines.delete(btn.dataset.line);
-          refreshChips();
-        });
-      });
-    };
-
-    const addManual = () => {
-      const vals = input.value.split(",").map(v => v.trim().toUpperCase()).filter(Boolean);
-      if (!vals.length) return;
-      vals.forEach(v => sheetEntries[idx].lines.add(v));
-      input.value = "";
-      refreshChips();
-    };
-
-    if (!addBtn._bound) {
-      addBtn._bound = true;
-      addBtn.addEventListener("click", addManual);
-      input.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addManual(); } });
-    }
-    refreshChips();
-  }
-
-  function _bindDirChips(row, idx) {
-    row.querySelectorAll(".chip").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const dir = btn.dataset.dir;
-        if (sheetEntries[idx].direction === dir) {
-          sheetEntries[idx].direction = "";
-          btn.classList.remove("on");
-        } else {
-          sheetEntries[idx].direction = dir;
-          row.querySelectorAll(".chip").forEach(b => b.classList.remove("on"));
-          btn.classList.add("on");
-        }
-      });
-    });
-  }
-
-  // Speichern
   $("sheetSave").addEventListener("click", async () => {
     const name = $("planName").value.trim();
     if (!name) { $("planName").style.borderColor = "var(--red)"; return; }
-    const entries = sheetEntries
-      .filter(e => e.globalId)
-      .map(e => ({
-        globalId: e.globalId,
-        stationName: e.stationName,
-        place: e.place,
-        types: e.types,
-        lines: [...e.lines].join(","),
-        direction: e.direction,
-      }));
+    const entries = sheetEntries.filter(e => e.globalId).map(e => ({
+      globalId:    e.globalId,
+      stationName: e.stationName,
+      place:       e.place,
+      types:       e.types,
+      lines:       e.lines,
+      direction:   e.direction,
+    }));
     const body = { name, entries };
     if (editingPlanId) {
       const updated = await fetch("./api/plans/" + editingPlanId, {
