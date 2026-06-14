@@ -480,7 +480,7 @@ def api_plans_departures(plan_id: str):
         entry_source = "unavailable"
         raw = []
         try:
-            cache_key = str(sorted(params.items()))
+            cache_key = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
             with _cache_lock:
                 hit = _cache.get(cache_key)
             if hit and (time.time() - hit[0]) < CACHE_TTL:
@@ -488,7 +488,7 @@ def api_plans_departures(plan_id: str):
                 raw = hit[1]
             else:
                 raw = _cached_get("/departures", params, CACHE_TTL)
-                entry_source = "live"  # API wurde erreicht (auch wenn leer)
+                entry_source = "live"
         except requests.RequestException:
             entry_source = "unavailable"
             raw = []
