@@ -468,36 +468,46 @@ def api_plans_departures(plan_id: str):
     limit = min(int(request.args.get("limit", DEFAULT_LIMIT)), 80)
     results = []
     entry_sources = []
-    line_status = {}  # label → source, direkt in Schleife befüllt
+    line_status = {}
+
+    # Einträge nach globalId+types gruppieren um doppelte API-Calls zu vermeiden
+    from collections import defaultdict
+    raw_cache = {}  # (globalId, types) → (raw, source)
 
     for entry in plan.get("entries", []):
         global_id = entry.get("globalId")
         if not global_id:
             continue
-        params = {"globalId": global_id, "limit": limit * 4}
-        if entry.get("types"):
-            params["transportTypes"] = entry["types"]
+        types_key = entry.get("types") or ""
+        cache_group = (global_id, types_key)
 
-        entry_source = "unavailable"
-        raw = []
-        try:
-            cache_key = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
-            with _cache_lock:
-                hit = _cache.get(cache_key)
-            if hit and (time.time() - hit[0]) < CACHE_TTL:
-                entry_source = "cached"
-                raw = hit[1]
-            else:
-                raw = _cached_get("/departures", params, CACHE_TTL)
-                entry_source = "live"
-        except requests.RequestException:
+        if cache_group not in raw_cache:
+            params = {"globalId": global_id, "limit": 80}
+            if types_key:
+                params["transportTypes"] = types_key
+
             entry_source = "unavailable"
             raw = []
+            try:
+                ck = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
+                with _cache_lock:
+                    hit = _cache.get(ck)
+                if hit and (time.time() - hit[0]) < CACHE_TTL:
+                    entry_source = "cached"
+                    raw = hit[1]
+                else:
+                    raw = _cached_get("/departures", params, CACHE_TTL)
+                    entry_source = "live"
+            except requests.RequestException:
+                entry_source = "unavailable"
+                raw = []
+            raw_cache[cache_group] = (raw, entry_source)
+        else:
+            raw, entry_source = raw_cache[cache_group]
 
         lines = set((entry.get("lines") or "").split(",")) - {""}
         direction = entry.get("direction") or ""
 
-        # Status direkt pro Linie speichern
         line_key = entry.get("lines") or "*"
         line_status[line_key] = entry_source
 
@@ -513,22 +523,22 @@ def api_plans_departures(plan_id: str):
             if direction == "R" and ":R:" not in line_id:
                 continue
             results.append({
-                "stationName":   entry.get("stationName", global_id),
-                "globalId":      global_id,
-                "label":         dep.get("label"),
-                "destination":   dep.get("destination"),
-                "transportType": dep.get("transportType"),
-                "planned":       dep.get("plannedDepartureTime"),
-                "realtime":      dep.get("realtimeDepartureTime") or dep.get("plannedDepartureTime"),
-                "delay":         dep.get("delayInMinutes") or 0,
-                "platform":      dep.get("platform"),
+                "stationName":    entry.get("stationName", global_id),
+                "globalId":       global_id,
+                "label":          dep.get("label"),
+                "destination":    dep.get("destination"),
+                "transportType":  dep.get("transportType"),
+                "planned":        dep.get("plannedDepartureTime"),
+                "realtime":       dep.get("realtimeDepartureTime") or dep.get("plannedDepartureTime"),
+                "delay":          dep.get("delayInMinutes") or 0,
+                "platform":       dep.get("platform"),
                 "platformChanged": bool(dep.get("platformChanged")),
-                "cancelled":     bool(dep.get("cancelled")),
-                "sev":           bool(dep.get("sev")),
-                "occupancy":     dep.get("occupancy") or "UNKNOWN",
-                "direction":     1 if ":H:" in line_id else 2 if ":R:" in line_id else 0,
-                "infos":         dep.get("infos") or [],
-                "messages":      dep.get("messages") or [],
+                "cancelled":      bool(dep.get("cancelled")),
+                "sev":            bool(dep.get("sev")),
+                "occupancy":      dep.get("occupancy") or "UNKNOWN",
+                "direction":      1 if ":H:" in line_id else 2 if ":R:" in line_id else 0,
+                "infos":          dep.get("infos") or [],
+                "messages":       dep.get("messages") or [],
             })
 
     results.sort(key=lambda d: d["realtime"])
