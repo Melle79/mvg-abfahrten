@@ -493,7 +493,11 @@ def api_plans_departures(plan_id: str):
             entry_source = "unavailable"
             raw = []
 
-        entry_sources.append(entry_source)
+        entry_sources.append((entry_source, len([
+            d for dep in raw
+            for d in [dep]
+            if (not lines or dep.get("label") in lines)
+        ])))
 
         lines = set((entry.get("lines") or "").split(",")) - {""}
         direction = entry.get("direction") or ""  # "H", "R" oder ""
@@ -525,13 +529,16 @@ def api_plans_departures(plan_id: str):
                 "messages":      dep.get("messages") or [],
             })
 
-    # Gesamtstatus: schlechtester Wert gewinnt
-    # unavailable > cached > live
+    # Status nur aus Einträgen ableiten die tatsächlich Abfahrten geliefert haben
+    # Einträge ohne Abfahrten (Bus fährt gerade nicht) werden ignoriert
     priority = {"unavailable": 0, "cached": 1, "live": 2}
-    if not entry_sources:
-        data_source = "unavailable"
+    active_sources = [s for s, count in entry_sources if count > 0]
+    if not active_sources:
+        # Kein Eintrag hat Abfahrten geliefert → schlechtesten Gesamtstatus nehmen
+        all_sources = [s for s, _ in entry_sources]
+        data_source = min(all_sources, key=lambda s: priority.get(s, 0)) if all_sources else "unavailable"
     else:
-        data_source = min(entry_sources, key=lambda s: priority.get(s, 0))
+        data_source = min(active_sources, key=lambda s: priority.get(s, 0))
 
     results.sort(key=lambda d: d["realtime"])
     return jsonify({
