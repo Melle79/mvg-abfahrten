@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-13-04 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-01 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -505,8 +505,7 @@
       _bindStationSearch(card.querySelector(".search-drop-sheet"), idx);
       _bindTypeChips(card.querySelector(".types-row"), idx);
       const lineAvail = card.querySelector(".line-chips-avail");
-      const manualChips = card.querySelector(".manual-line-chips");
-      _bindLineChips(lineAvail || manualChips, idx);
+      _bindLineChips(lineAvail, idx);
       _bindDirChips(card.querySelector(".dir-row"), idx);
     });
   }
@@ -660,13 +659,14 @@
         }
       });
     });
-    // Manuelle Eingabe
-    const manualAdd = container.closest(".entry-card")?.querySelector("[data-manual-add]");
-    const manualInput = container.closest(".entry-card")?.querySelector(".manual-line-input");
-    const manualChips = container.closest(".entry-card")?.querySelector(".manual-line-chips");
-    if (manualAdd && manualInput && manualChips) {
+    // Manuelle Eingabe — direkt im container suchen
+    const manualInput = container.querySelector(".manual-line-input");
+    const manualAdd   = container.querySelector("[data-manual-add]");
+    const manualChips = container.querySelector(".manual-line-chips");
+    if (manualInput && manualAdd && manualChips) {
       const addManual = () => {
         const vals = manualInput.value.split(",").map(v => v.trim().toUpperCase()).filter(Boolean);
+        if (!vals.length) return;
         vals.forEach(v => sheetEntries[idx].lines.add(v));
         manualInput.value = "";
         manualChips.innerHTML = [...sheetEntries[idx].lines].map(l =>
@@ -674,8 +674,12 @@
         ).join("");
         _bindLineChips(manualChips, idx);
       };
-      manualAdd.addEventListener("click", addManual);
-      manualInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addManual(); } });
+      // Mehrfaches Binden verhindern
+      if (!manualAdd._bound) {
+        manualAdd._bound = true;
+        manualAdd.addEventListener("click", addManual);
+        manualInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addManual(); } });
+      }
     }
   }
 
