@@ -934,7 +934,9 @@
 
     _formData() {
       return {
-        plan_ids: Array.isArray(this._config.plan_ids) ? this._config.plan_ids : [],
+        plan_ids: Array.isArray(this._config.plan_ids)
+          ? this._config.plan_ids.filter(id => (this._plans||[]).some(p => p.id === id))
+          : [],
         station: this._currentStationValue(),
         layout: this._config.layout || "tabs",
         design: this._config.design || "auto",
@@ -1011,23 +1013,33 @@
 
     _renderSortWidget() {
       const ids = Array.isArray(this._config.plan_ids) ? this._config.plan_ids : [];
-      if (ids.length < 2) { this._sortWrap.innerHTML = ""; return; }
       const planMap = new Map((this._plans || []).map(p => [p.id, p.name]));
+      // Unbekannte IDs herausfiltern
+      const validIds = ids.filter(id => planMap.has(id));
+      if (validIds.length !== ids.length) {
+        // Config bereinigen
+        const cfg = Object.assign({}, this._config, { plan_ids: validIds });
+        this._config = cfg;
+        this.dispatchEvent(new CustomEvent("config-changed", {
+          detail: { config: cfg }, bubbles: true, composed: true,
+        }));
+      }
+      if (validIds.length < 2) { this._sortWrap.innerHTML = ""; return; }
       this._sortWrap.innerHTML = `<style>${EDITOR_STYLE}</style>
         <div class="sort-widget">
           <div class="sort-widget-label">Reihenfolge der Pläne</div>
-          ${ids.map((id, i) => `
+          ${validIds.map((id, i) => `
             <div class="sort-item">
               <span class="sort-name">${esc(planMap.get(id) || id)}</span>
               <button class="sort-btn" data-idx="${i}" data-dir="-1" ${i === 0 ? "disabled" : ""}>↑</button>
-              <button class="sort-btn" data-idx="${i}" data-dir="1" ${i === ids.length - 1 ? "disabled" : ""}>↓</button>
+              <button class="sort-btn" data-idx="${i}" data-dir="1" ${i === validIds.length - 1 ? "disabled" : ""}>↓</button>
             </div>`).join("")}
         </div>`;
       this._sortWrap.querySelectorAll(".sort-btn").forEach(btn => {
         btn.addEventListener("click", () => {
           const idx = parseInt(btn.dataset.idx);
           const dir = parseInt(btn.dataset.dir);
-          const newIds = [...ids];
+          const newIds = [...validIds];
           const tmp = newIds[idx];
           newIds[idx] = newIds[idx + dir];
           newIds[idx + dir] = tmp;
