@@ -612,14 +612,22 @@
         const _infoItems = [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.type+"::"+i.message), ...(d.messages||[]).map(m=>"Info::"+m)].join("|||");
         const infoBadge = hasInfo && !this._config.show_ticker ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems)}">ⓘ</button>` : "";
         const platTxt = d.platform != null ? (d.platformChanged ? `⚠ ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
-        const minHtml = d.cancelled ? '<span class="min">entfällt</span>' : `<span class="min">${mins}<small>min</small></span>`;
+        const swap = this._config.swap_times;
+        const minHtml = d.cancelled
+          ? '<span class="min">entfällt</span>'
+          : swap
+            ? `<span class="min" style="font-size:18px">${planned}</span>`
+            : `<span class="min">${mins}<small>min</small></span>`;
+        const metaTimeTxt = swap
+          ? `${stationTxt}${mins}<small style="font-size:10px;margin-left:2px">min</small>${delay}${sev}`
+          : `${stationTxt}${planned}${delay}${sev}`;
         const stationTxt = this._config.show_station !== false && d.stationName
           ? `${esc(d.stationName)} · ` : "";
         const tickerText = this._config.show_ticker && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
         const metaHtml = `<div class="meta">
-          <span class="meta-time">${stationTxt}${planned}${delay}${sev}</span>
+          <span class="meta-time">${metaTimeTxt}</span>
           ${tickerText ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText)}</span></span>` : ""}
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
@@ -685,14 +693,20 @@
         const platformTxt = d.platform != null
           ? (d.platformChanged ? `⚠ Gleis ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`)
           : "";
+        const swap = this._config.swap_times;
         const minHtml = d.cancelled
           ? '<span class="min">entfällt</span>'
-          : `<span class="min">${mins}<small>min</small></span>`;
+          : swap
+            ? `<span class="min" style="font-size:18px">${planned}</span>`
+            : `<span class="min">${mins}<small>min</small></span>`;
         const tickerText2 = this._config.show_ticker && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
+        const metaTimeTxt2 = swap
+          ? `${mins}<small style="font-size:10px;margin-left:2px">min</small>${delay}${sev}${occIcon ? ' ' + occIcon : ''}`
+          : `${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}`;
         const metaHtml2 = `<div class="meta">
-          <span class="meta-time">${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}</span>
+          <span class="meta-time">${metaTimeTxt2}</span>
           ${tickerText2 ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText2)}</span></span>` : ""}
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
@@ -744,6 +758,7 @@
     show_station: "Haltestellenname unter Ziel anzeigen",
     show_filter:  "Filter-Info unter Plan-Tabs anzeigen",
     show_ticker:  "Störungstext als Laufschrift anzeigen",
+    swap_times:   "Uhrzeit und Minuten tauschen (Uhrzeit groß rechts)",
     limit: "Anzahl Abfahrten",
     refresh: "Aktualisierung",
     api_url: "API-URL (leer = Standard)",
@@ -909,6 +924,7 @@
         { name: "show_station", selector: { boolean: {} } },
         { name: "show_filter",  selector: { boolean: {} } },
         { name: "show_ticker",  selector: { boolean: {} } },
+        { name: "swap_times",   selector: { boolean: {} } },
         { name: "limit",      selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
         { name: "refresh",    selector: { number: { min: 20, max: 300, step: 5, mode: "box", unit_of_measurement: "s" } } },
         { name: "api_url",    selector: { text: {} } },
@@ -927,6 +943,7 @@
         show_station: this._config.show_station !== false,
         show_filter:  this._config.show_filter !== false,
         show_ticker:  this._config.show_ticker === true,
+        swap_times:   this._config.swap_times === true,
         limit: Number(this._config.limit) || 8,
         refresh: Number(this._config.refresh) || 60,
         api_url: this._config.api_url || "",
@@ -1092,6 +1109,7 @@
       if (v.show_station === false) cfg.show_station = false; else delete cfg.show_station;
       if (v.show_filter  === false) cfg.show_filter  = false; else delete cfg.show_filter;
       if (v.show_ticker  === true)  cfg.show_ticker  = true;  else delete cfg.show_ticker;
+      if (v.swap_times   === true)  cfg.swap_times   = true;  else delete cfg.swap_times;
 
       cfg.limit   = Number(v.limit)   || 8;
       cfg.refresh = Number(v.refresh) || 60;
