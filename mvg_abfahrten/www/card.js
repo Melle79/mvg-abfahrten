@@ -541,10 +541,7 @@
         const b = document.createElement("button");
         b.className = "chip" + (i === (this._currentPlanIdx ?? 0) ? " on" : "");
         b.dataset.planId = plan.id;
-        b.innerHTML = `${esc(plan.name)}${this._config.show_status !== false
-          ? `<span class="data-status plan-status" id="status-${plan.id}" hidden></span>`
-          : ""}`;
-        b.style.cssText = "display:inline-flex;align-items:center;gap:5px";
+        b.textContent = plan.name;
         b.addEventListener("click", () => {
           this._currentPlanIdx = i;
           this._els.name.textContent = this._config.title || plan.name;
@@ -566,18 +563,39 @@
             encodeURIComponent(p.id) + "/departures?limit=" + limit).then(r => r.json()))
         );
         this._els.rows.innerHTML = this._plans.map((plan, i) => {
-          const filterLabel = this._config.show_filter !== false ? this._planFilterLabel(plan) : "";
-          const sub = filterLabel ? `<span class="place2">${esc(filterLabel)}</span>` : "";
           const res = results[i];
           const src = res.status === "fulfilled"
             ? (res.value.dataSource || (res.value.departures?.length ? "live" : "unavailable"))
             : "unavailable";
-          const bubble = this._config.show_status !== false
-            ? `<span class="data-status ${src}" title="${src === "live" ? "Live-Daten" : src === "cached" ? "Cache" : "Keine Daten"}"></span>`
-            : "";
-          const head = `<div class="section-head"><h3>${esc(plan.name)}${bubble}</h3>${sub}</div>`;
+          const deps = res.status === "fulfilled" ? (res.value.departures || []) : [];
+          const showStatus  = this._config.show_status !== false;
+          const showFilter  = this._config.show_filter !== false;
+          const showStation = this._config.show_station !== false;
+          const titles = { live: "Live-Daten", cached: "Cache", unavailable: "Keine Daten" };
+
+          // Filter-Info mit Bubble pro Linie
+          let filterHtml = "";
+          if (showFilter && deps.length) {
+            const byLine = new Map();
+            for (const d of deps) {
+              if (!byLine.has(d.label)) byLine.set(d.label, { dests: new Set(), stations: new Set() });
+              byLine.get(d.label).dests.add(d.destination);
+              byLine.get(d.label).stations.add(d.stationName);
+            }
+            const bubble = showStatus
+              ? `<span class="data-status ${src}" title="${titles[src] || src}" style="margin-right:5px"></span>`
+              : "";
+            filterHtml = [...byLine.entries()].map(([label, {dests, stations}]) => {
+              const destList = [...dests].slice(0,3).map(d=>esc(d)).join(", ");
+              const stationTxt = showStation && stations.size
+                ? `<span style="color:var(--mvg-muted)"> (${[...stations].map(s=>esc(s)).join(", ")})</span>`
+                : "";
+              return `${bubble}<b>${esc(label)}</b>${stationTxt} · Fahrtrichtung: ${destList}`;
+            }).join("<br>");
+          }
+
+          const head = `<div class="section-head"><h3>${esc(plan.name)}</h3>${filterHtml ? `<div class="place2" style="margin-top:3px">${filterHtml}</div>` : ""}</div>`;
           if (res.status !== "fulfilled") return head + '<div class="note err">Nicht erreichbar.</div>';
-          const deps = res.value.departures || [];
           return head + (deps.length ? this._planRowsHtml(deps) : '<div class="note">Keine Abfahrten.</div>');
         }).join("");
         return;
@@ -593,38 +611,42 @@
         const data = await resp.json();
         const deps = data.departures || [];
         const src  = data.dataSource || (deps.length ? "live" : "unavailable");
-        // Bubble am Tab-Chip setzen
-        if (this._config.show_status !== false) {
-          const titles = { live: "Live-Daten von MVG", cached: "Zwischengespeicherte Daten", unavailable: "Keine Daten verfügbar" };
-          const bubble = this.shadowRoot.getElementById("status-" + plan.id);
-          if (bubble) {
-            bubble.className = `data-status ${src}`;
-            bubble.title = titles[src] || src;
-            bubble.hidden = false;
-          }
-        }
-        // Globalen Header-Bubble verstecken
+        // Tab-Chip Bubble ausblenden — Status steht jetzt in der Filter-Info
         if (this._els.dataStatus) this._els.dataStatus.hidden = true;
+        const tabBubble = this.shadowRoot.getElementById("status-" + plan.id);
+        if (tabBubble) tabBubble.hidden = true;
+
         this._els.rows.innerHTML = deps.length
           ? this._planRowsHtml(deps)
           : '<div class="note">Keine Abfahrten für diesen Plan.</div>';
 
-        // Filter-Info: Fahrtrichtungen pro Haltestelle aus den Abfahrten
-        if (this._config.show_filter !== false && this._els.filterInfo && deps.length) {
-          const byStation = new Map();
+        // Filter-Info: pro Linie gruppiert mit Bubble + Richtung
+        if (this._config.show_filter !== false && this._els.filterInfo) {
+          const byLine = new Map(); // label → {dests, stationNames}
           for (const d of deps) {
-            if (!byStation.has(d.stationName)) byStation.set(d.stationName, new Set());
-            byStation.get(d.stationName).add(d.destination);
+            if (!byLine.has(d.label)) byLine.set(d.label, { dests: new Set(), stations: new Set() });
+            byLine.get(d.label).dests.add(d.destination);
+            byLine.get(d.label).stations.add(d.stationName);
           }
           const showStation = this._config.show_station !== false;
-          const parts = [...byStation.entries()].map(([station, dests]) => {
+          const showStatus  = this._config.show_status !== false;
+          const titles = { live: "Live-Daten", cached: "Cache", unavailable: "Keine Daten" };
+          const bubble = showStatus
+            ? `<span class="data-status ${src}" title="${titles[src] || src}" style="margin-right:5px"></span>`
+            : "";
+          const parts = [...byLine.entries()].map(([label, {dests, stations}]) => {
             const destList = [...dests].slice(0, 3).map(d => esc(d)).join(", ");
-            return showStation
-              ? `<b>${esc(station)}</b> · Fahrtrichtung: ${destList}`
-              : `Fahrtrichtung: ${destList}`;
+            const stationTxt = showStation && stations.size
+              ? `<span style="color:var(--mvg-muted)"> (${[...stations].map(s=>esc(s)).join(", ")})</span>`
+              : "";
+            return `${bubble}<b>${esc(label)}</b>${stationTxt} · Fahrtrichtung: ${destList}`;
           });
-          this._els.filterInfo.innerHTML = parts.join("<br>");
-          this._els.filterInfo.hidden = false;
+          if (parts.length) {
+            this._els.filterInfo.innerHTML = parts.join("<br>");
+            this._els.filterInfo.hidden = false;
+          } else {
+            this._els.filterInfo.hidden = true;
+          }
         } else if (this._els.filterInfo) {
           this._els.filterInfo.hidden = true;
         }
