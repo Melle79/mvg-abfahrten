@@ -467,7 +467,8 @@ def api_plans_departures(plan_id: str):
 
     limit = min(int(request.args.get("limit", DEFAULT_LIMIT)), 80)
     results = []
-    entry_sources = []  # Status pro Eintrag sammeln
+    entry_sources = []
+    line_status = {}  # label → source, direkt in Schleife befüllt
 
     for entry in plan.get("entries", []):
         global_id = entry.get("globalId")
@@ -496,7 +497,10 @@ def api_plans_departures(plan_id: str):
         lines = set((entry.get("lines") or "").split(",")) - {""}
         direction = entry.get("direction") or ""
 
-        # Abfahrten zählen die durch den Filter passen
+        # Status direkt pro Linie speichern
+        line_key = entry.get("lines") or "*"
+        line_status[line_key] = entry_source
+
         matching = [dep for dep in raw if not lines or dep.get("label") in lines]
         entry_sources.append((entry_source, len(matching)))
 
@@ -529,13 +533,7 @@ def api_plans_departures(plan_id: str):
 
     results.sort(key=lambda d: d["realtime"])
 
-    # Status pro Linie für das Frontend
-    line_status = {}
-    for (entry_source, count), entry in zip(entry_sources, [e for e in plan.get("entries", []) if e.get("globalId")]):
-        key = entry.get("lines") or "*"
-        line_status[key] = entry_source
-
-    # Gesamtstatus aus aktiven Einträgen
+    # Gesamtstatus
     priority = {"unavailable": 0, "cached": 1, "live": 2}
     active_sources = [s for s, count in entry_sources if count > 0]
     if not active_sources:
