@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-10 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-11 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -695,12 +695,13 @@
       const lineTxt = e.lines || "Alle Linien";
       const dirTxt  = e.direction === "H" ? "· Hinfahrt" : e.direction === "R" ? "· Rückfahrt" : "";
       const typeTxt = e.types ? `<span style="font-size:11px;color:var(--muted)">${esc(e.types.split(",").map(t=>TYPE_LABELS_SHORT[t]||t).join("+"))}</span>` : "";
-      return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
         <span style="flex:1;font-size:13px">
           <b>${esc(e.stationName)}</b>
           ${e.place ? `<span style="color:var(--muted);font-size:11px"> ${esc(e.place)}</span>` : ""}
           · ${esc(lineTxt)} ${esc(dirTxt)} ${typeTxt}
         </span>
+        <button class="icon-btn edit" data-idx="${idx}" title="Bearbeiten" style="font-size:14px">✎</button>
         <button class="icon-btn del" data-idx="${idx}" title="Entfernen">✕</button>
       </div>`;
     }).join("");
@@ -708,6 +709,60 @@
       btn.addEventListener("click", () => {
         sheetEntries.splice(parseInt(btn.dataset.idx), 1);
         renderEntries();
+      });
+    });
+    list.querySelectorAll(".icon-btn.edit").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = parseInt(btn.dataset.idx);
+        const e = sheetEntries[idx];
+        // Eintrag aus Liste entfernen und in Wizard laden
+        sheetEntries.splice(idx, 1);
+        renderEntries();
+        // Wizard vorausfüllen
+        wizReset();
+        wiz.globalId    = e.globalId;
+        wiz.stationName = e.stationName;
+        wiz.place       = e.place;
+        wiz.types       = e.types;
+        wiz.line        = e.lines;
+        wiz.lineType    = e.lineType || "";
+        wiz.direction   = e.direction;
+        // UI aktualisieren
+        wizStationInput.value = e.stationName;
+        wizStationSelected.textContent = "✓ " + e.stationName + (e.place ? `, ${e.place}` : "");
+        wizStep2.classList.remove("wiz-disabled");
+        wizStep3.classList.remove("wiz-disabled");
+        // Verkehrsmittel-Chips setzen
+        const activeTypes = new Set((e.types||"").split(",").filter(Boolean));
+        wizTypeChips.querySelectorAll(".chip").forEach(b => {
+          const matches = b.dataset.type.split(",").some(t => activeTypes.has(t));
+          b.classList.toggle("on", activeTypes.size > 0 && matches);
+        });
+        // Linien und Richtungen laden
+        _loadWizLines().then(() => {
+          // Linie vorauswählen
+          if (e.lines) {
+            wizLineChips.querySelectorAll(".chip").forEach(b => {
+              if (b.textContent.trim().includes(e.lines) || b.dataset?.line === e.lines) {
+                b.classList.add("on");
+              }
+            });
+            _loadWizDir().then(() => {
+              // Richtung vorauswählen
+              if (e.direction) {
+                wizDirChips.querySelectorAll(".chip").forEach(b => {
+                  b.classList.toggle("on", b.dataset?.dir === e.direction || b.textContent.includes(e.direction === "H" ? "Hinfahrt" : "Rückfahrt"));
+                });
+                wiz.direction = e.direction;
+              }
+            });
+          }
+        });
+        btnAddEntry.disabled = false;
+        btnAddEntry.style.opacity = "1";
+        btnAddEntry.textContent = "＋ Eintrag zur Liste hinzufügen";
+        // Scroll zum Wizard
+        $("wizardSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     });
   }
