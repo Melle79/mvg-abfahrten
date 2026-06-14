@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-06 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-07 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -448,10 +448,10 @@
   // ALL_TYPES bereits oben definiert
 
   // Wizard-State
-  let wiz = { globalId:"", stationName:"", place:"", types:"", line:"", direction:"" };
+  let wiz = { globalId:"", stationName:"", place:"", types:"", line:"", lineType:"", direction:"" };
 
   function wizReset() {
-    wiz = { globalId:"", stationName:"", place:"", types:"", line:"", direction:"" };
+    wiz = { globalId:"", stationName:"", place:"", types:"", line:"", lineType:"", direction:"" };
     wizStationInput.value = "";
     wizStationSelected.textContent = "";
     wizStep2.classList.add("wiz-disabled");
@@ -507,16 +507,24 @@
       // Linien-Chips
       lines.forEach(l => {
         const label = l.label || l;
+        const stale = l.stale || false;
         const btn = document.createElement("button");
-        btn.className = "chip" + (wiz.line===label?" on":"");
+        btn.className = "chip" + (wiz.line===label?" on":"") + (stale?" wiz-stale":"");
         btn.innerHTML = badgeHtml(label, l.type||"") + " " + esc(label);
-        btn.style.cssText = "display:inline-flex;align-items:center;gap:5px";
-        btn.addEventListener("click", () => {
-          wizLineChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
-          btn.classList.add("on");
-          wiz.line = label;
-          _loadWizDir();
-        });
+        if (stale) {
+          btn.title = "Linie zuletzt vor mehr als 30 Tagen gesehen – manuell eingeben zum Auswählen";
+          btn.style.cssText = "display:inline-flex;align-items:center;gap:5px;opacity:0.45;cursor:not-allowed";
+          btn.disabled = true;
+        } else {
+          btn.style.cssText = "display:inline-flex;align-items:center;gap:5px";
+          btn.addEventListener("click", () => {
+            wizLineChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
+            btn.classList.add("on");
+            wiz.line = label;
+            wiz.lineType = l.type || "";
+            _loadWizDir();
+          });
+        }
         wizLineChips.appendChild(btn);
       });
       if (!lines.length) {
@@ -542,6 +550,7 @@
           wizLineChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
           btn.classList.add("on");
           wiz.line = val;
+          wiz.lineType = "";
           _loadWizDir();
         });
         wizLineChips.insertBefore(btn, manualWrap);
@@ -550,6 +559,7 @@
         wizLineChips.querySelectorAll(".chip").forEach(b=>b.classList.remove("on"));
         btn.classList.add("on");
         wiz.line = val;
+        wiz.lineType = "";
         _loadWizDir();
       };
       manualAdd.addEventListener("click", addManual);
@@ -660,6 +670,7 @@
       place:       wiz.place,
       types:       wiz.types,
       lines:       wiz.line,
+      lineType:    wiz.lineType || "",
       direction:   wiz.direction,
     });
     renderEntries();
@@ -705,6 +716,7 @@
       place:       e.place || "",
       types:       e.types || "",
       lines:       e.lines || "",
+      lineType:    (e.lineHistory||[]).find(h=>h.label===e.lines)?.type || "",
       direction:   e.direction || "",
     }));
     renderEntries();
@@ -727,6 +739,11 @@
       types:       e.types,
       lines:       e.lines,
       direction:   e.direction,
+      lineHistory: e.lines ? [{
+        label:    e.lines,
+        type:     e.lineType || "",
+        lastSeen: new Date().toISOString(),
+      }] : [],
     }));
     const body = { name, entries };
     if (editingPlanId) {

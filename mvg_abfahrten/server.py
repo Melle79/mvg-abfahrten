@@ -211,9 +211,15 @@ def api_departures(global_id: str):
 
 @app.get("/api/lines/<path:global_id>")
 def api_lines(global_id: str):
-    """Alle Linien einer Haltestelle – mehrere Versuche, verschiedene Limits."""
-    all_lines = {}
-    # Versuche mit verschiedenen Limits um alle Linien zu erfassen
+    """Alle Linien einer Haltestelle – mit Alterungs-Logik (30d ausgegraut, 90d gelöscht)."""
+    import datetime
+    now = datetime.datetime.now(datetime.timezone.utc)
+    DAY = 86400  # Sekunden
+
+    all_lines = {}  # label → {type, lastSeen, stale, expired}
+
+    # 1. Aktuelle Abfahrten von der API
+    api_labels = set()
     for limit in [80, 40, 20]:
         try:
             resp = requests.get(
@@ -228,27 +234,102 @@ def api_lines(global_id: str):
                 continue
             for dep in data:
                 label = dep.get("label")
-                if label and label not in all_lines:
-                    all_lines[label] = dep.get("transportType", "")
+                if label:
+                    api_labels.add(label)
+                    if label not in all_lines:
+                        all_lines[label] = {
+                            "type":     dep.get("transportType", ""),
+                            "lastSeen": now.isoformat(),
+                            "stale":    False,
+                            "expired":  False,
+                        }
             if all_lines:
-                break  # Haben Daten, kein weiterer Versuch nötig
+                break
         except requests.RequestException:
             continue
 
-    # Zusätzlich: aus gespeicherten Plänen bekannte Linien dieser Haltestelle ergänzen
+    # 2. Aus gespeicherten Plänen bekannte Linien ergänzen (mit Alterungs-Check)
     try:
-        for plan in _load_plans():
+        plans_changed = False
+        plans = _load_plans()
+        for plan in plans:
             for entry in plan.get("entries", []):
-                if entry.get("globalId") == global_id:
-                    for line in (entry.get("lines") or "").split(","):
-                        line = line.strip()
-                        if line and line not in all_lines:
-                            all_lines[line] = entry.get("types", "")
+                if entry.get("globalId") != global_id:
+                    continue
+                for line_info in entry.get("lineHistory", []):
+                    label     = line_info.get("label", "")
+                    ltype     = line_info.get("type", "")
+                    last_seen = line_info.get("lastSeen", "")
+                    if not label:
+                        continue
+
+                    # lastSeen parsen
+                    try:
+                        ls = datetime.datetime.fromisoformat(last_seen)
+                        if ls.tzinfo is None:
+                            ls = ls.replace(tzinfo=datetime.timezone.utc)
+                        age_days = (now - ls).total_seconds() / DAY
+                    except Exception:
+                        age_days = 0
+
+                    if age_days >= 90:
+                        # Abgelaufen → nicht mehr anzeigen
+                        continue
+                    if label in api_labels:
+                        # Frisch von der API → lastSeen aktualisieren
+                        line_info["lastSeen"] = now.isoformat()
+                        plans_changed = True
+                        continue
+                    if label not in all_lines:
+                        all_lines[label] = {
+                            "type":     ltype,
+                            "lastSeen": last_seen,
+                            "stale":    age_days >= 30,
+                            "expired":  False,
+                        }
+
+        # Aktuell von API gesehene Linien in lineHistory aller Einträge aktualisieren
+        for plan in plans:
+            for entry in plan.get("entries", []):
+                if entry.get("globalId") != global_id:
+                    continue
+                history = {lh["label"]: lh for lh in entry.get("lineHistory", []) if lh.get("label")}
+                for label in api_labels:
+                    if label in history:
+                        history[label]["lastSeen"] = now.isoformat()
+                        plans_changed = True
+                    else:
+                        history[label] = {
+                            "label":    label,
+                            "type":     all_lines.get(label, {}).get("type", ""),
+                            "lastSeen": now.isoformat(),
+                        }
+                        plans_changed = True
+                # Abgelaufene (>90 Tage) entfernen
+                new_history = []
+                for lh in history.values():
+                    try:
+                        ls = datetime.datetime.fromisoformat(lh.get("lastSeen",""))
+                        if ls.tzinfo is None:
+                            ls = ls.replace(tzinfo=datetime.timezone.utc)
+                        if (now - ls).total_seconds() / DAY < 90:
+                            new_history.append(lh)
+                        else:
+                            plans_changed = True
+                    except Exception:
+                        new_history.append(lh)
+                entry["lineHistory"] = new_history
+
+        if plans_changed:
+            _save_plans(plans)
     except Exception:
         pass
 
     lines = sorted(all_lines.items(), key=lambda x: x[0])
-    return jsonify({"globalId": global_id, "lines": [{"label": l, "type": t} for l, t in lines]})
+    return jsonify({"globalId": global_id, "lines": [
+        {"label": l, "type": v["type"], "stale": v.get("stale", False)}
+        for l, v in sorted(all_lines.items())
+    ]})
 
 
 @app.get("/api/favorites")
