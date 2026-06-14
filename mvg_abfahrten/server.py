@@ -146,7 +146,21 @@ def api_config():
     return jsonify({"default_limit": DEFAULT_LIMIT, "cache_ttl": CACHE_TTL})
 
 
-@app.get("/api/search")
+def _fresh_get(path: str, params: dict, ttl: int):
+    """Wie _cached_get, aber ignoriert vorhandenen Cache und holt immer frisch."""
+    key = path + "?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
+    now = time.time()
+    resp = requests.get(MVG_BASE + path, params=params, headers=HEADERS, timeout=10)
+    resp.raise_for_status()
+    data = resp.json()
+    if data:
+        with _cache_lock:
+            _cache[key] = (now, data)
+            if len(_cache) > 500:
+                cutoff = now - max(ttl, SEARCH_TTL)
+                for k in [k for k, (t, _) in _cache.items() if t < cutoff]:
+                    _cache.pop(k, None)
+    return data
 def api_search():
     query = (request.args.get("q") or "").strip()
     if len(query) < 2:
@@ -491,30 +505,25 @@ def api_plans_departures(plan_id: str):
             raw = []
             try:
                 ck = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
+                # Alten Cache-Eintrag sichern bevor API-Call
                 with _cache_lock:
-                    hit = _cache.get(ck)
+                    old_hit = _cache.get(ck)
+                old_raw = old_hit[1] if old_hit else None
 
-                if hit and (time.time() - hit[0]) < CACHE_TTL:
-                    # Frischer Cache-Treffer → gilt als live
+                # Immer direkt von API abfragen für korrekten Status
+                fresh = _fresh_get("/departures", params, CACHE_TTL)
+                if fresh:
                     entry_source = "live"
-                    raw = hit[1]
+                    raw = fresh
+                elif old_raw:
+                    # API leer → alten bekannten Stand anzeigen
+                    entry_source = "cached"
+                    raw = old_raw
                 else:
-                    # Cache abgelaufen → alten Eintrag sichern BEVOR API-Call
-                    old_raw = hit[1] if hit else None
-                    fresh = _cached_get("/departures", params, CACHE_TTL)
-                    if fresh:
-                        entry_source = "live"
-                        raw = fresh
-                    elif old_raw:
-                        # API leer → alten Stand verwenden
-                        entry_source = "cached"
-                        raw = old_raw
-                    else:
-                        entry_source = "live"
-                        raw = []
+                    entry_source = "live"
+                    raw = []
             except requests.RequestException:
-                # API nicht erreichbar → alten Cache verwenden
-                ck = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
+                # API nicht erreichbar → Cache als Fallback
                 with _cache_lock:
                     old_hit = _cache.get(ck)
                 if old_hit:
