@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-08 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-09 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -576,7 +576,9 @@
     wizStep4.classList.remove("wiz-disabled");
     wizDirChips.innerHTML = '<span style="color:var(--muted);font-size:12px">Lade Richtungen …</span>';
     // Eintrag ohne Richtung ist gültig → Button aktivieren
-    btnAddEntry.disabled = false; btnAddEntry.style.opacity = "1";
+    btnAddEntry.disabled = false;
+    btnAddEntry.style.opacity = "1";
+    btnAddEntry.textContent = "＋ Eintrag zur Liste hinzufügen";
     wiz.direction = "";
     const types = wiz.types || "";
     const url = "departures/" + encodeURIComponent(wiz.globalId) + "?limit=80" +
@@ -677,6 +679,10 @@
     });
     renderEntries();
     wizReset();
+    // Button wieder deaktivieren
+    btnAddEntry.disabled = true;
+    btnAddEntry.style.opacity = "0.4";
+    btnAddEntry.textContent = "＋ Eintrag hinzufügen";
   });
 
   function renderEntries() {
@@ -734,6 +740,20 @@
   $("sheetSave").addEventListener("click", async () => {
     const name = $("planName").value.trim();
     if (!name) { $("planName").style.borderColor = "var(--red)"; return; }
+
+    // Wenn Wizard-State gefüllt aber noch nicht als Eintrag hinzugefügt → automatisch übernehmen
+    if (wiz.globalId) {
+      sheetEntries.push({
+        globalId:    wiz.globalId,
+        stationName: wiz.stationName,
+        place:       wiz.place,
+        types:       wiz.types,
+        lines:       wiz.line,
+        lineType:    wiz.lineType || "",
+        direction:   wiz.direction,
+      });
+      wizReset();
+    }
     const entries = sheetEntries.filter(e => e.globalId).map(e => ({
       globalId:    e.globalId,
       stationName: e.stationName,
