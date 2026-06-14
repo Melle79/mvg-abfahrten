@@ -467,7 +467,7 @@ def api_plans_departures(plan_id: str):
 
     limit = min(int(request.args.get("limit", DEFAULT_LIMIT)), 80)
     results = []
-    data_source = "live"  # live, cached, unavailable
+    entry_sources = []  # Status pro Eintrag sammeln
 
     for entry in plan.get("entries", []):
         global_id = entry.get("globalId")
@@ -478,6 +478,7 @@ def api_plans_departures(plan_id: str):
             params["transportTypes"] = entry["types"]
 
         entry_source = "unavailable"
+        raw = []
         try:
             cache_key = str(sorted(params.items()))
             with _cache_lock:
@@ -487,19 +488,12 @@ def api_plans_departures(plan_id: str):
                 raw = hit[1]
             else:
                 raw = _cached_get("/departures", params, CACHE_TTL)
-                if raw:
-                    entry_source = "live"
+                entry_source = "live"  # API wurde erreicht (auch wenn leer)
         except requests.RequestException:
+            entry_source = "unavailable"
             raw = []
 
-        if not raw:
-            if data_source == "live":
-                data_source = "unavailable"
-            continue
-        elif entry_source == "cached" and data_source == "live":
-            data_source = "cached"
-        elif entry_source == "live":
-            pass  # bleibt live
+        entry_sources.append(entry_source)
 
         lines = set((entry.get("lines") or "").split(",")) - {""}
         direction = entry.get("direction") or ""  # "H", "R" oder ""
@@ -531,9 +525,15 @@ def api_plans_departures(plan_id: str):
                 "messages":      dep.get("messages") or [],
             })
 
-    results.sort(key=lambda d: d["realtime"])
-    if not results:
+    # Gesamtstatus: schlechtester Wert gewinnt
+    # unavailable > cached > live
+    priority = {"unavailable": 0, "cached": 1, "live": 2}
+    if not entry_sources:
         data_source = "unavailable"
+    else:
+        data_source = min(entry_sources, key=lambda s: priority.get(s, 0))
+
+    results.sort(key=lambda d: d["realtime"])
     return jsonify({
         "plan":       {"id": plan["id"], "name": plan["name"]},
         "departures": results[:limit],
