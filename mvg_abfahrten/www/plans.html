@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-09 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-10 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -741,7 +741,7 @@
     const name = $("planName").value.trim();
     if (!name) { $("planName").style.borderColor = "var(--red)"; return; }
 
-    // Wenn Wizard-State gefüllt aber noch nicht als Eintrag hinzugefügt → automatisch übernehmen
+    // Wizard-State automatisch übernehmen wenn nicht manuell hinzugefügt
     if (wiz.globalId) {
       sheetEntries.push({
         globalId:    wiz.globalId,
@@ -754,6 +754,12 @@
       });
       wizReset();
     }
+
+    if (!sheetEntries.filter(e => e.globalId).length) {
+      alert("Bitte mindestens eine Haltestelle hinzufügen.");
+      return;
+    }
+
     const entries = sheetEntries.filter(e => e.globalId).map(e => ({
       globalId:    e.globalId,
       stationName: e.stationName,
@@ -768,19 +774,23 @@
       }] : [],
     }));
     const body = { name, entries };
-    if (editingPlanId) {
-      const updated = await fetch("./api/plans/" + editingPlanId, {
-        method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
-      }).then(r => r.json());
-      plans = plans.map(p => p.id === editingPlanId ? updated : p);
-    } else {
-      const created = await fetch("./api/plans", {
-        method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
-      }).then(r => r.json());
-      plans.push(created);
+    try {
+      if (editingPlanId) {
+        const updated = await fetch("./api/plans/" + editingPlanId, {
+          method: "PUT", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+        }).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+        plans = plans.map(p => p.id === editingPlanId ? updated : p);
+      } else {
+        const created = await fetch("./api/plans", {
+          method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+        }).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+        plans.push(created);
+      }
+      sheet.hidden = true;
+      await loadPlans();
+    } catch(err) {
+      alert("Fehler beim Speichern: " + err.message);
     }
-    sheet.hidden = true;
-    renderGrid();
   });
 
   // ---------------------------------------------------------------- Start
