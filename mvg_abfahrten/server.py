@@ -238,6 +238,7 @@ def api_departures(global_id: str):
         }
         for dep in data
     ]
+    departures.sort(key=lambda d: d["realtime"] or 0)
     return jsonify({"globalId": global_id, "departures": departures, "fetchedAt": int(time.time() * 1000)})
 
 
