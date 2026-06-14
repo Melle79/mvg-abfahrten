@@ -148,14 +148,15 @@
     .note { padding: 18px 16px; color: var(--mvg-muted); font-size: 13px; border-top: 1px solid var(--mvg-line); }
     .note.err { color: var(--mvg-red); }
     .data-status {
-      width: 9px; height: 9px; border-radius: 50%;
+      width: 8px; height: 8px; border-radius: 50%;
       display: inline-block; flex-shrink: 0;
-      margin-left: 6px; vertical-align: middle;
       box-shadow: 0 0 4px currentColor;
+      vertical-align: middle;
     }
-    .data-status.live     { background: #4caf50; color: #4caf50; }
-    .data-status.cached   { background: #ff9800; color: #ff9800; }
+    .data-status.live        { background: #4caf50; color: #4caf50; }
+    .data-status.cached      { background: #ff9800; color: #ff9800; }
     .data-status.unavailable { background: #f44336; color: #f44336; }
+    .section-head .data-status { margin-left: 6px; }
     .filter-info {
       padding: 5px 16px 7px;
       font-size: 11px;
@@ -539,7 +540,11 @@
       this._plans.forEach((plan, i) => {
         const b = document.createElement("button");
         b.className = "chip" + (i === (this._currentPlanIdx ?? 0) ? " on" : "");
-        b.textContent = plan.name;
+        b.dataset.planId = plan.id;
+        b.innerHTML = `${esc(plan.name)}${this._config.show_status !== false
+          ? `<span class="data-status plan-status" id="status-${plan.id}" hidden></span>`
+          : ""}`;
+        b.style.cssText = "display:inline-flex;align-items:center;gap:5px";
         b.addEventListener("click", () => {
           this._currentPlanIdx = i;
           this._els.name.textContent = this._config.title || plan.name;
@@ -563,8 +568,14 @@
         this._els.rows.innerHTML = this._plans.map((plan, i) => {
           const filterLabel = this._config.show_filter !== false ? this._planFilterLabel(plan) : "";
           const sub = filterLabel ? `<span class="place2">${esc(filterLabel)}</span>` : "";
-          const head = `<div class="section-head"><h3>${esc(plan.name)}</h3>${sub}</div>`;
           const res = results[i];
+          const src = res.status === "fulfilled"
+            ? (res.value.dataSource || (res.value.departures?.length ? "live" : "unavailable"))
+            : "unavailable";
+          const bubble = this._config.show_status !== false
+            ? `<span class="data-status ${src}" title="${src === "live" ? "Live-Daten" : src === "cached" ? "Cache" : "Keine Daten"}"></span>`
+            : "";
+          const head = `<div class="section-head"><h3>${esc(plan.name)}${bubble}</h3>${sub}</div>`;
           if (res.status !== "fulfilled") return head + '<div class="note err">Nicht erreichbar.</div>';
           const deps = res.value.departures || [];
           return head + (deps.length ? this._planRowsHtml(deps) : '<div class="note">Keine Abfahrten.</div>');
@@ -582,13 +593,18 @@
         const data = await resp.json();
         const deps = data.departures || [];
         const src  = data.dataSource || (deps.length ? "live" : "unavailable");
-        // Status-Bubble aktualisieren
-        if (this._config.show_status !== false && this._els.dataStatus) {
+        // Bubble am Tab-Chip setzen
+        if (this._config.show_status !== false) {
           const titles = { live: "Live-Daten von MVG", cached: "Zwischengespeicherte Daten", unavailable: "Keine Daten verfügbar" };
-          this._els.dataStatus.className = `data-status ${src}`;
-          this._els.dataStatus.title = titles[src] || src;
-          this._els.dataStatus.hidden = false;
+          const bubble = this.shadowRoot.getElementById("status-" + plan.id);
+          if (bubble) {
+            bubble.className = `data-status ${src}`;
+            bubble.title = titles[src] || src;
+            bubble.hidden = false;
+          }
         }
+        // Globalen Header-Bubble verstecken
+        if (this._els.dataStatus) this._els.dataStatus.hidden = true;
         this._els.rows.innerHTML = deps.length
           ? this._planRowsHtml(deps)
           : '<div class="note">Keine Abfahrten für diesen Plan.</div>';
