@@ -73,13 +73,14 @@ def _cached_get(path: str, params: dict, ttl: int):
     resp = requests.get(MVG_BASE + path, params=params, headers=HEADERS, timeout=10)
     resp.raise_for_status()
     data = resp.json()
-    with _cache_lock:
-        _cache[key] = (now, data)
-        # einfache Aufräumlogik, damit der Cache nicht unbegrenzt wächst
-        if len(_cache) > 500:
-            cutoff = now - max(ttl, SEARCH_TTL)
-            for k in [k for k, (t, _) in _cache.items() if t < cutoff]:
-                _cache.pop(k, None)
+    # Leere Antworten nicht cachen — alter Cache-Eintrag bleibt erhalten
+    if data:
+        with _cache_lock:
+            _cache[key] = (now, data)
+            if len(_cache) > 500:
+                cutoff = now - max(ttl, SEARCH_TTL)
+                for k in [k for k, (t, _) in _cache.items() if t < cutoff]:
+                    _cache.pop(k, None)
     return data
 
 
@@ -492,15 +493,39 @@ def api_plans_departures(plan_id: str):
                 ck = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
                 with _cache_lock:
                     hit = _cache.get(ck)
+
                 if hit and (time.time() - hit[0]) < CACHE_TTL:
+                    # Frischer Cache-Treffer
+                    entry_source = "cached"
                     raw = hit[1]
                 else:
-                    raw = _cached_get("/departures", params, CACHE_TTL)
-                # API war erreichbar (Cache oder frisch) → live
-                entry_source = "live"
+                    # Direkt von API
+                    fresh = _cached_get("/departures", params, CACHE_TTL)
+                    if fresh:
+                        # API hat Daten geliefert
+                        entry_source = "live"
+                        raw = fresh
+                    else:
+                        # API leer → alten Cache verwenden falls vorhanden
+                        with _cache_lock:
+                            old_hit = _cache.get(ck)
+                        if old_hit:
+                            entry_source = "cached"
+                            raw = old_hit[1]
+                        else:
+                            entry_source = "live"  # API erreichbar, aber wirklich leer
+                            raw = []
             except requests.RequestException:
-                entry_source = "unavailable"
-                raw = []
+                # API nicht erreichbar → alten Cache verwenden
+                ck = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
+                with _cache_lock:
+                    old_hit = _cache.get(ck)
+                if old_hit:
+                    entry_source = "cached"
+                    raw = old_hit[1]
+                else:
+                    entry_source = "unavailable"
+                    raw = []
             raw_cache[cache_group] = (raw, entry_source)
         else:
             raw, entry_source = raw_cache[cache_group]

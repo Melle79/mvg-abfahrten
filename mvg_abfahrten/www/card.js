@@ -571,7 +571,7 @@
           const showStatus  = this._config.show_status !== false;
           const showFilter  = this._config.show_filter !== false;
           const showStation = this._config.show_station !== false;
-          const titles = { live: "Daten verfügbar", unavailable: "Keine Daten verfügbar" };
+          const titles = { live: "Live-Daten", cached: "Veraltete Daten (API leer)", unavailable: "Keine Daten verfügbar" };
 
           let filterHtml = "";
           if (showFilter) {
@@ -630,7 +630,7 @@
           }
           const showStation = this._config.show_station !== false;
           const showStatus  = this._config.show_status !== false;
-          const titles = { live: "Daten verfügbar", unavailable: "Keine Daten verfügbar" };
+          const titles = { live: "Live-Daten", cached: "Veraltete Daten (API leer)", unavailable: "Keine Daten verfügbar" };
           const parts = [...byLine.entries()].map(([label, {dests, stations}]) => {
             const src = lineStatus[label] || lineStatus["*"] || "live";
             const bubble = showStatus
@@ -817,7 +817,7 @@
     show_station: "Haltestellenname unter Ziel anzeigen",
     show_filter:  "Filter-Info unter Plan-Tabs anzeigen",
     show_ticker:  "Störungstext als Laufschrift anzeigen",
-    show_status:  "Datenstatus-Bubble anzeigen (🟢 OK · 🔴 Keine Daten)",
+    show_status:  "Datenstatus-Bubble anzeigen (🟢 Live · 🟠 Veraltete Daten · 🔴 Keine Daten)",
     swap_times:   "Uhrzeit und Minuten tauschen (Uhrzeit groß rechts)",
     limit: "Anzahl Abfahrten",
     refresh: "Aktualisierung",
