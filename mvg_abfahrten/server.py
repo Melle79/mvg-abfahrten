@@ -499,21 +499,19 @@ def api_plans_departures(plan_id: str):
                     entry_source = "live"
                     raw = hit[1]
                 else:
-                    # Cache abgelaufen → direkt von API
+                    # Cache abgelaufen → alten Eintrag sichern BEVOR API-Call
+                    old_raw = hit[1] if hit else None
                     fresh = _cached_get("/departures", params, CACHE_TTL)
                     if fresh:
                         entry_source = "live"
                         raw = fresh
+                    elif old_raw:
+                        # API leer → alten Stand verwenden
+                        entry_source = "cached"
+                        raw = old_raw
                     else:
-                        # API leer → alten Cache verwenden falls vorhanden
-                        with _cache_lock:
-                            old_hit = _cache.get(ck)
-                        if old_hit:
-                            entry_source = "cached"
-                            raw = old_hit[1]
-                        else:
-                            entry_source = "live"
-                            raw = []
+                        entry_source = "live"
+                        raw = []
             except requests.RequestException:
                 # API nicht erreichbar → alten Cache verwenden
                 ck = "/departures?" + json.dumps(params, sort_keys=True, ensure_ascii=False)
