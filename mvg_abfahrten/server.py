@@ -493,14 +493,12 @@ def api_plans_departures(plan_id: str):
             entry_source = "unavailable"
             raw = []
 
-        entry_sources.append((entry_source, len([
-            d for dep in raw
-            for d in [dep]
-            if (not lines or dep.get("label") in lines)
-        ])))
-
         lines = set((entry.get("lines") or "").split(",")) - {""}
-        direction = entry.get("direction") or ""  # "H", "R" oder ""
+        direction = entry.get("direction") or ""
+
+        # Abfahrten zählen die durch den Filter passen
+        matching = [dep for dep in raw if not lines or dep.get("label") in lines]
+        entry_sources.append((entry_source, len(matching)))
 
         for dep in raw:
             if lines and dep.get("label") not in lines:
