@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.2.65 (2026-06-15)
+
+### Abfahrtspläne – Wizard überarbeitet
+- Sequenzieller Wizard (Haltestelle → Verkehrsmittel → Linie → Richtung)
+- Ein Eintrag pro Linie – kein Mischfilter mehr
+- Linien aus Plan-History mit 🕐 markiert, veraltete (>30 Tage) ausgegraut
+- Manuelle Linieneingabe immer sichtbar als Ergänzung zu API-Chips
+- Einträge bearbeitbar (✎ lädt Eintrag zurück in Wizard)
+- Wizard-State beim Speichern automatisch übernommen
+
+### Dashboard-Karte
+- Mehrere Pläne als Tabs oder Untereinander (plan_ids)
+- Filter-Info unter Tabs: Linie + Fahrtrichtung + Status-Bubble pro Linie
+- Status-Bubble: 🟢 Live · 🟠 Veraltete Daten · 🔴 Keine Daten
+- Sortierbare Reihenfolge der Pläne (↑↓-Buttons)
+- Ungültige Plan-IDs automatisch bereinigt
+- Laufschrift für Störungstext (show_ticker)
+- Uhrzeit und Minuten tauschbar (swap_times)
+- Haltestellenname optional (show_station)
+
+### Backend
+- MVG-API-Bug Workaround: fehlende Verkehrsmittel werden parallel nachgefragt
+- Abfahrten zeitlich sortiert (Bus + S-Bahn gemischt)
+- Leere API-Antworten nicht gecacht – alter Cache als Fallback
+- Cache-TTL auf 65s erhöht
+- lineStatus pro Linie im Plan-Response
+- App zeigt Hinweis wenn MVG keine Daten liefert
+
 ## v2.2.23 (2026-06-13)
 
 ### Neu: Abfahrtspläne
