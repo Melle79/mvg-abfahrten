@@ -493,11 +493,11 @@ def api_plans_departures(plan_id: str):
                 with _cache_lock:
                     hit = _cache.get(ck)
                 if hit and (time.time() - hit[0]) < CACHE_TTL:
-                    entry_source = "cached"
                     raw = hit[1]
                 else:
                     raw = _cached_get("/departures", params, CACHE_TTL)
-                    entry_source = "live"
+                # API war erreichbar (Cache oder frisch) → live
+                entry_source = "live"
             except requests.RequestException:
                 entry_source = "unavailable"
                 raw = []
