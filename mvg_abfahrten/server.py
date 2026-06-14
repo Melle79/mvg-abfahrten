@@ -497,12 +497,12 @@ def api_plans_departures(plan_id: str):
         if not global_id:
             continue
         types_key = entry.get("types") or ""
-        cache_group = global_id  # nur nach globalId gruppieren
+        cache_group = (global_id, types_key)
 
         if cache_group not in raw_cache:
-            # Nur nach globalId fragen – kein transportTypes-Filter
-            # damit derselbe Cache-Key wie die App-Suche verwendet wird
             params = {"globalId": global_id, "limit": 80}
+            if types_key:
+                params["transportTypes"] = types_key
 
             entry_source = "unavailable"
             raw = []
@@ -523,34 +523,27 @@ def api_plans_departures(plan_id: str):
                     entry_source = "live"
                     raw = []
             except requests.RequestException:
-                with _cache_lock:
-                    fb = _cache.get(ck) if 'ck' in dir() else None
-                if fb:
+                if old_raw:
                     entry_source = "cached"
-                    raw = fb[1]
+                    raw = old_raw
                 else:
                     entry_source = "unavailable"
                     raw = []
+            raw_cache[cache_group] = (raw, entry_source)
             raw_cache[cache_group] = (raw, entry_source)
         else:
             raw, entry_source = raw_cache[cache_group]
 
         lines = set((entry.get("lines") or "").split(",")) - {""}
         direction = entry.get("direction") or ""
-        # types clientseitig filtern (API-Call geht ohne types-Filter)
-        types = set((types_key or "").split(",")) - {""}
 
         line_key = entry.get("lines") or "*"
         line_status[line_key] = entry_source
 
-        matching = [dep for dep in raw
-                    if (not lines or dep.get("label") in lines)
-                    and (not types or dep.get("transportType") in types)]
+        matching = [dep for dep in raw if not lines or dep.get("label") in lines]
         entry_sources.append((entry_source, len(matching)))
 
         for dep in raw:
-            if types and dep.get("transportType") not in types:
-                continue
             if lines and dep.get("label") not in lines:
                 continue
             line_id = dep.get("lineId") or ""
