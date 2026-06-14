@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-07 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-14-08 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -507,10 +507,12 @@
       // Linien-Chips
       lines.forEach(l => {
         const label = l.label || l;
-        const stale = l.stale || false;
+        const stale       = l.stale || false;
+        const fromHistory = l.fromHistory || false;
         const btn = document.createElement("button");
-        btn.className = "chip" + (wiz.line===label?" on":"") + (stale?" wiz-stale":"");
-        btn.innerHTML = badgeHtml(label, l.type||"") + " " + esc(label);
+        btn.className = "chip" + (wiz.line===label?" on":"");
+        const histIcon = fromHistory && !stale ? ' <span style="font-size:10px;opacity:0.7" title="Aus gespeichertem Plan">🕐</span>' : "";
+        btn.innerHTML = badgeHtml(label, l.type||"") + " " + esc(label) + histIcon;
         if (stale) {
           btn.title = "Linie zuletzt vor mehr als 30 Tagen gesehen – manuell eingeben zum Auswählen";
           btn.style.cssText = "display:inline-flex;align-items:center;gap:5px;opacity:0.45;cursor:not-allowed";

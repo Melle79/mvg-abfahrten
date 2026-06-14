@@ -256,14 +256,27 @@ def api_lines(global_id: str):
             for entry in plan.get("entries", []):
                 if entry.get("globalId") != global_id:
                     continue
+
+                # Rückwärtskompatibilität: lines-Feld direkt auslesen wenn kein lineHistory
+                if not entry.get("lineHistory") and entry.get("lines"):
+                    for lbl in (entry["lines"] or "").split(","):
+                        lbl = lbl.strip()
+                        if lbl and lbl not in all_lines:
+                            all_lines[lbl] = {
+                                "type":     "",
+                                "lastSeen": now.isoformat(),
+                                "stale":    False,
+                                "expired":  False,
+                                "fromHistory": True,
+                            }
+                    continue
+
                 for line_info in entry.get("lineHistory", []):
                     label     = line_info.get("label", "")
                     ltype     = line_info.get("type", "")
                     last_seen = line_info.get("lastSeen", "")
                     if not label:
                         continue
-
-                    # lastSeen parsen
                     try:
                         ls = datetime.datetime.fromisoformat(last_seen)
                         if ls.tzinfo is None:
@@ -273,19 +286,18 @@ def api_lines(global_id: str):
                         age_days = 0
 
                     if age_days >= 90:
-                        # Abgelaufen → nicht mehr anzeigen
                         continue
                     if label in api_labels:
-                        # Frisch von der API → lastSeen aktualisieren
                         line_info["lastSeen"] = now.isoformat()
                         plans_changed = True
                         continue
                     if label not in all_lines:
                         all_lines[label] = {
-                            "type":     ltype,
-                            "lastSeen": last_seen,
-                            "stale":    age_days >= 30,
-                            "expired":  False,
+                            "type":        ltype,
+                            "lastSeen":    last_seen,
+                            "stale":       age_days >= 30,
+                            "expired":     False,
+                            "fromHistory": True,
                         }
 
         # Aktuell von API gesehene Linien in lineHistory aller Einträge aktualisieren
@@ -325,9 +337,13 @@ def api_lines(global_id: str):
     except Exception:
         pass
 
-    lines = sorted(all_lines.items(), key=lambda x: x[0])
     return jsonify({"globalId": global_id, "lines": [
-        {"label": l, "type": v["type"], "stale": v.get("stale", False)}
+        {
+            "label":       l,
+            "type":        v["type"],
+            "stale":       v.get("stale", False),
+            "fromHistory": v.get("fromHistory", False),
+        }
         for l, v in sorted(all_lines.items())
     ]})
 
