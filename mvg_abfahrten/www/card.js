@@ -608,7 +608,8 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
 
           const head = `<div class="section-head"><h3>${esc(plan.name)}</h3>${filterHtml}</div>`;
           if (res.status !== "fulfilled") return head + '<div class="note err">Nicht erreichbar.</div>';
-          return head + (deps.length ? this._planRowsHtml(deps) : '<div class="note">Keine Abfahrten.</div>');
+          const bannerHtml2 = this._config.show_ticker === "banner" ? this._bannerHtml(deps) : "";
+          return head + bannerHtml2 + (deps.length ? this._planRowsHtml(deps) : '<div class="note">Keine Abfahrten.</div>');
         }).join("");
         return;
       }
@@ -627,9 +628,11 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
         const tabBubble = this.shadowRoot.getElementById("status-" + plan.id);
         if (tabBubble) tabBubble.hidden = true;
 
-        this._els.rows.innerHTML = deps.length
+        const bannerHtml = this._config.show_ticker === "banner"
+          ? this._bannerHtml(deps) : "";
+        this._els.rows.innerHTML = bannerHtml + (deps.length
           ? this._planRowsHtml(deps)
-          : '<div class="note">Keine Abfahrten für diesen Plan.</div>';
+          : '<div class="note">Keine Abfahrten für diesen Plan.</div>');
 
         // Filter-Info: alle Linien, Status pro Linie, nebeneinander wenn Platz
         if (this._config.show_filter !== false && this._els.filterInfo) {
@@ -667,6 +670,17 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
       }
     }
 
+    _bannerHtml(deps) {
+      // Alle einzigartigen Störungstexte aus allen Abfahrten sammeln
+      const msgs = new Set();
+      (deps || []).forEach(d => {
+        (d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").forEach(i => msgs.add(i.message));
+        (d.messages||[]).forEach(m => msgs.add(m));
+      });
+      if (!msgs.size) return "";
+      return `<div class="ticker-banner">⚠️ ${esc([...msgs].join(" · "))}</div>`;
+    }
+
     _planRowsHtml(deps) {
       const now = Date.now();
       return deps.map(d => {
@@ -694,13 +708,13 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           ? `${stationTxt}${mins}<small style="font-size:10px;margin-left:2px">min</small>${delay}${sev}`
           : `${stationTxt}${planned}${delay}${sev}`;
         const tickerMode = this._config.show_ticker;
-        const tickerText = (tickerMode === true || tickerMode === "ticker" || tickerMode === "banner") && hasInfo
+        const isTicker = tickerMode === true || tickerMode === "ticker";
+        const tickerText = isTicker && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
         const metaHtml = `<div class="meta">
           <span class="meta-time">${metaTimeTxt}</span>
           ${tickerText ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText)}</span></span>` : ""}
-          ${(tickerMode === "banner") && hasInfo ? `<div class="ticker-banner">⚠️ ${esc(tickerText)}</div>` : ""}
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
@@ -772,7 +786,8 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
             ? `<span class="min" style="font-size:18px">${planned}</span>`
             : `<span class="min">${mins}<small>min</small></span>`;
         const tickerMode2 = this._config.show_ticker;
-        const tickerText2 = (tickerMode2 === true || tickerMode2 === "ticker" || tickerMode2 === "banner") && hasInfo
+        const isTicker2 = tickerMode2 === true || tickerMode2 === "ticker";
+        const tickerText2 = isTicker2 && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
         const metaTimeTxt2 = swap
@@ -781,7 +796,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
         const metaHtml2 = `<div class="meta">
           <span class="meta-time">${metaTimeTxt2}</span>
           ${tickerText2 ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText2)}</span></span>` : ""}
-          ${(tickerMode2 === "banner") && hasInfo ? `<div class="ticker-banner">⚠️ ${esc(tickerText2)}</div>` : ""}
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
