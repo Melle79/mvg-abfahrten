@@ -229,7 +229,15 @@
         const ingressUrl = mvgPanel?.config?.ingress_entry;
         this._apiUrl = ingressUrl
           ? ingressUrl.replace(/\/+$/, "")
-          : `${location.protocol}//${location.hostname}:8099`;
+          : (() => {
+            // HA interne URL verwenden wenn verfügbar
+            const internalUrl = this._hass?.config?.internal_url;
+            if (internalUrl) {
+              const u = new URL(internalUrl);
+              return `${u.protocol}//${u.hostname}:8099`;
+            }
+            return `${location.protocol}//${location.hostname}:8099`;
+          })();
       }
       this._storageKey = "mvg-card:" + (config.global_id || config.plan_id || "favs");
       this._current = null;
@@ -829,14 +837,14 @@
     swap_times:   "Uhrzeit und Minuten tauschen (Uhrzeit groß rechts)",
     limit: "Anzahl Abfahrten",
     refresh: "Aktualisierung",
-    api_url: "API-URL (leer = Standard)",
+    api_url: "API-URL – Pflichtfeld bei Nutzung über Nabu Casa",
   };
   const HELPERS_TXT = {
     plan_ids: "Mehrere Pläne auswählen → Tabs oder Untereinander. Pläne erstellst du unter MVG → Pläne.",
     station: "Favoriten verwaltest du im Add-on (★) – inkl. Beförderungsart.",
     layout: "Tabs: umschaltbar. Untereinander: alle Blöcke.",
     design: "Dashboard-Theme passt sich deinem HA-Theme an.",
-    api_url: "Standard: http://<ha-host>:8099",
+    api_url: "z.B. http://192.168.0.222:8099 (HA-Host-IP + Port)",
   };
   const LAYOUT_OPTIONS = [
     { value: "tabs", label: "Tabs (umschaltbar)" },
@@ -922,7 +930,15 @@
         const ingressUrl = mvgPanel?.config?.ingress_entry;
         this._apiUrl = ingressUrl
           ? ingressUrl.replace(/\/+$/, "")
-          : `${location.protocol}//${location.hostname}:8099`;
+          : (() => {
+            // HA interne URL verwenden wenn verfügbar
+            const internalUrl = this._hass?.config?.internal_url;
+            if (internalUrl) {
+              const u = new URL(internalUrl);
+              return `${u.protocol}//${u.hostname}:8099`;
+            }
+            return `${location.protocol}//${location.hostname}:8099`;
+          })();
       }
       if (!this._favorites) this._loadFavorites();
       this._render();
