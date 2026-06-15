@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-15-08 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-15-09 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -146,6 +146,7 @@
     <nav style="display:flex;gap:8px">
       <a href="./" style="padding:6px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:13px;text-decoration:none">🔍 Suche</a>
       <a href="./plans" style="padding:6px 14px;border-radius:8px;background:var(--amber);color:#000;font-weight:700;font-size:13px;text-decoration:none">📋 Pläne</a>
+      <button id="btnSetupInfo" style="padding:6px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:13px;cursor:pointer;font-family:inherit">🃏 Karte einbinden</button>
     </nav>
     <button class="btn-new" id="btnNew">＋ Neuer Plan</button>
   </header>
@@ -173,39 +174,52 @@
 
 <div class="info-popup" id="infoPopup"></div>
 
-<!-- Anleitung: Karte einbinden -->
-<div id="cardSetupInfo" style="display:none;border-top:1px solid var(--line);padding:32px 24px;background:var(--panel-2)">
-  <div style="max-width:900px;margin:0 auto">
-    <h3 style="font-size:13px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:20px">🃏 Dashboard-Karte einbinden</h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
+<!-- Anleitung: Karte einbinden – Modal -->
+<div id="cardSetupModal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);overflow-y:auto">
+  <div style="max-width:780px;margin:40px auto;background:var(--panel);border-radius:16px;padding:32px;position:relative">
+    <button id="btnCloseSetup" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:24px">🃏 Dashboard-Karte einbinden</h2>
 
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px">
       <div>
-        <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">1 · Ressource hinzufügen <span style="font-weight:400">(einmalig unter Einstellungen → Dashboards → Ressourcen)</span></p>
-        <div style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--amber)" id="resourceUrl">/local/mvg-abfahrten-card.js</div>
-        <p style="font-size:11px;color:var(--muted);margin-top:6px">⚠️ Falls bereits vorhanden: Versionsnummer anhängen z.B. <span style="color:var(--ink)">?v=2</span> um den Browser-Cache zu umgehen.</p>
+        <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">1 · Ressource hinzufügen <span style="font-weight:400">(einmalig: Einstellungen → Dashboards → Ressourcen)</span></p>
+        <div id="resourceUrl" style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--amber)">/local/mvg-abfahrten-card.js</div>
+        <p style="font-size:11px;color:var(--muted);margin-top:6px">Die Ressource wird automatisch registriert. Falls nötig die URL manuell eintragen.</p>
       </div>
 
       <div>
         <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">2 · Karte hinzufügen <span style="font-weight:400">(Benutzerdefinierte Karte → YAML-Editor)</span></p>
         <div id="cardYamlExample" style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--ink);white-space:pre;line-height:1.6"></div>
       </div>
+    </div>
 
-      <div>
-        <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">3 · Konfigurationsfelder im visuellen Editor</p>
-        <div style="background:var(--bg);border-radius:8px;padding:10px 14px;font-size:12px;line-height:1.8">
-          <div style="color:var(--ink)"><b>Abfahrtspläne</b> <span style="color:var(--muted)">— Pläne aus MVG → Pläne auswählen</span></div>
-          <div style="color:var(--ink)"><b>Darstellung</b> <span style="color:var(--muted)">— Tabs (umschaltbar) oder Untereinander</span></div>
-          <div style="color:var(--ink)"><b>Design</b> <span style="color:var(--muted)">— Dashboard-Theme oder Abfahrtstafel</span></div>
-          <div style="color:var(--ink)"><b>Haltestellenname</b> <span style="color:var(--muted)">— Haltestelle unter Ziel anzeigen</span></div>
-          <div style="color:var(--ink)"><b>Filter-Info</b> <span style="color:var(--muted)">— Linie + Fahrtrichtung unter Tabs</span></div>
-          <div style="color:var(--ink)"><b>Störungstext</b> <span style="color:var(--muted)">— Laufschrift bei Störungen</span></div>
-          <div style="color:var(--ink)"><b>Datenstatus-Bubble</b> <span style="color:var(--muted)">— 🟢 Live · 🟠 Veraltet · 🔴 Keine Daten</span></div>
-          <div style="color:var(--ink)"><b>Uhrzeit/Minuten tauschen</b> <span style="color:var(--muted)">— Uhrzeit groß rechts statt Minuten</span></div>
-          <div style="color:var(--ink)"><b>API-URL</b> <span style="color:var(--muted)">— Pflichtfeld bei Nutzung über Nabu Casa</span></div>
-          <div style="color:var(--ink)"><b>Reihenfolge der Pläne</b> <span style="color:var(--muted)">— Tabs per ↑↓ sortieren</span></div>
-        </div>
+    <div style="background:var(--bg);border-radius:10px;padding:16px 20px;margin-bottom:24px">
+      <p style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:12px">⚠️ API-URL – Pflichtfeld</p>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:8px">
+        Die <b style="color:var(--ink)">api_url</b> muss in der Add-on-Konfiguration unter
+        <b style="color:var(--ink)">Einstellungen → Add-ons → MVG Abfahrten → Konfiguration</b>
+        als <b style="color:var(--ink)">ha_ip</b> eingetragen werden:<br>
+      </p>
+      <div style="font-family:monospace;font-size:12px;color:var(--amber);background:var(--panel);border-radius:6px;padding:8px 12px;margin-bottom:8px">ha_ip: 192.168.0.222  <span style="color:var(--muted)"># IP deines HA-Hosts</span></div>
+      <p style="font-size:11px;color:var(--muted)">
+        Danach Add-on neu starten. Die Karte erkennt die IP automatisch — auch bei Zugriff über Nabu Casa.
+      </p>
+    </div>
+
+    <div>
+      <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:10px">3 · Konfigurationsfelder im visuellen Editor</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px;font-size:12px">
+        <div><b style="color:var(--ink)">Abfahrtspläne</b> <span style="color:var(--muted)">— Pläne aus MVG → Pläne auswählen</span></div>
+        <div><b style="color:var(--ink)">Datenstatus-Bubble</b> <span style="color:var(--muted)">— 🟢 Live · 🟠 Veraltet · 🔴 Keine Daten</span></div>
+        <div><b style="color:var(--ink)">Darstellung</b> <span style="color:var(--muted)">— Tabs oder Untereinander</span></div>
+        <div><b style="color:var(--ink)">Uhrzeit/Minuten tauschen</b> <span style="color:var(--muted)">— Uhrzeit groß rechts</span></div>
+        <div><b style="color:var(--ink)">Design</b> <span style="color:var(--muted)">— Dashboard-Theme oder Abfahrtstafel</span></div>
+        <div><b style="color:var(--ink)">API-URL</b> <span style="color:var(--muted)">— Pflichtfeld (s.o.)</span></div>
+        <div><b style="color:var(--ink)">Filter-Info</b> <span style="color:var(--muted)">— Linie + Richtung unter Tabs</span></div>
+        <div><b style="color:var(--ink)">Reihenfolge der Pläne</b> <span style="color:var(--muted)">— Tabs per ↑↓ sortieren</span></div>
+        <div><b style="color:var(--ink)">Störungstext</b> <span style="color:var(--muted)">— Laufschrift bei Störungen</span></div>
+        <div><b style="color:var(--ink)">Anzahl Abfahrten / Aktualisierung</b> <span style="color:var(--muted)">— Limit + Intervall</span></div>
       </div>
-
     </div>
   </div>
 </div>
@@ -321,33 +335,11 @@
   }
 
   // ---------------------------------------------------------------- Grid
-  async function renderGrid() {
+  function renderGrid() {
     const grid = $("plansGrid");
     $("noPlans")?.remove();
     // Alte Kacheln entfernen
     grid.querySelectorAll(".plan-card").forEach(c => c.remove());
-
-    // Anleitung aktualisieren
-    const info = $("cardSetupInfo");
-    if (plans.length && info) {
-      info.style.display = "";
-      const ids = plans.map(p => `  - ${p.id}`).join("\n");
-      // api_url aus Config-Endpunkt lesen
-      let apiUrl = "http://<HA-IP>:8099";
-      try {
-        const cfg = await api("config");
-        if (cfg.api_url) apiUrl = cfg.api_url;
-        if (cfg.version && $("resourceUrl")) {
-          $("resourceUrl").textContent = `/local/mvg-abfahrten-card.js?v=${cfg.version}`;
-        }
-      } catch(e) {}
-      $("cardYamlExample").textContent =
-`type: custom:mvg-abfahrten-card
-api_url: ${apiUrl}
-plan_ids:\n${ids}`;
-    } else if (info) {
-      info.style.display = "none";
-    }
 
     if (!plans.length) {
       const np = document.createElement("div");
@@ -482,6 +474,32 @@ plan_ids:\n${ids}`;
   }
 
   $("btnBack").addEventListener("click", closeFullview);
+
+  // ---------------------------------------------------------------- Anleitung Modal
+  async function openSetupModal() {
+    // YAML-Beispiel mit aktuellen Plan-IDs befüllen
+    const ids = plans.length ? plans.map(p => `  - ${p.id}`).join("\n") : "  - <plan-id>";
+    $("cardYamlExample").textContent =
+`type: custom:mvg-abfahrten-card
+api_url: http://<HA-IP>:8099
+plan_ids:\n${ids}`;
+    // Ressource-URL mit Version befüllen
+    try {
+      const cfg = await api("config");
+      if (cfg.version) $("resourceUrl").textContent = `/local/mvg-abfahrten-card.js?v=${cfg.version}`;
+    } catch(e) {}
+    $("cardSetupModal").style.display = "block";
+    document.body.style.overflow = "hidden";
+  }
+  function closeSetupModal() {
+    $("cardSetupModal").style.display = "none";
+    document.body.style.overflow = "";
+  }
+  $("btnSetupInfo").addEventListener("click", openSetupModal);
+  $("btnCloseSetup").addEventListener("click", closeSetupModal);
+  $("cardSetupModal").addEventListener("click", e => {
+    if (e.target === $("cardSetupModal")) closeSetupModal();
+  });
 
   // ---------------------------------------------------------------- Info-Popup
   const infoPopup = $("infoPopup");
