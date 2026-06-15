@@ -220,8 +220,19 @@
 
     setConfig(config) {
       this._config = Object.assign({ favorites: true, limit: 8, refresh: 60 }, config);
-      this._apiUrl = (config.api_url ||
-        `${location.protocol}//${location.hostname}:8099`).replace(/\/+$/, "");
+      // API-URL: Ingress-Pfad wenn über HA-Frontend geladen, sonst direkt
+      if (config.api_url) {
+        this._apiUrl = config.api_url.replace(/\/+$/, "");
+      } else {
+        // Ingress-Pfad aus script src extrahieren
+        const scripts = document.querySelectorAll("script[src]");
+        let ingressPath = "";
+        for (const s of scripts) {
+          const m = s.src.match(/(\/api\/hassio_ingress\/[^\/]+)/);
+          if (m) { ingressPath = m[1]; break; }
+        }
+        this._apiUrl = ingressPath || `${location.protocol}//${location.hostname}:8099`;
+      }
       this._storageKey = "mvg-card:" + (config.global_id || config.plan_id || "favs");
       this._current = null;
       this._favorites = [];
@@ -904,8 +915,19 @@
 
     setConfig(config) {
       this._config = Object.assign({}, config);
-      this._apiUrl = (config.api_url ||
-        `${location.protocol}//${location.hostname}:8099`).replace(/\/+$/, "");
+      // API-URL: Ingress-Pfad wenn über HA-Frontend geladen, sonst direkt
+      if (config.api_url) {
+        this._apiUrl = config.api_url.replace(/\/+$/, "");
+      } else {
+        // Ingress-Pfad aus script src extrahieren
+        const scripts = document.querySelectorAll("script[src]");
+        let ingressPath = "";
+        for (const s of scripts) {
+          const m = s.src.match(/(\/api\/hassio_ingress\/[^\/]+)/);
+          if (m) { ingressPath = m[1]; break; }
+        }
+        this._apiUrl = ingressPath || `${location.protocol}//${location.hostname}:8099`;
+      }
       if (!this._favorites) this._loadFavorites();
       this._render();
     }
