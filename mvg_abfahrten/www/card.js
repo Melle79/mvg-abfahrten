@@ -902,8 +902,10 @@
 
     set hass(h) {
       this._hass = h;
-      // _apiUrl beim ersten hass-Aufruf aus internal_url ableiten
-      if (!this._apiUrl && !this._config?.api_url) {
+      // _apiUrl beim ersten hass-Aufruf ableiten
+      if (!this._config?.api_url && !this._apiUrlResolved) {
+        this._apiUrlResolved = true;
+        // Erst internal_url versuchen
         const internal = h?.config?.internal_url;
         if (internal) {
           try {
@@ -914,8 +916,19 @@
         if (!this._apiUrl) {
           this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
         }
-        // Jetzt erst Daten laden da _apiUrl gerade gesetzt wurde
-        if (!this._favorites) this._loadFavorites();
+        // api_url aus Backend-Config nachladen (hat interne IP aus Supervisor)
+        fetch(this._apiUrl + "/api/config")
+          .then(r => r.ok ? r.json() : null)
+          .then(cfg => {
+            if (cfg?.api_url) {
+              this._apiUrl = cfg.api_url;
+              if (!this._favorites) this._loadFavorites();
+              this._refresh();
+            } else {
+              if (!this._favorites) this._loadFavorites();
+            }
+          })
+          .catch(() => { if (!this._favorites) this._loadFavorites(); });
       }
       this._render();
     }
