@@ -147,23 +147,31 @@ def _register_lovelace_resource():
     if not token:
         log.warning("Kein SUPERVISOR_TOKEN – Ressource nicht automatisch registriert")
         return
-    version = "2.2.89"
+    version = "2.2.90"
     url = f"/local/mvg-abfahrten-card.js?v={version}"
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    # Supervisor-Proxy zur HA Core API
     ha_api = "http://supervisor/core/api"
     try:
         # Bestehende Ressourcen laden
         resp = requests.get(f"{ha_api}/lovelace/resources", headers=headers, timeout=10)
-        resources = resp.json() if resp.ok else []
+        log.info("Lovelace resources status: %s", resp.status_code)
+        if not resp.ok:
+            # Fallback: direkter HA-API Aufruf
+            ha_api = "http://homeassistant:8123/api"
+            resp = requests.get(f"{ha_api}/lovelace/resources", headers=headers, timeout=10)
+            log.info("Lovelace resources fallback status: %s", resp.status_code)
+        if not resp.ok:
+            log.warning("Lovelace-Ressourcen nicht erreichbar: HTTP %s", resp.status_code)
+            return
+        resources = resp.json()
         existing = next((r for r in resources if "mvg-abfahrten-card" in r.get("url", "")), None)
         if existing:
-            # Aktualisieren
             rid = existing["id"]
             r = requests.put(f"{ha_api}/lovelace/resources/{rid}",
                 json={"res_type": "module", "url": url}, headers=headers, timeout=10)
             log.info("Lovelace-Ressource aktualisiert: %s (HTTP %s)", url, r.status_code)
         else:
-            # Neu anlegen
             r = requests.post(f"{ha_api}/lovelace/resources",
                 json={"res_type": "module", "url": url}, headers=headers, timeout=10)
             log.info("Lovelace-Ressource registriert: %s (HTTP %s)", url, r.status_code)
@@ -178,7 +186,7 @@ def api_config():
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
-        "version": "2.2.89",
+        "version": "2.2.90",
     })
 
 
