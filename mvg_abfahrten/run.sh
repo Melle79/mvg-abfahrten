@@ -3,26 +3,12 @@
 export CACHE_TTL=$(bashio::config 'cache_ttl')
 export DEFAULT_LIMIT=$(bashio::config 'default_limit')
 
-# Interne HA-IP aus Netzwerkkonfiguration lesen
-HA_IP=""
-if [ -f /config/.storage/core.network_config ]; then
-  HA_IP=$(python3 -c "
-import json
-data = json.load(open('/config/.storage/core.network_config'))
-for iface in data.get('data', {}).get('configured', []):
-    for addr in iface.get('ipv4', {}).get('address', []):
-        ip = addr.split('/')[0]
-        if not ip.startswith('127.') and not ip.startswith('172.'):
-            print(ip)
-            break
-" 2>/dev/null | head -1)
-fi
-
-# Fallback: Gateway-IP des Containers → daraus HA-IP ableiten
-if [ -z "$HA_IP" ]; then
+# Interne HA-IP über Supervisor-API ermitteln (braucht auth_api: true)
+HA_IP=$(bashio::network.ipv4_address 2>/dev/null | cut -d'/' -f1)
+if [ -z "$HA_IP" ] || [ "$HA_IP" = "null" ]; then
+  # Fallback: Default-Gateway (meist HA-Host bei UTM-VM)
   HA_IP=$(ip route | grep default | awk '{print $3}' | head -1)
 fi
-
 bashio::log.info "HA IP: ${HA_IP}"
 
 # card.js kopieren und MVG_API_URL einsetzen

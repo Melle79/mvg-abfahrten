@@ -1,5 +1,5 @@
 name: MVG Abfahrten
-version: "2.2.98"
+version: "2.2.99"
 slug: mvg_abfahrten
 description: Abfahrtsmonitor für MVG/MVV mit Abfahrtsplänen, Dashboard-Karte und Echtzeitdaten
 url: https://github.com/Melle79/mvg-abfahrten
@@ -19,6 +19,7 @@ panel_title: MVG
 map:
   - config:rw
 homeassistant_api: true
+auth_api: true
 options:
   cache_ttl: 65
   default_limit: 12
