@@ -148,6 +148,7 @@ def api_config():
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
+        "version": "2.2.88",
     })
 
 
