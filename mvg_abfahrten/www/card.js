@@ -272,7 +272,8 @@
     }
 
     connectedCallback() {
-      this._init();
+      if (this._apiUrl) { this._initDone = true; this._init(); }
+      // sonst: _init wird in set hass() nachgeholt sobald _apiUrl bekannt
       const refresh = Math.max(20, Number(this._config.refresh) || 60);
       this._timer = setInterval(() => {
         if (!document.hidden) this._refresh();
@@ -914,10 +915,20 @@
         if (!this._apiUrl) {
           this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
         }
-        // Jetzt erst Daten laden da _apiUrl gerade gesetzt wurde
+        // _init nachholen falls connectedCallback schon gelaufen aber _apiUrl noch null war
+        if (!this._initDone) { this._initDone = true; this._init(); }
         if (!this._favorites) this._loadFavorites();
       }
       this._render();
+    }
+
+    _apiNotReachable() {
+      return `<div class="err" style="padding:16px;text-align:center">
+        <b>Add-on-API nicht erreichbar</b><br>
+        <span style="font-size:12px;color:var(--mvg-muted)">
+          Bitte <code>api_url: http://192.168.0.222:8099</code> in der Karten-Konfiguration setzen.
+        </span>
+      </div>`;
     }
 
     setConfig(config) {
