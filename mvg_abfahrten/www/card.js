@@ -1,6 +1,6 @@
 /* MVG Abfahrten – Lovelace-Karte v2.2.25
  *
- * Wird vom Add-on selbst ausgeliefert (http://<ha-host>:8099/card.js).
+ * Wird vom Add-on selbst ausgeliefert (/local/mvg-abfahrten-card.js).
  * Konfiguration (YAML):
  *
  *   type: custom:mvg-abfahrten-card
