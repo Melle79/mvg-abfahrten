@@ -950,8 +950,12 @@
       if (config.api_url) {
         this._apiUrl = config.api_url.replace(/\/+$/, "");
         this._apiUrlReady = Promise.resolve();
+      } else if (window.MVG_API_URL) {
+        // Interne IP aus /local/mvg-api-url.js (vom Backend beim Start geschrieben)
+        this._apiUrl = window.MVG_API_URL.replace(/\/+$/, "");
+        this._apiUrlReady = Promise.resolve();
       } else {
-        // Warten bis set hass() die interne IP aus dem Backend geladen hat
+        // Fallback: warten bis set hass() die IP lädt
         this._apiUrlReady = new Promise(resolve => { this._resolveApiUrl = resolve; });
       }
       if (!this._favorites) this._loadFavorites();

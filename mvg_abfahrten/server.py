@@ -141,14 +141,35 @@ def card_js():
 
 # ---------------------------------------------------------------- API
 
-def _register_lovelace_resource():
+def _write_api_url():
+    """Schreibt die interne API-URL in eine JS-Datei die die Karte laden kann."""
+    try:
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        host = "192.168.0.1"  # Fallback
+        if token:
+            r = requests.get("http://supervisor/network/interface/default/info",
+                headers={"Authorization": f"Bearer {token}"}, timeout=5)
+            if r.ok:
+                data = r.json().get("data", {})
+                ip = data.get("ipv4", {}).get("address", [None])[0]
+                if ip:
+                    host = ip.split("/")[0]
+        api_url = f"http://{host}:8099"
+        js = f"window.MVG_API_URL = '{api_url}';\n"
+        Path("/config/www/mvg-api-url.js").write_text(js)
+        log.info("MVG API-URL gesetzt: %s", api_url)
+    except Exception as e:
+        log.warning("api_url konnte nicht gesetzt werden: %s", e)
+
+
+
     """Lovelace-Ressource über HA WebSocket API registrieren/aktualisieren."""
     import websocket, ssl
     token = os.environ.get("SUPERVISOR_TOKEN")
     if not token:
         log.warning("Kein SUPERVISOR_TOKEN – Ressource nicht registriert")
         return
-    version = "2.2.95"
+    version = "2.2.96"
     url = f"/local/mvg-abfahrten-card.js?v={version}"
     try:
         ws = websocket.create_connection(
@@ -167,6 +188,14 @@ def _register_lovelace_resource():
         ws.send(json.dumps({"id": 1, "type": "lovelace/resources"}))
         msg = json.loads(ws.recv())
         resources = msg.get("result", [])
+
+        # mvg-api-url.js registrieren (enthält interne IP)
+        api_url_res = next((r for r in resources if "mvg-api-url" in r.get("url", "")), None)
+        api_url_js = "/local/mvg-api-url.js"
+        if not api_url_res:
+            ws.send(json.dumps({"id": 10, "type": "lovelace/resources/create",
+                "res_type": "module", "url": api_url_js}))
+            ws.recv()
 
         existing = next((r for r in resources if "mvg-abfahrten-card" in r.get("url", "")), None)
         if existing and existing.get("url") == url:
@@ -214,7 +243,7 @@ def api_config():
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
-        "version": "2.2.95",
+        "version": "2.2.96",
     })
 
 
@@ -684,5 +713,6 @@ def api_plans_departures(plan_id: str):
 
 if __name__ == "__main__":
     log.info("MVG Abfahrten startet auf Port 8099 (Cache-TTL %ss)", CACHE_TTL)
+    _write_api_url()
     _register_lovelace_resource()
     app.run(host="0.0.0.0", port=8099)
