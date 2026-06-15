@@ -148,7 +148,7 @@ def _register_lovelace_resource():
     if not token:
         log.warning("Kein SUPERVISOR_TOKEN – Ressource nicht registriert")
         return
-    version = "2.2.92"
+    version = "2.2.93"
     url = f"/local/mvg-abfahrten-card.js?v={version}"
     try:
         ws = websocket.create_connection(
@@ -197,11 +197,24 @@ def _register_lovelace_resource():
 
 def api_config():
     host = request.host.split(":")[0]
+    # Versuche interne IP aus Supervisor-Netzwerk-API zu lesen
+    try:
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if token:
+            r = requests.get("http://supervisor/network/interface/default/info",
+                headers={"Authorization": f"Bearer {token}"}, timeout=5)
+            if r.ok:
+                data = r.json().get("data", {})
+                ip = data.get("ipv4", {}).get("address", [None])[0]
+                if ip:
+                    host = ip.split("/")[0]  # CIDR-Notation entfernen
+    except Exception:
+        pass
     return jsonify({
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
-        "version": "2.2.92",
+        "version": "2.2.93",
     })
 
 
