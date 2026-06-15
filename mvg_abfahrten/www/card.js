@@ -829,7 +829,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     show_clock:   "Uhrzeit anzeigen",
     show_station: "Haltestellenname unter Ziel anzeigen",
     show_filter:  "Filter-Info unter Plan-Tabs anzeigen",
-    show_ticker:  "Störungsanzeige",
+    show_ticker:  "Störungsanzeige (Aus = Info-Symbol ⓘ, Laufschrift = scrollender Text)",
     show_status:  "Datenstatus-Bubble anzeigen (🟢 Live · 🟠 Veraltete Daten · 🔴 Keine Daten)",
     swap_times:   "Uhrzeit und Minuten tauschen (Uhrzeit groß rechts)",
     limit: "Anzahl Abfahrten",
