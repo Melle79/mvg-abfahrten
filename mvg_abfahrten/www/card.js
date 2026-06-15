@@ -234,7 +234,6 @@
           <div class="head" id="head">
             <div id="titleWrap"><h2 id="name">MVG Abfahrten</h2><div class="place" id="place"></div></div>
             <div class="clock" id="clock"></div>
-            <span class="data-status" id="dataStatus" hidden title="Datenquelle"></span>
           </div>
           <div class="chips" id="chips" hidden></div>
           <div class="dir-bar" id="dirBar" hidden>
@@ -253,7 +252,6 @@
         name: this.shadowRoot.getElementById("name"),
         place: this.shadowRoot.getElementById("place"),
         clock:      this.shadowRoot.getElementById("clock"),
-        dataStatus: this.shadowRoot.getElementById("dataStatus"),
         chips: this.shadowRoot.getElementById("chips"),
         dirBar: this.shadowRoot.getElementById("dirBar"),
         dirChips: this.shadowRoot.getElementById("dirChips"),
