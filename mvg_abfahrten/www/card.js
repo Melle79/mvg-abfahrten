@@ -316,6 +316,8 @@
     }
 
     async _init() {
+      // Warten bis _apiUrl korrekt gesetzt ist (interne IP aus Supervisor)
+      if (this._apiUrlReady) await this._apiUrlReady;
       // Plan-Modus: plan_id oder plan_ids konfiguriert
       const planIds = this._config.plan_ids
         ? (Array.isArray(this._config.plan_ids) ? this._config.plan_ids : [this._config.plan_ids])
@@ -920,15 +922,15 @@
         fetch(this._apiUrl + "/api/config")
           .then(r => r.ok ? r.json() : null)
           .then(cfg => {
-            if (cfg?.api_url) {
-              this._apiUrl = cfg.api_url;
-              if (!this._favorites) this._loadFavorites();
-              this._refresh();
-            } else {
-              if (!this._favorites) this._loadFavorites();
-            }
+            if (cfg?.api_url) this._apiUrl = cfg.api_url;
+            if (this._resolveApiUrl) { this._resolveApiUrl(); this._resolveApiUrl = null; }
+            if (!this._favorites) this._loadFavorites();
+            this._refresh();
           })
-          .catch(() => { if (!this._favorites) this._loadFavorites(); });
+          .catch(() => {
+            if (this._resolveApiUrl) { this._resolveApiUrl(); this._resolveApiUrl = null; }
+            if (!this._favorites) this._loadFavorites();
+          });
       }
       this._render();
     }
@@ -945,7 +947,13 @@
     setConfig(config) {
       this._config = Object.assign({}, config);
       // api_url: aus config oder später via hass.config.internal_url in set hass()
-      this._apiUrl = (config.api_url || `${location.protocol}//${location.hostname}:8099`).replace(/\/+$/, "");
+      if (config.api_url) {
+        this._apiUrl = config.api_url.replace(/\/+$/, "");
+        this._apiUrlReady = Promise.resolve();
+      } else {
+        // Warten bis set hass() die interne IP aus dem Backend geladen hat
+        this._apiUrlReady = new Promise(resolve => { this._resolveApiUrl = resolve; });
+      }
       if (!this._favorites) this._loadFavorites();
       this._render();
     }
