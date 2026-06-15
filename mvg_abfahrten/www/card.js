@@ -129,9 +129,11 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     .platform-changed { color: var(--mvg-accent); font-weight: 700; }
     .min { text-align: right; color: var(--mvg-accent); font-size: 18px; font-weight: 700; min-width: 62px; }
     .min small { font-size: 10.5px; font-weight: 600; color: var(--mvg-muted); margin-left: 2px; }
-    .cancelled .to { text-decoration: line-through; color: var(--mvg-muted); }
+    .cancelled .to { color: var(--mvg-muted); }
     .cancelled .to-dest { text-decoration: line-through; color: var(--mvg-muted); }
     .cancelled .min { color: var(--mvg-red); font-size: 13px; text-decoration: none; }
+    .cancelled .platform { text-decoration: line-through; }
+    .cancelled-text { color: var(--mvg-red); font-size: 13px; font-weight: 700; text-decoration: none !important; }
     .info-btn {
       background: none; border: 0; cursor: pointer; padding: 0 2px;
       color: var(--mvg-red); font-size: 12px; line-height: 1; vertical-align: middle;
@@ -678,7 +680,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           ? `${esc(d.stationName)} · ` : "";
         const swap = this._config.swap_times;
         const minHtml = d.cancelled
-          ? '<span class="min" style="color:var(--mvg-red);font-size:13px;font-weight:700;text-decoration:none">entfällt</span>'
+          ? '<span class="min cancelled-text">entfällt</span>'
           : swap
             ? `<span class="min" style="font-size:18px">${planned}</span>`
             : `<span class="min">${mins}<small>min</small></span>`;
@@ -761,7 +763,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           : "";
         const swap = this._config.swap_times;
         const minHtml = d.cancelled
-          ? '<span class="min" style="color:var(--mvg-red);font-size:13px;font-weight:700;text-decoration:none">entfällt</span>'
+          ? '<span class="min cancelled-text">entfällt</span>'
           : swap
             ? `<span class="min" style="font-size:18px">${planned}</span>`
             : `<span class="min">${mins}<small>min</small></span>`;
