@@ -334,7 +334,7 @@
 
       if (planIds.length) {
         try {
-          const resp = await fetch(this._apiUrl + "/api/plans");
+          const resp = await (this._hass?.fetchWithAuth || fetch)(this._apiUrl + "/api/plans");
           const allPlans = await resp.json();
           this._plans = planIds.map(id => allPlans.find(p => p.id === id)).filter(Boolean);
           if (!this._plans.length) {
@@ -374,7 +374,7 @@
       // Favoriten aus dem Add-on
       let rawFavs;
       try {
-        const resp = await fetch(this._apiUrl + "/api/favorites");
+        const resp = await (this._hass?.fetchWithAuth || fetch)(this._apiUrl + "/api/favorites");
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         rawFavs = await resp.json();
       } catch (err) {
@@ -448,7 +448,7 @@
       const limit = Math.min(80, Math.max(30, (this._config.limit || 8) * 4));
       const params = new URLSearchParams({ limit });
       if (types) params.set("types", types);
-      const resp = await fetch(this._apiUrl + "/api/departures/" +
+      const resp = await (this._hass?.fetchWithAuth || fetch)(this._apiUrl + "/api/departures/" +
         encodeURIComponent(globalId) + "?" + params);
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       return (await resp.json()).departures || [];
@@ -569,7 +569,7 @@
       if (this._config.layout === "list" && this._plans.length > 1) {
         // Alle Pläne untereinander
         const results = await Promise.allSettled(
-          this._plans.map(p => fetch(this._apiUrl + "/api/plans/" +
+          this._plans.map(p => (this._hass?.fetchWithAuth || fetch)(this._apiUrl + "/api/plans/" +
             encodeURIComponent(p.id) + "/departures?limit=" + limit).then(r => r.json()))
         );
         this._els.rows.innerHTML = this._plans.map((plan, i) => {
@@ -616,7 +616,7 @@
       const plan = this._plans[this._currentPlanIdx ?? 0];
       if (!plan) return;
       try {
-        const resp = await fetch(this._apiUrl + "/api/plans/" +
+        const resp = await (this._hass?.fetchWithAuth || fetch)(this._apiUrl + "/api/plans/" +
           encodeURIComponent(plan.id) + "/departures?limit=" + limit);
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const data = await resp.json();
@@ -935,8 +935,8 @@
     async _loadFavorites() {
       try {
         const [favResp, planResp] = await Promise.all([
-          fetch(this._apiUrl + "/api/favorites"),
-          fetch(this._apiUrl + "/api/plans"),
+          (this._hass?.fetchWithAuth || fetch)(this._apiUrl + "/api/favorites"),
+          (this._hass?.fetchWithAuth || fetch)(this._apiUrl + "/api/plans"),
         ]);
         this._favorites = await favResp.json();
         this._plans = await planResp.json();
@@ -952,7 +952,7 @@
     async _searchStations(query) {
       if (query.length < 2) return [];
       try {
-        const r = await fetch(this._apiUrl + "/api/search?q=" + encodeURIComponent(query));
+        const r = await (this._hass?.fetchWithAuth || fetch)(this._apiUrl + "/api/search?q=" + encodeURIComponent(query));
         return await r.json();
       } catch { return []; }
     }
