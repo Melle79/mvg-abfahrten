@@ -1,3 +1,4 @@
+window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
 /* MVG Abfahrten – Lovelace-Karte v2.2.25
  *
  * Wird vom Add-on selbst ausgeliefert (/local/mvg-abfahrten-card.js).
@@ -949,15 +950,13 @@
       // api_url: aus config oder später via hass.config.internal_url in set hass()
       if (config.api_url) {
         this._apiUrl = config.api_url.replace(/\/+$/, "");
-        this._apiUrlReady = Promise.resolve();
       } else if (window.MVG_API_URL) {
-        // Interne IP aus /local/mvg-api-url.js (vom Backend beim Start geschrieben)
+        // Interne IP – wird von run.sh beim Start direkt in die Datei eingesetzt
         this._apiUrl = window.MVG_API_URL.replace(/\/+$/, "");
-        this._apiUrlReady = Promise.resolve();
       } else {
-        // Fallback: warten bis set hass() die IP lädt
-        this._apiUrlReady = new Promise(resolve => { this._resolveApiUrl = resolve; });
+        this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
       }
+      this._apiUrlReady = Promise.resolve();
       if (!this._favorites) this._loadFavorites();
       this._render();
     }
