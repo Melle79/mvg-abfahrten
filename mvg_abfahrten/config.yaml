@@ -1,5 +1,5 @@
 name: MVG Abfahrten
-version: "2.2.99"
+version: "2.3.0"
 slug: mvg_abfahrten
 description: Abfahrtsmonitor für MVG/MVV mit Abfahrtsplänen, Dashboard-Karte und Echtzeitdaten
 url: https://github.com/Melle79/mvg-abfahrten
@@ -23,6 +23,8 @@ auth_api: true
 options:
   cache_ttl: 65
   default_limit: 12
+  ha_ip: ""
 schema:
   cache_ttl: int(10,300)
   default_limit: int(1,80)
+  ha_ip: str?

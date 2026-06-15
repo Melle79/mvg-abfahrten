@@ -3,11 +3,12 @@
 export CACHE_TTL=$(bashio::config 'cache_ttl')
 export DEFAULT_LIMIT=$(bashio::config 'default_limit')
 
-# Interne HA-IP über Supervisor-API ermitteln (braucht auth_api: true)
-HA_IP=$(bashio::network.ipv4_address 2>/dev/null | cut -d'/' -f1)
-if [ -z "$HA_IP" ] || [ "$HA_IP" = "null" ]; then
-  # Fallback: Default-Gateway (meist HA-Host bei UTM-VM)
+# Interne HA-IP: aus Konfiguration oder Fallback Gateway
+HA_IP=$(bashio::config 'ha_ip' 2>/dev/null)
+if [ -z "$HA_IP" ] || [ "$HA_IP" = "null" ] || [ "$HA_IP" = "" ]; then
   HA_IP=$(ip route | grep default | awk '{print $3}' | head -1)
+  bashio::log.warning "ha_ip nicht konfiguriert – Fallback auf Gateway: ${HA_IP}"
+  bashio::log.warning "Bitte ha_ip in der Add-on-Konfiguration setzen (z.B. 192.168.0.222)"
 fi
 bashio::log.info "HA IP: ${HA_IP}"
 
