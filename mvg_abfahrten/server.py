@@ -142,42 +142,57 @@ def card_js():
 # ---------------------------------------------------------------- API
 
 def _register_lovelace_resource():
-    """Lovelace-Ressource automatisch registrieren/aktualisieren."""
+    """Lovelace-Ressource über HA WebSocket API registrieren/aktualisieren."""
+    import websocket, ssl
     token = os.environ.get("SUPERVISOR_TOKEN")
     if not token:
-        log.warning("Kein SUPERVISOR_TOKEN – Ressource nicht automatisch registriert")
+        log.warning("Kein SUPERVISOR_TOKEN – Ressource nicht registriert")
         return
-    version = "2.2.90"
+    version = "2.2.92"
     url = f"/local/mvg-abfahrten-card.js?v={version}"
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    # Supervisor-Proxy zur HA Core API
-    ha_api = "http://supervisor/core/api"
     try:
-        # Bestehende Ressourcen laden
-        resp = requests.get(f"{ha_api}/lovelace/resources", headers=headers, timeout=10)
-        log.info("Lovelace resources status: %s", resp.status_code)
-        if not resp.ok:
-            # Fallback: direkter HA-API Aufruf
-            ha_api = "http://homeassistant:8123/api"
-            resp = requests.get(f"{ha_api}/lovelace/resources", headers=headers, timeout=10)
-            log.info("Lovelace resources fallback status: %s", resp.status_code)
-        if not resp.ok:
-            log.warning("Lovelace-Ressourcen nicht erreichbar: HTTP %s", resp.status_code)
-            return
-        resources = resp.json()
-        existing = next((r for r in resources if "mvg-abfahrten-card" in r.get("url", "")), None)
-        if existing:
-            rid = existing["id"]
-            r = requests.put(f"{ha_api}/lovelace/resources/{rid}",
-                json={"res_type": "module", "url": url}, headers=headers, timeout=10)
-            log.info("Lovelace-Ressource aktualisiert: %s (HTTP %s)", url, r.status_code)
-        else:
-            r = requests.post(f"{ha_api}/lovelace/resources",
-                json={"res_type": "module", "url": url}, headers=headers, timeout=10)
-            log.info("Lovelace-Ressource registriert: %s (HTTP %s)", url, r.status_code)
-    except Exception as e:
-        log.warning("Ressource-Registrierung fehlgeschlagen: %s", e)
+        ws = websocket.create_connection(
+            "ws://supervisor/core/websocket",
+            header={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+        # Auth-Handshake
+        msg = json.loads(ws.recv())
+        assert msg.get("type") == "auth_required"
+        ws.send(json.dumps({"type": "auth", "access_token": token}))
+        msg = json.loads(ws.recv())
+        assert msg.get("type") == "auth_ok", f"Auth fehlgeschlagen: {msg}"
 
+        # Bestehende Ressourcen abrufen
+        ws.send(json.dumps({"id": 1, "type": "lovelace/resources"}))
+        msg = json.loads(ws.recv())
+        resources = msg.get("result", [])
+
+        existing = next((r for r in resources if "mvg-abfahrten-card" in r.get("url", "")), None)
+        if existing and existing.get("url") == url:
+            log.info("Lovelace-Ressource bereits aktuell: %s", url)
+            ws.close()
+            return
+
+        if existing:
+            # Aktualisieren
+            ws.send(json.dumps({
+                "id": 2, "type": "lovelace/resources/update",
+                "resource_id": existing["id"], "res_type": "module", "url": url
+            }))
+            msg = json.loads(ws.recv())
+            log.info("Lovelace-Ressource aktualisiert: %s (success=%s)", url, msg.get("success"))
+        else:
+            # Neu anlegen
+            ws.send(json.dumps({
+                "id": 2, "type": "lovelace/resources/create",
+                "res_type": "module", "url": url
+            }))
+            msg = json.loads(ws.recv())
+            log.info("Lovelace-Ressource registriert: %s (success=%s)", url, msg.get("success"))
+        ws.close()
+    except Exception as e:
+        log.warning("Lovelace-Ressource konnte nicht registriert werden: %s", e)
 
 
 def api_config():
@@ -186,7 +201,7 @@ def api_config():
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
-        "version": "2.2.90",
+        "version": "2.2.92",
     })
 
 
