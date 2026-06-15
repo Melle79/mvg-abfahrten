@@ -120,6 +120,17 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
       padding-left: 100%;
       animation: ticker 20s linear infinite;
     }
+    .ticker-banner {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,160,0,0.15);
+      border-left: 3px solid var(--mvg-accent);
+      border-radius: 0 6px 6px 0;
+      padding: 6px 12px;
+      margin: 4px 0 2px 0;
+      font-size: 13px; font-weight: 700;
+      color: var(--mvg-accent);
+      line-height: 1.4;
+    }
     @keyframes ticker {
       0%   { transform: translateX(0); }
       100% { transform: translateX(-100%); }
@@ -682,12 +693,14 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
         const metaTimeTxt = swap
           ? `${stationTxt}${mins}<small style="font-size:10px;margin-left:2px">min</small>${delay}${sev}`
           : `${stationTxt}${planned}${delay}${sev}`;
-        const tickerText = this._config.show_ticker && hasInfo
+        const tickerMode = this._config.show_ticker;
+        const tickerText = (tickerMode === true || tickerMode === "ticker" || tickerMode === "banner") && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
         const metaHtml = `<div class="meta">
           <span class="meta-time">${metaTimeTxt}</span>
           ${tickerText ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText)}</span></span>` : ""}
+          ${(tickerMode === "banner") && hasInfo ? `<div class="ticker-banner">⚠️ ${esc(tickerText)}</div>` : ""}
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
@@ -758,7 +771,8 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           : swap
             ? `<span class="min" style="font-size:18px">${planned}</span>`
             : `<span class="min">${mins}<small>min</small></span>`;
-        const tickerText2 = this._config.show_ticker && hasInfo
+        const tickerMode2 = this._config.show_ticker;
+        const tickerText2 = (tickerMode2 === true || tickerMode2 === "ticker" || tickerMode2 === "banner") && hasInfo
           ? [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.message), ...(d.messages||[])].join(" · ")
           : "";
         const metaTimeTxt2 = swap
@@ -767,6 +781,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
         const metaHtml2 = `<div class="meta">
           <span class="meta-time">${metaTimeTxt2}</span>
           ${tickerText2 ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText2)}</span></span>` : ""}
+          ${(tickerMode2 === "banner") && hasInfo ? `<div class="ticker-banner">⚠️ ${esc(tickerText2)}</div>` : ""}
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
@@ -816,7 +831,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     show_clock:   "Uhrzeit anzeigen",
     show_station: "Haltestellenname unter Ziel anzeigen",
     show_filter:  "Filter-Info unter Plan-Tabs anzeigen",
-    show_ticker:  "Störungstext als Laufschrift anzeigen",
+    show_ticker:  "Störungsanzeige",
     show_status:  "Datenstatus-Bubble anzeigen (🟢 Live · 🟠 Veraltete Daten · 🔴 Keine Daten)",
     swap_times:   "Uhrzeit und Minuten tauschen (Uhrzeit groß rechts)",
     limit: "Anzahl Abfahrten",
@@ -1002,7 +1017,11 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
         { name: "show_clock",   selector: { boolean: {} } },
         { name: "show_station", selector: { boolean: {} } },
         { name: "show_filter",  selector: { boolean: {} } },
-        { name: "show_ticker",  selector: { boolean: {} } },
+        { name: "show_ticker", selector: { select: { options: [
+          { value: "off",    label: "Aus" },
+          { value: "ticker", label: "Laufschrift" },
+          { value: "banner", label: "Banner (größer, farbig)" },
+        ], mode: "dropdown" } } },
         { name: "show_status",  selector: { boolean: {} } },
         { name: "swap_times",   selector: { boolean: {} } },
         { name: "limit",      selector: { number: { min: 1, max: 20, step: 1, mode: "slider" } } },
@@ -1026,7 +1045,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
         show_clock:   this._config.show_clock !== false,
         show_station: this._config.show_station !== false,
         show_filter:  this._config.show_filter !== false,
-        show_ticker:  this._config.show_ticker === true,
+        show_ticker:  this._config.show_ticker || "off",
         show_status:  this._config.show_status !== false,
         swap_times:   this._config.swap_times === true,
         limit: Number(this._config.limit) || 8,
@@ -1205,7 +1224,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
       if (v.show_clock   === false) cfg.show_clock   = false; else delete cfg.show_clock;
       if (v.show_station === false) cfg.show_station = false; else delete cfg.show_station;
       if (v.show_filter  === false) cfg.show_filter  = false; else delete cfg.show_filter;
-      if (v.show_ticker  === true)  cfg.show_ticker  = true;  else delete cfg.show_ticker;
+      if (v.show_ticker && v.show_ticker !== "off") cfg.show_ticker = v.show_ticker; else delete cfg.show_ticker;
       if (v.show_status  === false) cfg.show_status  = false; else delete cfg.show_status;
       if (v.swap_times   === true)  cfg.swap_times   = true;  else delete cfg.swap_times;
 
