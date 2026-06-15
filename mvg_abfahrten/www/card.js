@@ -130,7 +130,8 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     .min { text-align: right; color: var(--mvg-accent); font-size: 18px; font-weight: 700; min-width: 62px; }
     .min small { font-size: 10.5px; font-weight: 600; color: var(--mvg-muted); margin-left: 2px; }
     .cancelled .to { text-decoration: line-through; color: var(--mvg-muted); }
-    .cancelled .min { color: var(--mvg-red); font-size: 13px; }
+    .cancelled .to-dest { text-decoration: line-through; color: var(--mvg-muted); }
+    .cancelled .min { color: var(--mvg-red); font-size: 13px; text-decoration: none; }
     .info-btn {
       background: none; border: 0; cursor: pointer; padding: 0 2px;
       color: var(--mvg-red); font-size: 12px; line-height: 1; vertical-align: middle;
@@ -670,13 +671,14 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           : esc(d.destination);
         const hasInfo = (d.infos||[]).some(x => x.type !== "EARLY_TERMINATION") || (d.messages||[]).length > 0;
         const _infoItems = [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.type+"::"+i.message), ...(d.messages||[]).map(m=>"Info::"+m)].join("|||");
-        const infoBadge = hasInfo ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems)}">ⓘ</button>` : "";
+        const showTicker = this._config.show_ticker === true || this._config.show_ticker === "ticker";
+        const infoBadge = hasInfo && !showTicker ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems)}">ⓘ</button>` : "";
         const platTxt = d.platform != null ? (d.platformChanged ? `⚠ ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
         const stationTxt = this._config.show_station !== false && d.stationName
           ? `${esc(d.stationName)} · ` : "";
         const swap = this._config.swap_times;
         const minHtml = d.cancelled
-          ? '<span class="min">entfällt</span>'
+          ? '<span class="min" style="color:var(--mvg-red);font-size:13px;font-weight:700;text-decoration:none">entfällt</span>'
           : swap
             ? `<span class="min" style="font-size:18px">${planned}</span>`
             : `<span class="min">${mins}<small>min</small></span>`;
@@ -759,7 +761,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           : "";
         const swap = this._config.swap_times;
         const minHtml = d.cancelled
-          ? '<span class="min">entfällt</span>'
+          ? '<span class="min" style="color:var(--mvg-red);font-size:13px;font-weight:700;text-decoration:none">entfällt</span>'
           : swap
             ? `<span class="min" style="font-size:18px">${planned}</span>`
             : `<span class="min">${mins}<small>min</small></span>`;
