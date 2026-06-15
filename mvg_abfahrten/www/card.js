@@ -112,7 +112,8 @@
     }
     .ticker {
       display: inline-block;
-      font-size: 11px;
+      font-size: 12.5px;
+      font-weight: 600;
       color: var(--mvg-red);
       white-space: nowrap;
       padding-left: 100%;
