@@ -853,34 +853,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
   ];
 
   const EDITOR_STYLE = `
-    .search-wrap { position: relative; margin-bottom: 4px; }
-    .search-wrap input {
-      width: 100%; box-sizing: border-box;
-      padding: 8px 12px; border-radius: 8px;
-      border: 1px solid var(--divider-color, #ccc);
-      background: var(--secondary-background-color, #f5f5f5);
-      color: var(--primary-text-color); font-size: 14px;
-      font-family: inherit; outline: none;
-    }
-    .search-wrap input:focus { border-color: var(--accent-color, #ff9800); }
-    .search-drop {
-      position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 99;
-      background: var(--card-background-color, #fff);
-      border: 1px solid var(--divider-color, #ccc); border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15); overflow: hidden;
-      max-height: 260px; overflow-y: auto; display: none;
-    }
-    .search-drop button {
-      display: flex; width: 100%; align-items: center; gap: 8px;
-      padding: 9px 12px; background: none; border: 0;
-      border-bottom: 1px solid var(--divider-color, #eee);
-      color: var(--primary-text-color); font-size: 13px;
-      text-align: left; cursor: pointer;
-    }
-    .search-drop button:last-child { border-bottom: 0; }
-    .search-drop button:hover { background: var(--secondary-background-color, #f5f5f5); }
-    .search-drop .sname { flex: 1; }
-    .search-drop .splace { color: var(--secondary-text-color, #727272); font-size: 12px; white-space: nowrap; }
     .sort-widget {
       margin-top: 8px;
       border: 1px solid var(--divider-color, #ccc);
@@ -960,13 +932,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
       this._render();
     }
 
-    async _searchStations(query) {
-      if (query.length < 2) return [];
-      try {
-        const r = await fetch(this._apiUrl + "/api/search?q=" + encodeURIComponent(query));
-        return await r.json();
-      } catch { return []; }
-    }
 
     _currentStationValue() {
       if (!this._config.global_id) return "__favs__";
@@ -1057,48 +1022,15 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
       if (!this._root) {
         this.innerHTML = `<style>${EDITOR_STYLE}</style>`;
         // Suchbereich für manuelle/feste Haltestelle
-        this._searchWrap = document.createElement("div");
-        this._searchWrap.className = "search-wrap";
-        this._searchWrap.innerHTML = `
-          <input type="text" placeholder="Haltestelle suchen …" autocomplete="off">
-          <div class="search-drop"></div>
-          <div class="selected-id"></div>`;
-        this._searchInput = this._searchWrap.querySelector("input");
-        this._searchDrop  = this._searchWrap.querySelector(".search-drop");
-        this._selectedId  = this._searchWrap.querySelector(".selected-id");
-        let debounce;
-        this._searchInput.addEventListener("input", () => {
-          clearTimeout(debounce);
-          const q = this._searchInput.value.trim();
-          if (q.length < 2) { this._searchDrop.style.display = "none"; return; }
-          debounce = setTimeout(async () => {
-            const results = await this._searchStations(q);
-            this._renderSearchDrop(results);
-          }, 300);
-        });
-        document.addEventListener("click", (e) => {
-          if (!this._searchWrap.contains(e.target)) this._searchDrop.style.display = "none";
-        }, { capture: true });
-
         this._form = document.createElement("ha-form");
         this._form.addEventListener("value-changed", (e) => this._valueChanged(e));
         this._sortWrap = document.createElement("div");
         this._root = document.createDocumentFragment();
-        this.appendChild(this._searchWrap);
         this.appendChild(this._form);
         this.appendChild(this._sortWrap);
       }
 
-      // Such-Widget nur bei fester Haltestelle (oder wenn Favoriten nicht erreichbar) zeigen
-      const showSearch = !this._favorites?.length || this._favError || !!this._config.global_id;
-      this._searchWrap.style.display = showSearch ? "block" : "none";
-      if (showSearch && this._config.global_id) {
-        this._searchInput.placeholder = this._config.title || this._config.global_id;
-        this._selectedId.textContent = this._config.global_id;
-      } else if (showSearch) {
-        this._searchInput.value = "";
-        this._selectedId.textContent = "";
-      }
+
 
       this._form.hass = this._hass;
       this._form.schema = this._schema();
@@ -1154,34 +1086,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
       });
     }
 
-    _renderSearchDrop(results) {
-      this._searchDrop.innerHTML = "";
-      if (!results.length) {
-        this._searchDrop.innerHTML = '<button disabled style="opacity:.5">Keine Ergebnisse</button>';
-      } else {
-        for (const st of results) {
-          const b = document.createElement("button");
-          b.type = "button";
-          b.innerHTML = `<span class="sname">${esc(st.name)}</span><span class="splace">${esc(st.place || "")}</span>`;
-          b.addEventListener("click", () => {
-            this._searchDrop.style.display = "none";
-            this._searchInput.value = st.name;
-            this._selectedId.textContent = st.globalId;
-            // direkt ins Config übernehmen
-            const cfg = Object.assign({}, this._config);
-            cfg.global_id = st.globalId;
-            cfg.title = st.name;
-            this._config = cfg;
-            this.dispatchEvent(new CustomEvent("config-changed", {
-              detail: { config: cfg }, bubbles: true, composed: true,
-            }));
-            this._render();
-          });
-          this._searchDrop.appendChild(b);
-        }
-      }
-      this._searchDrop.style.display = "block";
-    }
 
     _valueChanged(e) {
       e.stopPropagation();
