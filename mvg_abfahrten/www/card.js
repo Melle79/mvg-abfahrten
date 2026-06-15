@@ -317,8 +317,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     }
 
     async _init() {
-      // Warten bis _apiUrl korrekt gesetzt ist (interne IP aus Supervisor)
-      if (this._apiUrlReady) await this._apiUrlReady;
       // Plan-Modus: plan_id oder plan_ids konfiguriert
       const planIds = this._config.plan_ids
         ? (Array.isArray(this._config.plan_ids) ? this._config.plan_ids : [this._config.plan_ids])
@@ -905,34 +903,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
 
     set hass(h) {
       this._hass = h;
-      // _apiUrl beim ersten hass-Aufruf ableiten
-      if (!this._config?.api_url && !this._apiUrlResolved) {
-        this._apiUrlResolved = true;
-        // Erst internal_url versuchen
-        const internal = h?.config?.internal_url;
-        if (internal) {
-          try {
-            const u = new URL(internal);
-            this._apiUrl = `${u.protocol}//${u.hostname}:8099`;
-          } catch(e) {}
-        }
-        if (!this._apiUrl) {
-          this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
-        }
-        // api_url aus Backend-Config nachladen (hat interne IP aus Supervisor)
-        fetch(this._apiUrl + "/api/config")
-          .then(r => r.ok ? r.json() : null)
-          .then(cfg => {
-            if (cfg?.api_url) this._apiUrl = cfg.api_url;
-            if (this._resolveApiUrl) { this._resolveApiUrl(); this._resolveApiUrl = null; }
-            if (!this._favorites) this._loadFavorites();
-            this._refresh();
-          })
-          .catch(() => {
-            if (this._resolveApiUrl) { this._resolveApiUrl(); this._resolveApiUrl = null; }
-            if (!this._favorites) this._loadFavorites();
-          });
-      }
       this._render();
     }
 
@@ -951,12 +921,11 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
       if (config.api_url) {
         this._apiUrl = config.api_url.replace(/\/+$/, "");
       } else if (window.MVG_API_URL) {
-        // Interne IP – wird von run.sh beim Start direkt in die Datei eingesetzt
+        // Interne IP – von run.sh beim Start eingesetzt
         this._apiUrl = window.MVG_API_URL.replace(/\/+$/, "");
       } else {
         this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
       }
-      this._apiUrlReady = Promise.resolve();
       if (!this._favorites) this._loadFavorites();
       this._render();
     }
