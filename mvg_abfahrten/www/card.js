@@ -91,7 +91,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     .chip:focus-visible { outline: 2px solid var(--mvg-accent); outline-offset: 1px; }
     .row {
       display: grid; align-items: center;
-      grid-template-columns: minmax(52px, auto) 1fr auto auto;
+      grid-template-columns: minmax(52px, auto) 1fr;
       gap: 10px; padding: 9px 16px;
       border-top: 1px solid var(--mvg-line);
     }
@@ -103,19 +103,14 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     }
     .badge.long { font-size: 10.5px; letter-spacing: -0.01em; }
     .dest { min-width: 0; }
-    .to { font-size: 14.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .to { font-size: 14.5px; font-weight: 500; display: flex; align-items: baseline; gap: 6px; }
+    .to-dest { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .meta { color: var(--mvg-muted); font-size: 11.5px; display: flex; align-items: center; gap: 4px; overflow: hidden; }
     .meta .delay { color: var(--mvg-red); font-weight: 700; flex-shrink: 0; }
     .meta .sev { color: var(--mvg-accent); font-weight: 700; flex-shrink: 0; }
     .meta .meta-time { flex-shrink: 0; }
     .meta .ticker-wrap {
-      display: none; /* Ticker läuft separat als volle Zeile */
-    }
-    .row-ticker {
-      grid-column: 1 / -1;
-      overflow: hidden;
-      padding: 0 16px 6px 16px;
-      border-top: none;
+      flex: 1; overflow: hidden; min-width: 0;
     }
     .ticker {
       display: inline-block;
@@ -729,16 +724,18 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           : "";
         const metaHtml = `<div class="meta">
           <span class="meta-time">${metaTimeTxt}</span>
+          ${tickerText ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText)}</span></span>` : ""}
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
-            <div class="to">${destHtml}${infoBadge}</div>
+            <div class="to">
+              <span class="to-dest">${destHtml}${infoBadge}</span>
+              ${platTxt ? `<span class="platform${d.platformChanged ? " platform-changed" : ""}" style="font-size:12px;flex-shrink:0">${platTxt}</span>` : ""}
+              ${minHtml}
+            </div>
             ${metaHtml}
           </div>
-          <span class="platform${d.platformChanged ? " platform-changed" : ""}">${platTxt}</span>
-          ${minHtml}
-          ${tickerText ? `<div class="row-ticker"><span class="ticker">${esc(tickerText)}</span></div>` : ""}
         </div>`;
       }).join("");
     }
@@ -810,17 +807,18 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           : `${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}`;
         const metaHtml2 = `<div class="meta">
           <span class="meta-time">${metaTimeTxt2}</span>
-
+          ${tickerText2 ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText2)}</span></span>` : ""}
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
           <div class="dest">
-            <div class="to">${esc(d.destination)}${infoBadge}</div>
+            <div class="to">
+              <span class="to-dest">${esc(d.destination)}${infoBadge}</span>
+              ${platformTxt ? `<span class="platform${d.platformChanged ? ' platform-changed' : ''}" style="font-size:12px;flex-shrink:0">${platformTxt}</span>` : ""}
+              ${minHtml}
+            </div>
             ${metaHtml2}
           </div>
-          <span class="platform${d.platformChanged ? ' platform-changed' : ''}">${platformTxt}</span>
-          ${minHtml}
-          ${tickerText2 ? `<div class="row-ticker"><span class="ticker">${esc(tickerText2)}</span></div>` : ""}
         </div>`;
       }).join("");
     }
