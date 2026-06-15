@@ -220,7 +220,13 @@
 
     setConfig(config) {
       this._config = Object.assign({ favorites: true, limit: 8, refresh: 60 }, config);
-      this._apiUrl = (config.api_url || `${location.protocol}//${location.hostname}:8099`).replace(/\/+$/, "");
+      if (config.api_url) {
+        this._apiUrl = config.api_url.replace(/\/+$/, "");
+      } else {
+        // Ingress-Pfad über HA-Panels-API ermitteln
+        this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
+        this._resolveIngressUrl();
+      }
       this._storageKey = "mvg-card:" + (config.global_id || config.plan_id || "favs");
       this._current = null;
       this._favorites = [];
@@ -322,7 +328,7 @@
 
       if (planIds.length) {
         try {
-          const resp = await fetch(this._apiUrl + "/api/plans");
+          const resp = await (this._hass?.fetchWithAuth?.bind(this._hass) || fetch)(this._apiUrl + "/api/plans");
           const allPlans = await resp.json();
           this._plans = planIds.map(id => allPlans.find(p => p.id === id)).filter(Boolean);
           if (!this._plans.length) {
@@ -362,7 +368,7 @@
       // Favoriten aus dem Add-on
       let rawFavs;
       try {
-        const resp = await fetch(this._apiUrl + "/api/favorites");
+        const resp = await (this._hass?.fetchWithAuth?.bind(this._hass) || fetch)(this._apiUrl + "/api/favorites");
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         rawFavs = await resp.json();
       } catch (err) {
@@ -436,7 +442,7 @@
       const limit = Math.min(80, Math.max(30, (this._config.limit || 8) * 4));
       const params = new URLSearchParams({ limit });
       if (types) params.set("types", types);
-      const resp = await fetch(this._apiUrl + "/api/departures/" +
+      const resp = await (this._hass?.fetchWithAuth?.bind(this._hass) || fetch)(this._apiUrl + "/api/departures/" +
         encodeURIComponent(globalId) + "?" + params);
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       return (await resp.json()).departures || [];
@@ -519,6 +525,36 @@
       }).join("");
     }
 
+    async _resolveIngressUrl() {
+      // Ingress-URL über HA panels API ermitteln
+      try {
+        const panels = this._hass?.panels || {};
+        const mvg = Object.values(panels).find(p =>
+          p.config?.ingress_entry?.includes("mvg_abfahrten") ||
+          p.url_path === "mvg_abfahrten"
+        );
+        if (mvg?.config?.ingress_entry) {
+          this._apiUrl = mvg.config.ingress_entry.replace(/\/+$/, "");
+          this._refresh();
+          return;
+        }
+        // Fallback: alle Panels nach MVG suchen
+        const res = await this._hass.fetchWithAuth("/api/hassio/ingress/panels");
+        if (res.ok) {
+          const data = await res.json();
+          const entry = Object.values(data?.data || {}).find(p =>
+            p.slug === "mvg_abfahrten"
+          );
+          if (entry?.ingress_url) {
+            this._apiUrl = entry.ingress_url.replace(/\/+$/, "");
+            this._refresh();
+          }
+        }
+      } catch(e) {
+        // Fallback bleibt bei lokaler IP
+      }
+    }
+
     _planFilterLabel(plan) {
       const entries = plan.entries || [];
       if (!entries.length) return "";
@@ -557,7 +593,7 @@
       if (this._config.layout === "list" && this._plans.length > 1) {
         // Alle Pläne untereinander
         const results = await Promise.allSettled(
-          this._plans.map(p => fetch(this._apiUrl + "/api/plans/" +
+          this._plans.map(p => (this._hass?.fetchWithAuth?.bind(this._hass) || fetch)(this._apiUrl + "/api/plans/" +
             encodeURIComponent(p.id) + "/departures?limit=" + limit).then(r => r.json()))
         );
         this._els.rows.innerHTML = this._plans.map((plan, i) => {
@@ -604,7 +640,7 @@
       const plan = this._plans[this._currentPlanIdx ?? 0];
       if (!plan) return;
       try {
-        const resp = await fetch(this._apiUrl + "/api/plans/" +
+        const resp = await (this._hass?.fetchWithAuth?.bind(this._hass) || fetch)(this._apiUrl + "/api/plans/" +
           encodeURIComponent(plan.id) + "/departures?limit=" + limit);
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const data = await resp.json();
@@ -903,7 +939,13 @@
 
     setConfig(config) {
       this._config = Object.assign({}, config);
-      this._apiUrl = (config.api_url || `${location.protocol}//${location.hostname}:8099`).replace(/\/+$/, "");
+      if (config.api_url) {
+        this._apiUrl = config.api_url.replace(/\/+$/, "");
+      } else {
+        // Ingress-Pfad über HA-Panels-API ermitteln
+        this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
+        this._resolveIngressUrl();
+      }
       if (!this._favorites) this._loadFavorites();
       this._render();
     }
@@ -911,8 +953,8 @@
     async _loadFavorites() {
       try {
         const [favResp, planResp] = await Promise.all([
-          fetch(this._apiUrl + "/api/favorites"),
-          fetch(this._apiUrl + "/api/plans"),
+          (this._hass?.fetchWithAuth?.bind(this._hass) || fetch)(this._apiUrl + "/api/favorites"),
+          (this._hass?.fetchWithAuth?.bind(this._hass) || fetch)(this._apiUrl + "/api/plans"),
         ]);
         this._favorites = await favResp.json();
         this._plans = await planResp.json();
@@ -928,7 +970,7 @@
     async _searchStations(query) {
       if (query.length < 2) return [];
       try {
-        const r = await fetch(this._apiUrl + "/api/search?q=" + encodeURIComponent(query));
+        const r = await (this._hass?.fetchWithAuth?.bind(this._hass) || fetch)(this._apiUrl + "/api/search?q=" + encodeURIComponent(query));
         return await r.json();
       } catch { return []; }
     }
