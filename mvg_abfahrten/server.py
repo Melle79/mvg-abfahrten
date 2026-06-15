@@ -141,14 +141,44 @@ def card_js():
 
 # ---------------------------------------------------------------- API
 
-@app.get("/api/config")
+def _register_lovelace_resource():
+    """Lovelace-Ressource automatisch registrieren/aktualisieren."""
+    token = os.environ.get("SUPERVISOR_TOKEN")
+    if not token:
+        log.warning("Kein SUPERVISOR_TOKEN – Ressource nicht automatisch registriert")
+        return
+    version = "2.2.89"
+    url = f"/local/mvg-abfahrten-card.js?v={version}"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    ha_api = "http://supervisor/core/api"
+    try:
+        # Bestehende Ressourcen laden
+        resp = requests.get(f"{ha_api}/lovelace/resources", headers=headers, timeout=10)
+        resources = resp.json() if resp.ok else []
+        existing = next((r for r in resources if "mvg-abfahrten-card" in r.get("url", "")), None)
+        if existing:
+            # Aktualisieren
+            rid = existing["id"]
+            r = requests.put(f"{ha_api}/lovelace/resources/{rid}",
+                json={"res_type": "module", "url": url}, headers=headers, timeout=10)
+            log.info("Lovelace-Ressource aktualisiert: %s (HTTP %s)", url, r.status_code)
+        else:
+            # Neu anlegen
+            r = requests.post(f"{ha_api}/lovelace/resources",
+                json={"res_type": "module", "url": url}, headers=headers, timeout=10)
+            log.info("Lovelace-Ressource registriert: %s (HTTP %s)", url, r.status_code)
+    except Exception as e:
+        log.warning("Ressource-Registrierung fehlgeschlagen: %s", e)
+
+
+
 def api_config():
     host = request.host.split(":")[0]
     return jsonify({
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
-        "version": "2.2.88",
+        "version": "2.2.89",
     })
 
 
@@ -618,4 +648,5 @@ def api_plans_departures(plan_id: str):
 
 if __name__ == "__main__":
     log.info("MVG Abfahrten startet auf Port 8099 (Cache-TTL %ss)", CACHE_TTL)
+    _register_lovelace_resource()
     app.run(host="0.0.0.0", port=8099)
