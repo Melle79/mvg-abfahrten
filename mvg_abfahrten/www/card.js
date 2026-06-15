@@ -113,9 +113,9 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     }
     .ticker {
       display: inline-block;
-      font-size: 12.5px;
-      font-weight: 600;
-      color: var(--mvg-red);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--mvg-accent);
       white-space: nowrap;
       padding-left: 100%;
       animation: ticker 20s linear infinite;
