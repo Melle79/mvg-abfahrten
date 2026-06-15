@@ -143,7 +143,12 @@ def card_js():
 
 @app.get("/api/config")
 def api_config():
-    return jsonify({"default_limit": DEFAULT_LIMIT, "cache_ttl": CACHE_TTL})
+    host = request.host.split(":")[0]
+    return jsonify({
+        "default_limit": DEFAULT_LIMIT,
+        "cache_ttl": CACHE_TTL,
+        "api_url": f"http://{host}:8099",
+    })
 
 
 def _fresh_get(path: str, params: dict, ttl: int):

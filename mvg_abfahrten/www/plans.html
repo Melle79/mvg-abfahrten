@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-15-04 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-15-05 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -315,7 +315,7 @@ swap_times: false   # Uhrzeit statt min</div>
   }
 
   // ---------------------------------------------------------------- Grid
-  function renderGrid() {
+  async function renderGrid() {
     const grid = $("plansGrid");
     $("noPlans")?.remove();
     // Alte Kacheln entfernen
@@ -326,8 +326,16 @@ swap_times: false   # Uhrzeit statt min</div>
     if (plans.length && info) {
       info.style.display = "";
       const ids = plans.map(p => `  - ${p.id}`).join("\n");
+      // api_url aus Config-Endpunkt lesen
+      let apiUrl = "http://<HA-IP>:8099";
+      try {
+        const cfg = await api("config");
+        if (cfg.api_url) apiUrl = cfg.api_url;
+      } catch(e) {}
       $("cardYamlExample").textContent =
-`type: custom:mvg-abfahrten-card\napi_url: http://192.168.0.222:8099\nplan_ids:\n${ids}`;
+`type: custom:mvg-abfahrten-card
+api_url: ${apiUrl}
+plan_ids:\n${ids}`;
     } else if (info) {
       info.style.display = "none";
     }
