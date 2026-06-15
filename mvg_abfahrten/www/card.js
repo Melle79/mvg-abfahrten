@@ -914,15 +914,18 @@
         if (!this._apiUrl) {
           this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
         }
+        // Jetzt erst Daten laden da _apiUrl gerade gesetzt wurde
+        if (!this._favorites) this._loadFavorites();
       }
       this._render();
     }
 
     setConfig(config) {
       this._config = Object.assign({}, config);
-      // api_url: aus config oder später via hass.config.internal_url
+      // api_url: aus config oder später via hass.config.internal_url in set hass()
       this._apiUrl = config.api_url ? config.api_url.replace(/\/+$/, "") : null;
-      if (!this._favorites) this._loadFavorites();
+      // _loadFavorites erst wenn _apiUrl bekannt (sonst in set hass() nachholen)
+      if (this._apiUrl && !this._favorites) this._loadFavorites();
       this._render();
     }
 
