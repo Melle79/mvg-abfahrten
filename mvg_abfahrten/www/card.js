@@ -109,7 +109,13 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     .meta .sev { color: var(--mvg-accent); font-weight: 700; flex-shrink: 0; }
     .meta .meta-time { flex-shrink: 0; }
     .meta .ticker-wrap {
-      flex: 1; overflow: hidden; min-width: 0;
+      display: none; /* Ticker läuft separat als volle Zeile */
+    }
+    .row-ticker {
+      grid-column: 1 / -1;
+      overflow: hidden;
+      padding: 0 16px 6px 16px;
+      border-top: none;
     }
     .ticker {
       display: inline-block;
@@ -723,7 +729,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           : "";
         const metaHtml = `<div class="meta">
           <span class="meta-time">${metaTimeTxt}</span>
-          ${tickerText ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText)}</span></span>` : ""}
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
@@ -733,6 +738,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           </div>
           <span class="platform${d.platformChanged ? " platform-changed" : ""}">${platTxt}</span>
           ${minHtml}
+          ${tickerText ? `<div class="row-ticker"><span class="ticker">${esc(tickerText)}</span></div>` : ""}
         </div>`;
       }).join("");
     }
@@ -804,7 +810,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           : `${planned}${delay}${sev}${occIcon ? ' ' + occIcon : ''}`;
         const metaHtml2 = `<div class="meta">
           <span class="meta-time">${metaTimeTxt2}</span>
-          ${tickerText2 ? `<span class="ticker-wrap"><span class="ticker">${esc(tickerText2)}</span></span>` : ""}
+
         </div>`;
         return `<div class="row${d.cancelled ? " cancelled" : ""}">
           ${this._badge(d.label, d.transportType)}
@@ -814,6 +820,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           </div>
           <span class="platform${d.platformChanged ? ' platform-changed' : ''}">${platformTxt}</span>
           ${minHtml}
+          ${tickerText2 ? `<div class="row-ticker"><span class="ticker">${esc(tickerText2)}</span></div>` : ""}
         </div>`;
       }).join("");
     }
