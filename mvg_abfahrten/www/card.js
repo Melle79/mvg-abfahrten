@@ -221,7 +221,7 @@
     setConfig(config) {
       this._config = Object.assign({ favorites: true, limit: 8, refresh: 60 }, config);
       // api_url: aus config oder später via hass.config.internal_url
-      this._apiUrl = config.api_url ? config.api_url.replace(/\/+$/, "") : null;
+      this._apiUrl = (config.api_url || `${location.protocol}//${location.hostname}:8099`).replace(/\/+$/, "");
       this._storageKey = "mvg-card:" + (config.global_id || config.plan_id || "favs");
       this._current = null;
       this._favorites = [];
@@ -272,8 +272,7 @@
     }
 
     connectedCallback() {
-      if (this._apiUrl) { this._initDone = true; this._init(); }
-      // sonst: _init wird in set hass() nachgeholt sobald _apiUrl bekannt
+      this._init();
       const refresh = Math.max(20, Number(this._config.refresh) || 60);
       this._timer = setInterval(() => {
         if (!document.hidden) this._refresh();
@@ -915,8 +914,7 @@
         if (!this._apiUrl) {
           this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
         }
-        // _init nachholen falls connectedCallback schon gelaufen aber _apiUrl noch null war
-        if (!this._initDone) { this._initDone = true; this._init(); }
+        // Jetzt erst Daten laden da _apiUrl gerade gesetzt wurde
         if (!this._favorites) this._loadFavorites();
       }
       this._render();
@@ -934,9 +932,8 @@
     setConfig(config) {
       this._config = Object.assign({}, config);
       // api_url: aus config oder später via hass.config.internal_url in set hass()
-      this._apiUrl = config.api_url ? config.api_url.replace(/\/+$/, "") : null;
-      // _loadFavorites erst wenn _apiUrl bekannt (sonst in set hass() nachholen)
-      if (this._apiUrl && !this._favorites) this._loadFavorites();
+      this._apiUrl = (config.api_url || `${location.protocol}//${location.hostname}:8099`).replace(/\/+$/, "");
+      if (!this._favorites) this._loadFavorites();
       this._render();
     }
 

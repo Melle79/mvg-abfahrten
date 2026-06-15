@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-15-03 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-15-04 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -156,32 +156,6 @@
       <p>Noch keine Abfahrtspläne vorhanden.</p>
       <small>Klicke auf „＋ Neuer Plan" um einen zu erstellen.</small>
     </div>
-
-    <!-- Anleitung: Karte einbinden -->
-    <div id="cardSetupInfo" style="margin-top:32px;background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:20px 24px;display:none">
-      <h3 style="font-size:14px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px">🃏 Dashboard-Karte einbinden</h3>
-
-      <p style="font-size:13px;color:var(--muted);margin-bottom:12px">
-        Füge die Karte in deinem HA-Dashboard als <b style="color:var(--ink)">Benutzerdefinierte Karte</b> hinzu:
-      </p>
-
-      <p style="font-size:12px;color:var(--muted);margin-bottom:6px">1. Ressource hinzufügen (einmalig):</p>
-      <div style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--amber);margin-bottom:12px">
-        /local/mvg-abfahrten-card.js
-      </div>
-
-      <p style="font-size:12px;color:var(--muted);margin-bottom:6px">2. Karte konfigurieren (YAML-Editor):</p>
-      <div id="cardYamlExample" style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--ink);margin-bottom:12px;white-space:pre;line-height:1.6"></div>
-
-      <p style="font-size:12px;color:var(--muted);margin-bottom:6px">3. Optionale Parameter:</p>
-      <div style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--muted);white-space:pre;line-height:1.6">layout: tabs        # tabs oder list
-limit: 8            # Anzahl Abfahrten
-refresh: 60         # Aktualisierung (Sekunden)
-show_filter: true   # Linien-Filter anzeigen
-show_status: true   # Status-Bubble pro Linie
-show_ticker: false  # Störungs-Laufschrift
-swap_times: false   # Uhrzeit statt Minuten</div>
-    </div>
   </div>
 
   <!-- Vollansicht -->
@@ -198,6 +172,37 @@ swap_times: false   # Uhrzeit statt Minuten</div>
 </div>
 
 <div class="info-popup" id="infoPopup"></div>
+
+<!-- Anleitung: Karte einbinden -->
+<div id="cardSetupInfo" style="display:none;border-top:1px solid var(--line);padding:32px 24px;background:var(--panel-2)">
+  <div style="max-width:900px;margin:0 auto">
+    <h3 style="font-size:13px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:20px">🃏 Dashboard-Karte einbinden</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px">
+
+      <div>
+        <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">1 · Ressource hinzufügen <span style="font-weight:400">(einmalig unter Einstellungen → Dashboards → Ressourcen)</span></p>
+        <div style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--amber)">/local/mvg-abfahrten-card.js</div>
+      </div>
+
+      <div>
+        <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">2 · Karte hinzufügen <span style="font-weight:400">(Benutzerdefinierte Karte → YAML-Editor)</span></p>
+        <div id="cardYamlExample" style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--ink);white-space:pre;line-height:1.6"></div>
+      </div>
+
+      <div>
+        <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">3 · Optionale Parameter</p>
+        <div style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--muted);white-space:pre;line-height:1.7">layout: tabs        # tabs | list
+limit: 8            # Anzahl Abfahrten
+refresh: 60         # Sekunden
+show_filter: true   # Linien-Info
+show_status: true   # Status-Bubble
+show_ticker: false  # Störungs-Ticker
+swap_times: false   # Uhrzeit statt min</div>
+      </div>
+
+    </div>
+  </div>
+</div>
 
 <!-- Plan-Assistent Sheet -->
 <div class="sheet" id="sheet" hidden>
