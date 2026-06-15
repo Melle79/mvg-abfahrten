@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-15-06 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-15-07 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -191,14 +191,19 @@
       </div>
 
       <div>
-        <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">3 · Optionale Parameter</p>
-        <div style="background:var(--bg);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;color:var(--muted);white-space:pre;line-height:1.7">layout: tabs        # tabs | list
-limit: 8            # Anzahl Abfahrten
-refresh: 60         # Sekunden
-show_filter: true   # Linien-Info
-show_status: true   # Status-Bubble
-show_ticker: false  # Störungs-Ticker
-swap_times: false   # Uhrzeit statt min</div>
+        <p style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px">3 · Konfigurationsfelder im visuellen Editor</p>
+        <div style="background:var(--bg);border-radius:8px;padding:10px 14px;font-size:12px;line-height:1.8">
+          <div style="color:var(--ink)"><b>Abfahrtspläne</b> <span style="color:var(--muted)">— Pläne aus MVG → Pläne auswählen</span></div>
+          <div style="color:var(--ink)"><b>Darstellung</b> <span style="color:var(--muted)">— Tabs (umschaltbar) oder Untereinander</span></div>
+          <div style="color:var(--ink)"><b>Design</b> <span style="color:var(--muted)">— Dashboard-Theme oder Abfahrtstafel</span></div>
+          <div style="color:var(--ink)"><b>Haltestellenname</b> <span style="color:var(--muted)">— Haltestelle unter Ziel anzeigen</span></div>
+          <div style="color:var(--ink)"><b>Filter-Info</b> <span style="color:var(--muted)">— Linie + Fahrtrichtung unter Tabs</span></div>
+          <div style="color:var(--ink)"><b>Störungstext</b> <span style="color:var(--muted)">— Laufschrift bei Störungen</span></div>
+          <div style="color:var(--ink)"><b>Datenstatus-Bubble</b> <span style="color:var(--muted)">— 🟢 Live · 🟠 Veraltet · 🔴 Keine Daten</span></div>
+          <div style="color:var(--ink)"><b>Uhrzeit/Minuten tauschen</b> <span style="color:var(--muted)">— Uhrzeit groß rechts statt Minuten</span></div>
+          <div style="color:var(--ink)"><b>API-URL</b> <span style="color:var(--muted)">— Pflichtfeld bei Nutzung über Nabu Casa</span></div>
+          <div style="color:var(--ink)"><b>Reihenfolge der Pläne</b> <span style="color:var(--muted)">— Tabs per ↑↓ sortieren</span></div>
+        </div>
       </div>
 
     </div>
