@@ -223,9 +223,13 @@
       if (config.api_url) {
         this._apiUrl = config.api_url.replace(/\/+$/, "");
       } else {
-        // Ingress-Pfad über HA-Panels-API ermitteln
-        this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
-        this._resolveIngressUrl();
+        // Ingress-Pfad aus HA panels lesen
+        const panels = this._hass?.panels || {};
+        const mvgPanel = Object.values(panels).find(p => p.url_path === "mvg_abfahrten");
+        const ingressUrl = mvgPanel?.config?.ingress_entry;
+        this._apiUrl = ingressUrl
+          ? ingressUrl.replace(/\/+$/, "")
+          : `${location.protocol}//${location.hostname}:8099`;
       }
       this._storageKey = "mvg-card:" + (config.global_id || config.plan_id || "favs");
       this._current = null;
@@ -523,36 +527,6 @@
         const deps = this._applyDirFilter(res.value, pf);
         return head + this._rowsHtml(deps);
       }).join("");
-    }
-
-    async _resolveIngressUrl() {
-      // Ingress-URL über HA panels API ermitteln
-      try {
-        const panels = this._hass?.panels || {};
-        const mvg = Object.values(panels).find(p =>
-          p.config?.ingress_entry?.includes("mvg_abfahrten") ||
-          p.url_path === "mvg_abfahrten"
-        );
-        if (mvg?.config?.ingress_entry) {
-          this._apiUrl = mvg.config.ingress_entry.replace(/\/+$/, "");
-          this._refresh();
-          return;
-        }
-        // Fallback: alle Panels nach MVG suchen
-        const res = await this._hass.fetchWithAuth("/api/hassio/ingress/panels");
-        if (res.ok) {
-          const data = await res.json();
-          const entry = Object.values(data?.data || {}).find(p =>
-            p.slug === "mvg_abfahrten"
-          );
-          if (entry?.ingress_url) {
-            this._apiUrl = entry.ingress_url.replace(/\/+$/, "");
-            this._refresh();
-          }
-        }
-      } catch(e) {
-        // Fallback bleibt bei lokaler IP
-      }
     }
 
     _planFilterLabel(plan) {
@@ -942,9 +916,13 @@
       if (config.api_url) {
         this._apiUrl = config.api_url.replace(/\/+$/, "");
       } else {
-        // Ingress-Pfad über HA-Panels-API ermitteln
-        this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
-        this._resolveIngressUrl();
+        // Ingress-Pfad aus HA panels lesen
+        const panels = this._hass?.panels || {};
+        const mvgPanel = Object.values(panels).find(p => p.url_path === "mvg_abfahrten");
+        const ingressUrl = mvgPanel?.config?.ingress_entry;
+        this._apiUrl = ingressUrl
+          ? ingressUrl.replace(/\/+$/, "")
+          : `${location.protocol}//${location.hostname}:8099`;
       }
       if (!this._favorites) this._loadFavorites();
       this._render();
