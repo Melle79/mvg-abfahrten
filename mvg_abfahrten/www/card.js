@@ -220,25 +220,8 @@
 
     setConfig(config) {
       this._config = Object.assign({ favorites: true, limit: 8, refresh: 60 }, config);
-      if (config.api_url) {
-        this._apiUrl = config.api_url.replace(/\/+$/, "");
-      } else {
-        // Ingress-Pfad aus HA panels lesen
-        const panels = this._hass?.panels || {};
-        const mvgPanel = Object.values(panels).find(p => p.url_path === "mvg_abfahrten");
-        const ingressUrl = mvgPanel?.config?.ingress_entry;
-        this._apiUrl = ingressUrl
-          ? ingressUrl.replace(/\/+$/, "")
-          : (() => {
-            // HA interne URL verwenden wenn verfügbar
-            const internalUrl = this._hass?.config?.internal_url;
-            if (internalUrl) {
-              const u = new URL(internalUrl);
-              return `${u.protocol}//${u.hostname}:8099`;
-            }
-            return `${location.protocol}//${location.hostname}:8099`;
-          })();
-      }
+      // api_url: aus config oder später via hass.config.internal_url
+      this._apiUrl = config.api_url ? config.api_url.replace(/\/+$/, "") : null;
       this._storageKey = "mvg-card:" + (config.global_id || config.plan_id || "favs");
       this._current = null;
       this._favorites = [];
@@ -917,29 +900,28 @@
 
   class MvgAbfahrtenCardEditor extends HTMLElement {
 
-    set hass(h) { this._hass = h; this._render(); }
+    set hass(h) {
+      this._hass = h;
+      // _apiUrl beim ersten hass-Aufruf aus internal_url ableiten
+      if (!this._apiUrl && !this._config?.api_url) {
+        const internal = h?.config?.internal_url;
+        if (internal) {
+          try {
+            const u = new URL(internal);
+            this._apiUrl = `${u.protocol}//${u.hostname}:8099`;
+          } catch(e) {}
+        }
+        if (!this._apiUrl) {
+          this._apiUrl = `${location.protocol}//${location.hostname}:8099`;
+        }
+      }
+      this._render();
+    }
 
     setConfig(config) {
       this._config = Object.assign({}, config);
-      if (config.api_url) {
-        this._apiUrl = config.api_url.replace(/\/+$/, "");
-      } else {
-        // Ingress-Pfad aus HA panels lesen
-        const panels = this._hass?.panels || {};
-        const mvgPanel = Object.values(panels).find(p => p.url_path === "mvg_abfahrten");
-        const ingressUrl = mvgPanel?.config?.ingress_entry;
-        this._apiUrl = ingressUrl
-          ? ingressUrl.replace(/\/+$/, "")
-          : (() => {
-            // HA interne URL verwenden wenn verfügbar
-            const internalUrl = this._hass?.config?.internal_url;
-            if (internalUrl) {
-              const u = new URL(internalUrl);
-              return `${u.protocol}//${u.hostname}:8099`;
-            }
-            return `${location.protocol}//${location.hostname}:8099`;
-          })();
-      }
+      // api_url: aus config oder später via hass.config.internal_url
+      this._apiUrl = config.api_url ? config.api_url.replace(/\/+$/, "") : null;
       if (!this._favorites) this._loadFavorites();
       this._render();
     }
