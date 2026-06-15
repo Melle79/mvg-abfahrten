@@ -121,20 +121,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
       padding-left: 100%;
       animation: ticker 20s linear infinite;
     }
-    .ticker-banner {
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(255,160,0,0.12);
-      border-left: 3px solid var(--mvg-accent);
-      border-radius: 0 6px 6px 0;
-      padding: 4px 10px;
-      margin: 2px 0;
-      font-size: 12px; font-weight: 600;
-      color: var(--mvg-accent);
-      line-height: 1.3;
-      cursor: pointer;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .ticker-banner:hover { background: rgba(255,160,0,0.2); }
     @keyframes ticker {
       0%   { transform: translateX(0); }
       100% { transform: translateX(-100%); }
@@ -612,8 +598,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
 
           const head = `<div class="section-head"><h3>${esc(plan.name)}</h3>${filterHtml}</div>`;
           if (res.status !== "fulfilled") return head + '<div class="note err">Nicht erreichbar.</div>';
-          const bannerHtml2 = this._config.show_ticker === "banner" ? this._bannerHtml(deps) : "";
-          return head + bannerHtml2 + (deps.length ? this._planRowsHtml(deps) : '<div class="note">Keine Abfahrten.</div>');
+          return head + (deps.length ? this._planRowsHtml(deps) : '<div class="note">Keine Abfahrten.</div>');
         }).join("");
         return;
       }
@@ -632,11 +617,9 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
         const tabBubble = this.shadowRoot.getElementById("status-" + plan.id);
         if (tabBubble) tabBubble.hidden = true;
 
-        const bannerHtml = this._config.show_ticker === "banner"
-          ? this._bannerHtml(deps) : "";
-        this._els.rows.innerHTML = bannerHtml + (deps.length
+        this._els.rows.innerHTML = deps.length
           ? this._planRowsHtml(deps)
-          : '<div class="note">Keine Abfahrten für diesen Plan.</div>');
+          : '<div class="note">Keine Abfahrten für diesen Plan.</div>';
 
         // Filter-Info: alle Linien, Status pro Linie, nebeneinander wenn Platz
         if (this._config.show_filter !== false && this._els.filterInfo) {
@@ -674,23 +657,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
       }
     }
 
-    _bannerHtml(deps) {
-      const msgs = [];
-      const seen = new Set();
-      (deps || []).forEach(d => {
-        (d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").forEach(i => {
-          if (!seen.has(i.message)) { seen.add(i.message); msgs.push("DISRUPTION::"+i.message); }
-        });
-        (d.messages||[]).forEach(m => {
-          if (!seen.has(m)) { seen.add(m); msgs.push("Info::"+m); }
-        });
-      });
-      if (!msgs.length) return "";
-      const preview = [...seen].join(" · ");
-      const items = esc(msgs.join("|||"));
-      return `<button class="ticker-banner info-btn" data-title="Störungsmeldungen" data-items="${items}">⚠️ ${esc(preview)}</button>`;
-    }
-
     _planRowsHtml(deps) {
       const now = Date.now();
       return deps.map(d => {
@@ -704,7 +670,7 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
           : esc(d.destination);
         const hasInfo = (d.infos||[]).some(x => x.type !== "EARLY_TERMINATION") || (d.messages||[]).length > 0;
         const _infoItems = [...(d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").map(i=>i.type+"::"+i.message), ...(d.messages||[]).map(m=>"Info::"+m)].join("|||");
-        const infoBadge = hasInfo && !this._config.show_ticker ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems)}">ⓘ</button>` : "";
+        const infoBadge = hasInfo ? `<button class="info-btn" data-title="${esc(d.label+" → "+d.destination)}" data-items="${esc(_infoItems)}">ⓘ</button>` : "";
         const platTxt = d.platform != null ? (d.platformChanged ? `⚠ ${esc(d.platform)}` : `Gleis ${esc(d.platform)}`) : "";
         const stationTxt = this._config.show_station !== false && d.stationName
           ? `${esc(d.stationName)} · ` : "";
@@ -1048,7 +1014,6 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
         { name: "show_ticker", selector: { select: { options: [
           { value: "off",    label: "Aus" },
           { value: "ticker", label: "Laufschrift" },
-          { value: "banner", label: "Banner (größer, farbig)" },
         ], mode: "dropdown" } } },
         { name: "show_status",  selector: { boolean: {} } },
         { name: "swap_times",   selector: { boolean: {} } },
