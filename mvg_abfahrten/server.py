@@ -145,15 +145,23 @@ def _write_api_url():
     """Schreibt die interne API-URL in eine JS-Datei die die Karte laden kann."""
     try:
         token = os.environ.get("SUPERVISOR_TOKEN")
-        host = "192.168.0.1"  # Fallback
+        host = None
         if token:
             r = requests.get("http://supervisor/network/interface/default/info",
                 headers={"Authorization": f"Bearer {token}"}, timeout=5)
             if r.ok:
                 data = r.json().get("data", {})
-                ip = data.get("ipv4", {}).get("address", [None])[0]
-                if ip:
-                    host = ip.split("/")[0]
+                # address[] enthält die Host-IP in CIDR-Notation (z.B. 192.168.0.222/24)
+                addresses = data.get("ipv4", {}).get("address", [])
+                if addresses:
+                    host = addresses[0].split("/")[0]
+        if not host:
+            # Fallback: eigene IP über Socket ermitteln
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            host = s.getsockname()[0]
+            s.close()
         api_url = f"http://{host}:8099"
         js = f"window.MVG_API_URL = '{api_url}';\n"
         Path("/config/www/mvg-api-url.js").write_text(js)
@@ -162,14 +170,14 @@ def _write_api_url():
         log.warning("api_url konnte nicht gesetzt werden: %s", e)
 
 
-
+def _register_lovelace_resource():
     """Lovelace-Ressource über HA WebSocket API registrieren/aktualisieren."""
     import websocket, ssl
     token = os.environ.get("SUPERVISOR_TOKEN")
     if not token:
         log.warning("Kein SUPERVISOR_TOKEN – Ressource nicht registriert")
         return
-    version = "2.2.96"
+    version = "2.2.97"
     url = f"/local/mvg-abfahrten-card.js?v={version}"
     try:
         ws = websocket.create_connection(
@@ -243,7 +251,7 @@ def api_config():
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
-        "version": "2.2.96",
+        "version": "2.2.97",
     })
 
 
