@@ -122,15 +122,18 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     }
     .ticker-banner {
       display: flex; align-items: center; gap: 8px;
-      background: rgba(255,160,0,0.15);
+      background: rgba(255,160,0,0.12);
       border-left: 3px solid var(--mvg-accent);
       border-radius: 0 6px 6px 0;
-      padding: 6px 12px;
-      margin: 4px 0 2px 0;
-      font-size: 13px; font-weight: 700;
+      padding: 4px 10px;
+      margin: 2px 0;
+      font-size: 12px; font-weight: 600;
       color: var(--mvg-accent);
-      line-height: 1.4;
+      line-height: 1.3;
+      cursor: pointer;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    .ticker-banner:hover { background: rgba(255,160,0,0.2); }
     @keyframes ticker {
       0%   { transform: translateX(0); }
       100% { transform: translateX(-100%); }
@@ -671,14 +674,20 @@ window.MVG_API_URL = null; // wird von run.sh durch interne IP ersetzt
     }
 
     _bannerHtml(deps) {
-      // Alle einzigartigen Störungstexte aus allen Abfahrten sammeln
-      const msgs = new Set();
+      const msgs = [];
+      const seen = new Set();
       (deps || []).forEach(d => {
-        (d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").forEach(i => msgs.add(i.message));
-        (d.messages||[]).forEach(m => msgs.add(m));
+        (d.infos||[]).filter(x=>x.type!=="EARLY_TERMINATION").forEach(i => {
+          if (!seen.has(i.message)) { seen.add(i.message); msgs.push("DISRUPTION::"+i.message); }
+        });
+        (d.messages||[]).forEach(m => {
+          if (!seen.has(m)) { seen.add(m); msgs.push("Info::"+m); }
+        });
       });
-      if (!msgs.size) return "";
-      return `<div class="ticker-banner">⚠️ ${esc([...msgs].join(" · "))}</div>`;
+      if (!msgs.length) return "";
+      const preview = [...seen].join(" · ");
+      const items = esc(msgs.join("|||"));
+      return `<button class="ticker-banner info-btn" data-title="Störungsmeldungen" data-items="${items}">⚠️ ${esc(preview)}</button>`;
     }
 
     _planRowsHtml(deps) {
