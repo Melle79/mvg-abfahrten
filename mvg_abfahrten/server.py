@@ -179,7 +179,7 @@ def _register_lovelace_resource():
     if not token:
         log.warning("Kein SUPERVISOR_TOKEN – Ressourcen nicht registriert")
         return
-    version = "2.3.14"
+    version = "2.3.15"
 
     def _upsert(ws, resources, match_substr, url, msg_id):
         existing = next((r for r in resources if match_substr in r.get("url", "")), None)
@@ -256,7 +256,7 @@ def api_config():
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
-        "version": "2.3.14",
+        "version": "2.3.15",
     })
 
 

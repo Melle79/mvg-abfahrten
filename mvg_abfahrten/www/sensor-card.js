@@ -75,10 +75,7 @@
 
   class MvgAbfahrtenSensorCard extends HTMLElement {
     setConfig(config) {
-      if (!config.entities || !config.entities.length) {
-        throw new Error("mvg-abfahrten-sensor-card: 'entities' (Liste von Sensor-Entity-IDs) ist erforderlich");
-      }
-      this._config = config;
+      this._config = config || {};
       this._activeTab = 0;
       this._popup = null;
     }
@@ -144,7 +141,7 @@
 
     _render() {
       if (!this._hass || !this._config) return;
-      const entities = this._config.entities;
+      const entities = this._config.entities || [];
       const limit = Number(this._config.limit) || 4;
 
       if (!this._card) {
@@ -156,6 +153,11 @@
           const info = e.target.closest(".info-btn");
           if (info) { this._showInfo(info.dataset.title, info.dataset.msg); }
         });
+      }
+
+      if (!entities.length) {
+        this._card.innerHTML = `<div class="unavail">Bitte mindestens einen Sensor (sensor.mvg_abfahrten_mvg_*) in den Karteneinstellungen auswählen.</div>`;
+        return;
       }
 
       const states = entities.map(id => this._hass.states[id]).filter(Boolean);
@@ -202,6 +204,7 @@
 
     _render() {
       if (!this._hass) return;
+      this._config = this._config || {};
       if (!this._form) {
         this.innerHTML = "";
         this._form = document.createElement("ha-form");
