@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>MVG Abfahrten Sensor-Karte – Demo aller Optionen</title>
+<style>
+  :root {
+    --primary-text-color: #f2f2f2;
+    --secondary-text-color: #9aa0a8;
+    --secondary-background-color: #2a2a2a;
+    --card-background-color: #1c1f24;
+    --divider-color: rgba(255,255,255,0.1);
+    --accent-color: #ff9800;
+    --error-color: #e84545;
+  }
+  body {
+    margin: 0; padding: 24px; background: #0e1014; color: var(--primary-text-color);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  p.lead { color: var(--secondary-text-color); font-size: 13px; margin-top: 0; margin-bottom: 28px; max-width: 720px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 24px; }
+  .demo-block { background: #14171c; border-radius: 12px; padding: 16px; }
+  .demo-block h2 { font-size: 13px; font-weight: 700; margin: 0 0 4px 0; color: var(--accent-color); }
+  .demo-block .opt { font-size: 11px; color: var(--secondary-text-color); margin-bottom: 12px; font-family: monospace; white-space: pre-wrap; }
+  ha-card { display:block; border-radius: 12px; background: var(--card-background-color); box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+  .note { background: #2a2010; border-left: 3px solid var(--accent-color); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 12.5px; color: #ffd699; margin-bottom: 28px; max-width: 720px; }
+</style>
+</head>
+<body>
+
+<h1>🃏 MVG Abfahrten – Sensor-Karte: Konfigurationsbeispiele</h1>
+<p class="lead">
+  Diese Seite zeigt alle Einstellungsmöglichkeiten der <code>mvg-abfahrten-sensor-card</code> mit
+  simulierten Sensordaten, ohne dass ein echter Home-Assistant-Server nötig ist.
+</p>
+<div class="note">
+  ⚠️ Hinweis: Störungsmeldungen (Linie 212 hat in den Beispielen eine Störung) sind nicht immer
+  verfügbar – die MVG liefert nur dann <code>messages</code>, wenn tatsächlich eine Störung vorliegt.
+  Bei normalem Betrieb bleibt das Info-Symbol <b>ⓘ</b> bzw. die Laufschrift einfach leer/ausgeblendet.
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script src="mvg-abfahrten-sensor-card.js"></script>
+<script>
+const now = Date.now();
+
+function dep(line, type, dest, station, minutes, delay, platform, cancelled, messages) {
+  return {
+    line, transport_type: type, destination: dest, station,
+    minutes, planned: now + minutes * 60000,
+    realtime: now + (minutes + delay) * 60000,
+    delay, platform, platform_changed: false,
+    cancelled: !!cancelled, sev: false,
+    messages: messages || [],
+  };
+}
+
+// Sensor MIT Störungsmeldung
+const waldstrasseDeps = [
+  dep("212", "BUS", "Neuperlach Süd", "Waldstraße", 4, 2, "1", false, ["Reparatur an einer Weiche"]),
+  dep("212", "BUS", "Trudering", "Waldstraße", 17, 0, "1", false, []),
+  dep("212", "BUS", "Neuperlach Süd", "Waldstraße", 31, 0, "1", true, []), // entfällt
+  dep("X19", "REGIONAL_BUS", "Ottobrunn", "Waldstraße", 44, 0, "2", false, []),
+];
+
+// Sensor OHNE Störungsmeldung (Normalfall – messages bleibt leer)
+const neubibergDeps = [
+  dep("S5", "SBAHN", "Pasing", "Neubiberg", 6, 0, "2", false, []),
+  dep("S5", "SBAHN", "Erding", "Neubiberg", 21, 1, "1", false, []),
+  dep("S3", "SBAHN", "Mammendorf", "Neubiberg", 36, 0, "2", false, []),
+];
+
+const fakeHass = {
+  states: {
+    "sensor.mvg_abfahrten_mvg_waldstrasse": {
+      entity_id: "sensor.mvg_abfahrten_mvg_waldstrasse",
+      state: String(waldstrasseDeps[0].minutes),
+      attributes: { plan_name: "Waldstraße", friendly_name: "MVG Waldstraße", departures: waldstrasseDeps },
+    },
+    "sensor.mvg_abfahrten_mvg_neubiberg": {
+      entity_id: "sensor.mvg_abfahrten_mvg_neubiberg",
+      state: String(neubibergDeps[0].minutes),
+      attributes: { plan_name: "Neubiberg", friendly_name: "MVG Neubiberg", departures: neubibergDeps },
+    },
+    "sensor.mvg_abfahrten_mvg_leer": {
+      entity_id: "sensor.mvg_abfahrten_mvg_leer",
+      state: "none",
+      attributes: { plan_name: "Ohne Abfahrten", friendly_name: "MVG Ohne Abfahrten", departures: [] },
+    },
+    "sensor.mvg_abfahrten_mvg_offline": {
+      entity_id: "sensor.mvg_abfahrten_mvg_offline",
+      state: "unavailable",
+      attributes: { plan_name: "Nicht erreichbar", friendly_name: "MVG Nicht erreichbar", departures: [] },
+    },
+  },
+};
+
+const demos = [
+  {
+    title: "1 · Standard (Tabs, Dashboard-Theme)",
+    opt: "layout: tabs\ndesign: auto\nshow_title: true\nshow_filter: true\nshow_station: true\nshow_ticker: off",
+    config: { entities: ["sensor.mvg_abfahrten_mvg_waldstrasse", "sensor.mvg_abfahrten_mvg_neubiberg"],
+      layout: "tabs", design: "auto", show_title: true, show_filter: true, show_station: true, show_ticker: "off", limit: 4 },
+  },
+  {
+    title: "2 · Untereinander (List), Anzeigetafel-Design",
+    opt: "layout: list\ndesign: board\nshow_title: true\nshow_clock: true\nshow_filter: true",
+    config: { entities: ["sensor.mvg_abfahrten_mvg_waldstrasse", "sensor.mvg_abfahrten_mvg_neubiberg"],
+      layout: "list", design: "board", show_title: true, show_clock: true, show_filter: true, show_station: true, limit: 3 },
+  },
+  {
+    title: "3 · Laufschrift statt Info-Symbol",
+    opt: "show_ticker: ticker\n→ Störungstext läuft als Laufschrift\n  (nur bei Linie 212 vorhanden, S5/S3 ohne Störung)",
+    config: { entities: ["sensor.mvg_abfahrten_mvg_waldstrasse", "sensor.mvg_abfahrten_mvg_neubiberg"],
+      layout: "tabs", design: "auto", show_ticker: "ticker", show_filter: false, limit: 4 },
+  },
+  {
+    title: "4 · Uhrzeit statt Minuten (swap_times)",
+    opt: "swap_times: true\n→ Abfahrtszeit groß rechts statt Minuten,\n  Minuten klein in der Meta-Zeile",
+    config: { entities: ["sensor.mvg_abfahrten_mvg_waldstrasse"],
+      layout: "tabs", design: "auto", swap_times: true, show_filter: true, limit: 4 },
+  },
+  {
+    title: "5 · Minimal (kein Titel, keine Uhr, kein Filter)",
+    opt: "show_title: false\nshow_clock: false\nshow_filter: false\nshow_station: false",
+    config: { entities: ["sensor.mvg_abfahrten_mvg_neubiberg"],
+      layout: "tabs", show_title: false, show_clock: false, show_filter: false, show_station: false, limit: 3 },
+  },
+  {
+    title: "6 · Einzelner Sensor ohne Störung (Normalfall)",
+    opt: "Nur ein Sensor, keine Tabs.\nKeine Störungsmeldungen vorhanden\n→ kein ⓘ-Symbol sichtbar.",
+    config: { entities: ["sensor.mvg_abfahrten_mvg_neubiberg"],
+      layout: "tabs", show_filter: true, limit: 3 },
+  },
+  {
+    title: "7 · Leerer Plan (keine Abfahrten)",
+    opt: "Sensor liefert eine leere departures-Liste\n(z.B. späte Nacht, keine Fahrten mehr)",
+    config: { entities: ["sensor.mvg_abfahrten_mvg_leer"], layout: "tabs", limit: 4 },
+  },
+  {
+    title: "8 · Sensor nicht erreichbar",
+    opt: "state: unavailable\n(MQTT-Verbindung unterbrochen o.ä.)",
+    config: { entities: ["sensor.mvg_abfahrten_mvg_offline"], layout: "tabs", limit: 4 },
+  },
+];
+
+const grid = document.getElementById("grid");
+demos.forEach(d => {
+  const block = document.createElement("div");
+  block.className = "demo-block";
+  block.innerHTML = `<h2>${d.title}</h2><div class="opt">${d.opt}</div>`;
+  const card = document.createElement("mvg-abfahrten-sensor-card");
+  card.setConfig(d.config);
+  card.hass = fakeHass;
+  block.appendChild(card);
+  grid.appendChild(block);
+});
+</script>
+</body>
+</html>
