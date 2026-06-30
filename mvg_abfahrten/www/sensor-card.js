@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Sensor-Karte (v2.3.22)
+/* MVG Abfahrten – Sensor-Karte (v2.3.23)
  *
  * Liest direkt hass.states['sensor.mvg_abfahrten_mvg_<plan>'] und dessen
  * Attribute (departures-Array). Kein fetch(), kein api_url, kein
@@ -25,7 +25,7 @@
 (function () {
   if (customElements.get("mvg-abfahrten-sensor-card")) return;
 
-  const CARD_VERSION = "2.3.22";
+  const CARD_VERSION = "2.3.23";
   console.info(`%c MVG-ABFAHRTEN-SENSOR-CARD %c v${CARD_VERSION} `,
     "color:#fff;background:#0E84B5;font-weight:700;",
     "color:#0E84B5;background:transparent;font-weight:700;");
@@ -179,6 +179,15 @@
 
     set hass(h) {
       this._hass = h;
+      const entities = this._config?.entities || [];
+      // Fingerprint aus last_updated der relevanten Sensoren – verhindert unnötige
+      // Re-Renders (und damit Neustarts der Laufschrift-Animation) bei jedem
+      // hass-Update, das von völlig anderen Entities ausgelöst wurde.
+      const fingerprint = entities
+        .map(id => h.states[id]?.last_updated || "")
+        .join("|");
+      if (fingerprint === this._lastFingerprint) return;
+      this._lastFingerprint = fingerprint;
       this._render();
     }
 
