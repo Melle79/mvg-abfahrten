@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Sensor-Karte (v2.3.21)
+/* MVG Abfahrten – Sensor-Karte (v2.3.22)
  *
  * Liest direkt hass.states['sensor.mvg_abfahrten_mvg_<plan>'] und dessen
  * Attribute (departures-Array). Kein fetch(), kein api_url, kein
@@ -25,7 +25,7 @@
 (function () {
   if (customElements.get("mvg-abfahrten-sensor-card")) return;
 
-  const CARD_VERSION = "2.3.21";
+  const CARD_VERSION = "2.3.22";
   console.info(`%c MVG-ABFAHRTEN-SENSOR-CARD %c v${CARD_VERSION} `,
     "color:#fff;background:#0E84B5;font-weight:700;",
     "color:#0E84B5;background:transparent;font-weight:700;");
@@ -108,6 +108,7 @@
     .cancelled .to-dest { text-decoration: line-through; color: var(--secondary-text-color, #999); }
     .cancelled-text { color: var(--error-color, #e84545); font-size:13px; font-weight:700; }
     .delay { color: var(--error-color, #e84545); font-weight:700; }
+    .sev { color: var(--accent-color, #ff9800); font-weight:700; flex-shrink:0; }
     .empty { padding:30px 16px; text-align:center; color: var(--secondary-text-color, #999); font-size:13px; }
     .unavail { padding:30px 16px; text-align:center; color: var(--error-color, #e84545); font-size:13px; }
     .info-btn {
@@ -228,15 +229,16 @@
     }
 
     _formatMetaTime(dep, swapTimes) {
-      // Im Normalmodus: geplante Uhrzeit + Verspätung; im swap-Modus: Minuten klein
+      // Im Normalmodus: geplante Uhrzeit + Verspätung + SEV; im swap-Modus: Minuten klein + SEV
+      const sevPart = dep.sev ? ` <span class="sev">SEV</span>` : "";
       if (swapTimes) {
         const m = dep.minutes;
         const txt = m === null || m === undefined ? "" : (m <= 0 ? "jetzt" : `${m} min`);
-        return txt;
+        return `${txt}${sevPart}`;
       }
       const timeTxt = this._fmtTime(dep.planned || dep.realtime);
       const delayPart = dep.delay > 0 ? ` <span class="delay">+${dep.delay}</span>` : "";
-      return `${timeTxt}${delayPart}`;
+      return `${timeTxt}${delayPart}${sevPart}`;
     }
 
     _rowHtml(dep) {
