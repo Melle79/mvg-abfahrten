@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Sensor-Karte (v2.3.18)
+/* MVG Abfahrten – Sensor-Karte (v2.3.19)
  *
  * Liest direkt hass.states['sensor.mvg_abfahrten_mvg_<plan>'] und dessen
  * Attribute (departures-Array). Kein fetch(), kein api_url, kein
@@ -25,7 +25,7 @@
 (function () {
   if (customElements.get("mvg-abfahrten-sensor-card")) return;
 
-  const CARD_VERSION = "2.3.18";
+  const CARD_VERSION = "2.3.19";
   console.info(`%c MVG-ABFAHRTEN-SENSOR-CARD %c v${CARD_VERSION} `,
     "color:#fff;background:#0E84B5;font-weight:700;",
     "color:#0E84B5;background:transparent;font-weight:700;");
@@ -57,6 +57,8 @@
       --divider-color: rgba(255,255,255,0.08); --accent-color: #ffb74d;
     }
     .header { display:flex; align-items:center; gap:8px; padding:14px 16px 8px 16px; }
+    .tabs { display:flex; gap:6px; padding: 14px 16px 10px 16px; overflow-x:auto; }
+    .header + .tabs { padding-top: 0; }
     .header h2 { font-size:15px; font-weight:700; margin:0; flex:1; color: var(--primary-text-color); }
     .clock { font-size:13px; font-weight:600; color: var(--secondary-text-color, #999); font-variant-numeric: tabular-nums; }
     .section-head { display:flex; flex-direction:column; gap:2px; padding:12px 16px 4px 16px; }
@@ -65,7 +67,6 @@
     .filter-info { display:flex; flex-wrap:wrap; gap:4px 0; font-size:11px; color: var(--secondary-text-color, #999); }
     .filter-info b { color: var(--primary-text-color); margin-right:2px; }
     .filter-line { display:inline-flex; align-items:center; white-space:nowrap; margin-right:12px; }
-    .tabs { display:flex; gap:6px; padding: 0 16px 10px 16px; overflow-x:auto; }
     .tab {
       flex-shrink:0; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:700;
       background: var(--secondary-background-color, #2a2a2a); color: var(--secondary-text-color, #999);
@@ -86,7 +87,7 @@
     .to-dest { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: var(--primary-text-color); }
     .station-name { font-size:11px; color: var(--secondary-text-color, #999); margin-right:4px; }
     .platform { font-size:12px; color: var(--secondary-text-color, #999); flex-shrink:0; }
-    .min { text-align:right; color: var(--accent-color, #ff9800); font-size:18px; font-weight:700; flex-shrink:0; }
+    .min { text-align:right; color: var(--accent-color, #ff9800); font-size:18px; font-weight:700; flex-shrink:0; min-width:54px; }
     .min.swapped { font-size:14.5px; }
     .min small { font-size:10.5px; font-weight:600; margin-left:2px; color: var(--secondary-text-color, #999); }
     .meta { color: var(--secondary-text-color, #999); font-size:11.5px; display:flex; align-items:center; gap:4px; overflow:hidden; }
