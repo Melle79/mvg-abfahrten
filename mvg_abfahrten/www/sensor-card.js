@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Sensor-Karte (v1.0.0)
+/* MVG Abfahrten – Sensor-Karte (v2.3.16)
  *
  * Liest direkt hass.states['sensor.mvg_abfahrten_mvg_<plan>'] und dessen
  * Attribute (departures-Array). Kein fetch(), kein api_url, kein
@@ -18,6 +18,11 @@
  */
 (function () {
   if (customElements.get("mvg-abfahrten-sensor-card")) return;
+
+  const CARD_VERSION = "2.3.16";
+  console.info(`%c MVG-ABFAHRTEN-SENSOR-CARD %c v${CARD_VERSION} `,
+    "color:#fff;background:#0E84B5;font-weight:700;",
+    "color:#0E84B5;background:transparent;font-weight:700;");
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -246,7 +251,7 @@
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: "mvg-abfahrten-sensor-card",
-    name: "MVG Abfahrten (Sensor)",
+    name: `MVG Abfahrten (Sensor) v${CARD_VERSION}`,
     description: "Zeigt MVG-Abfahrten aus MQTT-Sensoren – funktioniert auch extern über Nabu Casa ohne eigene API.",
   });
 })();
