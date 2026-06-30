@@ -144,6 +144,8 @@ class MqttPublisher:
             state = "unavailable" if not departures else "none"
 
         # Attribute: vollständige Abfahrtsliste, aufbereitet fürs Templating
+        line_status = data.get("lineStatus") or {}
+        overall_source = data.get("dataSource") or "unavailable"
         attr_departures = []
         for d in departures:
             messages = list(d.get("messages") or [])
@@ -155,8 +157,10 @@ class MqttPublisher:
                 max(0, round((realtime_ms / 1000 - time.time()) / 60))
                 if realtime_ms else None
             )
+            label = d.get("label")
+            dep_source = line_status.get(label) or line_status.get("*") or overall_source
             attr_departures.append({
-                "line":          d.get("label"),
+                "line":          label,
                 "transport_type": d.get("transportType"),
                 "destination":   d.get("destination"),
                 "station":       d.get("stationName"),
@@ -169,12 +173,14 @@ class MqttPublisher:
                 "cancelled":     d.get("cancelled"),
                 "sev":           d.get("sev"),
                 "messages":      messages,
+                "data_source":   dep_source,
             })
 
         attributes = {
             "plan_id":     plan_id,
             "plan_name":   name,
-            "data_source": data.get("dataSource"),
+            "data_source": overall_source,
+            "line_status": line_status,
             "fetched_at":  data.get("fetchedAt"),
             "departures":  attr_departures,
             "friendly_name": f"MVG {name}",

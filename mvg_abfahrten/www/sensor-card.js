@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Sensor-Karte (v2.3.20)
+/* MVG Abfahrten – Sensor-Karte (v2.3.21)
  *
  * Liest direkt hass.states['sensor.mvg_abfahrten_mvg_<plan>'] und dessen
  * Attribute (departures-Array). Kein fetch(), kein api_url, kein
@@ -25,7 +25,7 @@
 (function () {
   if (customElements.get("mvg-abfahrten-sensor-card")) return;
 
-  const CARD_VERSION = "2.3.20";
+  const CARD_VERSION = "2.3.21";
   console.info(`%c MVG-ABFAHRTEN-SENSOR-CARD %c v${CARD_VERSION} `,
     "color:#fff;background:#0E84B5;font-weight:700;",
     "color:#0E84B5;background:transparent;font-weight:700;");
@@ -67,6 +67,14 @@
     .filter-info { display:flex; flex-wrap:wrap; gap:4px 0; font-size:11px; color: var(--secondary-text-color, #999); }
     .filter-info b { color: var(--primary-text-color); margin-right:2px; }
     .filter-line { display:inline-flex; align-items:center; white-space:nowrap; margin-right:12px; }
+    .data-status {
+      display:inline-block; width:8px; height:8px; border-radius:50%;
+      margin-right:5px; flex-shrink:0; vertical-align:middle;
+      box-shadow: 0 0 4px currentColor;
+    }
+    .data-status.live        { background:#4caf50; color:#4caf50; }
+    .data-status.cached      { background:#ff9800; color:#ff9800; }
+    .data-status.unavailable { background:#f44336; color:#f44336; }
     .tab {
       flex-shrink:0; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:700;
       background: var(--secondary-background-color, #2a2a2a); color: var(--secondary-text-color, #999);
@@ -161,6 +169,7 @@
         show_clock: false,
         show_station: true,
         show_filter: true,
+        show_status: true,
         show_ticker: "off",
         swap_times: false,
         limit: 4,
@@ -172,21 +181,25 @@
       this._render();
     }
 
-    _filterHtml(departures, showStation) {
+    _filterHtml(departures, showStation, showStatus) {
       const byLine = new Map();
       for (const d of departures) {
         const key = d.line || "?";
-        if (!byLine.has(key)) byLine.set(key, { dests: new Set(), stations: new Set() });
+        if (!byLine.has(key)) byLine.set(key, { dests: new Set(), stations: new Set(), source: d.data_source });
         if (d.destination) byLine.get(key).dests.add(d.destination);
         if (d.station) byLine.get(key).stations.add(d.station);
       }
       if (!byLine.size) return "";
-      const parts = [...byLine.entries()].map(([label, { dests, stations }]) => {
+      const titles = { live: "Live-Daten", cached: "Veraltete Daten (API leer)", unavailable: "Keine Daten verfügbar" };
+      const parts = [...byLine.entries()].map(([label, { dests, stations, source }]) => {
         const destList = [...dests].map(esc).join(", ");
         const stationTxt = showStation && stations.size
           ? ` <span style="color:var(--secondary-text-color,#999)">(${[...stations].map(esc).join(", ")})</span>`
           : "";
-        return `<span class="filter-line"><b>${esc(label)}</b>${stationTxt}&thinsp;·&thinsp;${destList}</span>`;
+        const bubble = showStatus && source
+          ? `<span class="data-status ${esc(source)}" title="${esc(titles[source] || source)}"></span>`
+          : "";
+        return `<span class="filter-line">${bubble}<b>${esc(label)}</b>${stationTxt}&thinsp;·&thinsp;${destList}</span>`;
       });
       return `<div class="filter-info">${parts.join("")}</div>`;
     }
@@ -265,6 +278,7 @@
       const showClock = this._config.show_clock === true;
       const showFilter = this._config.show_filter !== false;
       const showStation = this._config.show_station !== false;
+      const showStatus = this._config.show_status !== false;
 
       if (!this._card) {
         this.innerHTML = `<style>${STYLE}</style><ha-card></ha-card>`;
@@ -302,7 +316,7 @@
         bodyHtml = states.map(s => {
           const name = (s.attributes.plan_name || s.attributes.friendly_name || s.entity_id).replace(/^MVG /, "");
           const departures = (s.attributes.departures || []).slice(0, limit);
-          const filterHtml = showFilter ? this._filterHtml(departures, showStation) : "";
+          const filterHtml = showFilter ? this._filterHtml(departures, showStation, showStatus) : "";
           const rows = s.state === "unavailable"
             ? `<div class="unavail">Keine aktuellen Daten verfügbar.</div>`
             : !departures.length
@@ -321,7 +335,7 @@
         const active = states[Math.min(this._activeTab, states.length - 1)];
         const departures = (active.attributes.departures || []).slice(0, limit);
         const filterHtml = showFilter
-          ? `<div style="padding:0 16px 8px 16px">${this._filterHtml(departures, showStation)}</div>`
+          ? `<div style="padding:0 16px 8px 16px">${this._filterHtml(departures, showStation, showStatus)}</div>`
           : "";
         const rows = active.state === "unavailable"
           ? `<div class="unavail">Keine aktuellen Daten verfügbar.</div>`
@@ -392,6 +406,7 @@
         show_clock: this._config.show_clock === true,
         show_station: this._config.show_station !== false,
         show_filter: this._config.show_filter !== false,
+        show_status: this._config.show_status !== false,
         show_ticker: this._config.show_ticker || "off",
         swap_times: this._config.swap_times === true,
         limit: Number(this._config.limit) || 4,
@@ -412,6 +427,7 @@
         { name: "show_clock",   selector: { boolean: {} } },
         { name: "show_station", selector: { boolean: {} } },
         { name: "show_filter",  selector: { boolean: {} } },
+        { name: "show_status",  selector: { boolean: {} } },
         { name: "show_ticker", selector: { select: { options: [
           { value: "off", label: "Aus (Info-Symbol ⓘ)" },
           { value: "ticker", label: "Laufschrift" },
@@ -427,6 +443,7 @@
         show_clock: "Uhrzeit anzeigen",
         show_station: "Haltestellenname unter Ziel anzeigen",
         show_filter: "Filter-Info (Linien-Übersicht) anzeigen",
+        show_status: "Datenstatus-Bubble anzeigen (🟢 Live · 🟠 Veraltete Daten · 🔴 Keine Daten)",
         show_ticker: "Störungsanzeige",
         swap_times: "Uhrzeit und Minuten tauschen (Uhrzeit groß rechts)",
         limit: "Anzahl Abfahrten",
