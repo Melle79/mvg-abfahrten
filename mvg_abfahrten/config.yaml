@@ -1,5 +1,5 @@
 name: MVG Abfahrten
-version: "2.3.13"
+version: "2.3.14"
 slug: mvg_abfahrten
 description: Abfahrtsmonitor für MVG/MVV mit Abfahrtsplänen, Dashboard-Karte und Echtzeitdaten
 url: https://github.com/Melle79/mvg-abfahrten
@@ -20,11 +20,25 @@ map:
   - config:rw
 homeassistant_api: true
 auth_api: true
+services:
+  - mqtt:want
 options:
   cache_ttl: 65
   default_limit: 12
   ha_ip: ""
+  mqtt_enabled: true
+  mqtt_host: ""
+  mqtt_port: 1883
+  mqtt_user: ""
+  mqtt_password: ""
+  mqtt_publish_interval: 60
 schema:
   cache_ttl: int(10,300)
   default_limit: int(1,80)
   ha_ip: str?
+  mqtt_enabled: bool
+  mqtt_host: str?
+  mqtt_port: port?
+  mqtt_user: str?
+  mqtt_password: password?
+  mqtt_publish_interval: int(20,300)

@@ -16,6 +16,8 @@ from pathlib import Path
 import requests
 from flask import Flask, jsonify, make_response, request, send_from_directory
 
+from mqtt_publisher import MqttPublisher
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("mvg-abfahrten")
 
@@ -171,14 +173,34 @@ def _write_api_url():
 
 
 def _register_lovelace_resource():
-    """Lovelace-Ressource über HA WebSocket API registrieren/aktualisieren."""
+    """Lovelace-Ressourcen über HA WebSocket API registrieren/aktualisieren."""
     import websocket, ssl
     token = os.environ.get("SUPERVISOR_TOKEN")
     if not token:
-        log.warning("Kein SUPERVISOR_TOKEN – Ressource nicht registriert")
+        log.warning("Kein SUPERVISOR_TOKEN – Ressourcen nicht registriert")
         return
-    version = "2.3.13"
-    url = f"/local/mvg-abfahrten-card.js?v={version}"
+    version = "2.3.14"
+
+    def _upsert(ws, resources, match_substr, url, msg_id):
+        existing = next((r for r in resources if match_substr in r.get("url", "")), None)
+        if existing and existing.get("url") == url:
+            log.info("Lovelace-Ressource bereits aktuell: %s", url)
+            return
+        if existing:
+            ws.send(json.dumps({
+                "id": msg_id, "type": "lovelace/resources/update",
+                "resource_id": existing["id"], "res_type": "module", "url": url
+            }))
+            reply = json.loads(ws.recv())
+            log.info("Lovelace-Ressource aktualisiert: %s (success=%s)", url, reply.get("success"))
+        else:
+            ws.send(json.dumps({
+                "id": msg_id, "type": "lovelace/resources/create",
+                "res_type": "module", "url": url
+            }))
+            reply = json.loads(ws.recv())
+            log.info("Lovelace-Ressource registriert: %s (success=%s)", url, reply.get("success"))
+
     try:
         ws = websocket.create_connection(
             "ws://supervisor/core/websocket",
@@ -197,41 +219,24 @@ def _register_lovelace_resource():
         msg = json.loads(ws.recv())
         resources = msg.get("result", [])
 
-        # mvg-api-url.js registrieren (enthält interne IP)
+        # mvg-api-url.js registrieren (enthält interne IP, kein Versions-Query nötig)
         api_url_res = next((r for r in resources if "mvg-api-url" in r.get("url", "")), None)
-        api_url_js = "/local/mvg-api-url.js"
         if not api_url_res:
             ws.send(json.dumps({"id": 10, "type": "lovelace/resources/create",
-                "res_type": "module", "url": api_url_js}))
+                "res_type": "module", "url": "/local/mvg-api-url.js"}))
             ws.recv()
 
-        existing = next((r for r in resources if "mvg-abfahrten-card" in r.get("url", "")), None)
-        if existing and existing.get("url") == url:
-            log.info("Lovelace-Ressource bereits aktuell: %s", url)
-            ws.close()
-            return
+        _upsert(ws, resources, "mvg-abfahrten-card",
+                f"/local/mvg-abfahrten-card.js?v={version}", 2)
+        _upsert(ws, resources, "mvg-abfahrten-sensor-card",
+                f"/local/mvg-abfahrten-sensor-card.js?v={version}", 3)
 
-        if existing:
-            # Aktualisieren
-            ws.send(json.dumps({
-                "id": 2, "type": "lovelace/resources/update",
-                "resource_id": existing["id"], "res_type": "module", "url": url
-            }))
-            msg = json.loads(ws.recv())
-            log.info("Lovelace-Ressource aktualisiert: %s (success=%s)", url, msg.get("success"))
-        else:
-            # Neu anlegen
-            ws.send(json.dumps({
-                "id": 2, "type": "lovelace/resources/create",
-                "res_type": "module", "url": url
-            }))
-            msg = json.loads(ws.recv())
-            log.info("Lovelace-Ressource registriert: %s (success=%s)", url, msg.get("success"))
         ws.close()
     except Exception as e:
-        log.warning("Lovelace-Ressource konnte nicht registriert werden: %s", e)
+        log.warning("Lovelace-Ressourcen konnten nicht registriert werden: %s", e)
 
 
+@app.get("/api/config")
 def api_config():
     host = request.host.split(":")[0]
     # Versuche interne IP aus Supervisor-Netzwerk-API zu lesen
@@ -251,7 +256,7 @@ def api_config():
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
-        "version": "2.3.13",
+        "version": "2.3.14",
     })
 
 
@@ -604,21 +609,12 @@ def api_plans_delete(plan_id: str):
     return jsonify(plans)
 
 
-@app.get("/api/plans/<plan_id>/departures")
-def api_plans_departures(plan_id: str):
-    """Liefert gefilterte Abfahrten für alle Einträge eines Plans."""
-    plans = _load_plans()
-    plan = next((p for p in plans if p.get("id") == plan_id), None)
-    if not plan:
-        return jsonify({"error": "Plan nicht gefunden"}), 404
-
-    limit = min(int(request.args.get("limit", DEFAULT_LIMIT)), 80)
+def _compute_plan_departures(plan: dict, limit: int) -> dict:
+    """Kernlogik zur Ermittlung gefilterter Abfahrten für einen Plan.
+    Wird sowohl vom HTTP-Endpunkt als auch vom MQTT-Publisher genutzt."""
     results = []
     entry_sources = []
     line_status = {}
-
-    # Einträge nach globalId+types gruppieren um doppelte API-Calls zu vermeiden
-    from collections import defaultdict
     raw_cache = {}  # (globalId, types) → (raw, source)
 
     for entry in plan.get("entries", []):
@@ -658,7 +654,6 @@ def api_plans_departures(plan_id: str):
                 else:
                     entry_source = "unavailable"
                     raw = []
-            raw_cache[cache_group] = (raw, entry_source)
             raw_cache[cache_group] = (raw, entry_source)
         else:
             raw, entry_source = raw_cache[cache_group]
@@ -701,7 +696,6 @@ def api_plans_departures(plan_id: str):
 
     results.sort(key=lambda d: d["realtime"])
 
-    # Gesamtstatus
     priority = {"unavailable": 0, "cached": 1, "live": 2}
     active_sources = [s for s, count in entry_sources if count > 0]
     if not active_sources:
@@ -710,17 +704,40 @@ def api_plans_departures(plan_id: str):
     else:
         data_source = min(active_sources, key=lambda s: priority.get(s, 0))
 
-    return jsonify({
+    return {
         "plan":        {"id": plan["id"], "name": plan["name"]},
         "departures":  results[:limit],
         "fetchedAt":   int(time.time() * 1000),
         "dataSource":  data_source,
         "lineStatus":  line_status,
-    })
+    }
+
+
+@app.get("/api/plans/<plan_id>/departures")
+def api_plans_departures(plan_id: str):
+    """Liefert gefilterte Abfahrten für alle Einträge eines Plans."""
+    plans = _load_plans()
+    plan = next((p for p in plans if p.get("id") == plan_id), None)
+    if not plan:
+        return jsonify({"error": "Plan nicht gefunden"}), 404
+
+    limit = min(int(request.args.get("limit", DEFAULT_LIMIT)), 80)
+    return jsonify(_compute_plan_departures(plan, limit))
 
 
 if __name__ == "__main__":
     log.info("MVG Abfahrten startet auf Port 8099 (Cache-TTL %ss)", CACHE_TTL)
     _write_api_url()
     _register_lovelace_resource()
-    app.run(host="0.0.0.0", port=8099)
+
+    mqtt_publisher = MqttPublisher(
+        load_plans_fn=_load_plans,
+        compute_departures_fn=_compute_plan_departures,
+        default_limit=DEFAULT_LIMIT,
+    )
+    mqtt_publisher.start()
+
+    try:
+        app.run(host="0.0.0.0", port=8099)
+    finally:
+        mqtt_publisher.stop()
