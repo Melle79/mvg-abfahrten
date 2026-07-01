@@ -7,137 +7,148 @@
 
 [![Repository zu Home Assistant hinzufügen](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FMelle79%2Fmvg-abfahrten)
 
-Abfahrtsmonitor für **MVG/MVV** als Home-Assistant-Add-on – mit Haltestellensuche, Echtzeit-Abfahrten, **Abfahrtsplänen** (mehrere Haltestellen & Filter pro Plan) und einer eigenen **Dashboard-Karte**.
+Echtzeit-Abfahrtsmonitor für **MVG/MVV** als Home-Assistant-Add-on – mit Haltestellensuche, Abfahrtsplänen, zwei Dashboard-Karten und optionaler MQTT-Integration für externen Zugriff über Nabu Casa.
 
 ---
 
 ## Features
 
-### 🔍 Suche (Tab „Suche")
-- Live-Haltestellensuche mit Autocomplete und Verkehrsmittel-Badges
+### 🔍 Haltestellensuche
+- Live-Suche mit Autocomplete und Verkehrsmittel-Badges
 - Echtzeit-Abfahrten mit Verspätung, Gleis, SEV-Kennzeichnung
-- **EARLY_TERMINATION**: Originalziel durchgestrichen, tatsächliches Ziel daneben
-- **Gleisänderung** (⚠) in Bernstein hervorgehoben
-- **Info-Popup** (ⓘ) bei Störungen und Betriebshinweisen
+- EARLY_TERMINATION: Originalziel durchgestrichen, tatsächliches Ziel daneben
+- Gleisänderung (⚠) in Bernstein hervorgehoben
+- Info-Popup (ⓘ) bei Störungen
 - 60s Auto-Refresh mit Countdown-Timer
-- Hinweis wenn mehr als 30 Suchergebnisse
 
-### 📋 Abfahrtspläne (Tab „Pläne")
-- **Mehrere Haltestellen pro Plan** – z. B. S-Bahn-Haltestelle + Bus-Haltestelle in einem Plan
-- **Linienfilter** – nur bestimmte Linien anzeigen (Chips aus aktuellen Abfahrten)
-- **Richtungsfilter** – H (Hinfahrt) oder R (Rückfahrt) aus der `lineId`, mit Endziel-Vorschau
-- **Kacheln-Übersicht** mit Vorschau der nächsten Abfahrten
-- **Vollansicht** mit 60s-Countdown, Info-Popup, EARLY_TERMINATION-Anzeige
-- Pläne bearbeiten (✎) und löschen (✕)
+### 📋 Abfahrtspläne
+- Mehrere Haltestellen pro Plan kombinierbar (z. B. S-Bahn + Bus)
+- Linienfilter und Richtungsfilter (H/R) pro Eintrag
+- Kacheln-Übersicht mit Vorschau der nächsten Abfahrten
+- Vollansicht mit 60s-Countdown
+- Pläne bearbeiten und löschen
 
-### 🃏 Dashboard-Karte
-- Eigene Lovelace-Karte, vom Add-on selbst ausgeliefert (kein HACS nötig)
-- **Abfahrtspläne** oder klassische Favoriten/Haltestelle
-- **Mehrere Pläne** als Tabs oder untereinander
-- **Filter-Info** unter den Tabs (Fahrtrichtung mit Endzielen)
-- **Haltestellenname** optional unter dem Ziel
-- **Laufschrift** für Störungsmeldungen (optional, rechts neben der Uhrzeit)
-- Info-Popup bei Störungen (funktioniert im Shadow DOM)
-- Design: HA-Theme oder dunkle „Anzeigetafel"-Optik
+### 🃏 API-Karte (`mvg-abfahrten-card`)
+Klassische Lovelace-Karte, ruft die Add-on-API direkt ab. Für **lokalen Zugriff** im Heimnetz, oder mit gesetzter `api_url` auch über Nabu Casa.
+
+- Pläne als Tabs oder untereinander
+- Filter-Info (Linienübersicht) unter den Tabs
+- Status-Bubble: 🟢 Live · 🟠 Veraltete Daten · 🔴 Keine Daten
+- Störungsanzeige: Info-Popup oder Laufschrift
+- SEV-Kennzeichnung (Schienenersatzverkehr)
 - Visueller Editor mit allen Optionen
+- Lovelace-Ressource wird beim Start automatisch registriert
+
+### 📡 MQTT-Sensoren + Sensor-Karte (`mvg-abfahrten-sensor-card`)
+Wenn ein MQTT-Broker verfügbar ist (z. B. Mosquitto-Add-on), veröffentlicht das Add-on pro Abfahrtsplan automatisch einen HA-Sensor:
+
+```
+sensor.mvg_abfahrten_mvg_<plan-name>
+State:      Minuten bis zur nächsten Abfahrt
+Attribute:  Vollständige Abfahrtsliste (Linie, Ziel, Zeit, Gleis,
+            Verspätung, SEV, Störungstext, Datenstatus)
+```
+
+Die zugehörige **Sensor-Karte** liest `hass.states` direkt – **kein `fetch()`, kein `api_url`, kein Auth-Setup**. Funktioniert automatisch überall, auch extern über Nabu Casa.
+
+Gleicher Funktionsumfang wie die API-Karte:
+- Tabs oder Untereinander-Layout
+- Dashboard-Theme oder dunkles Anzeigetafel-Design
+- Filter-Info mit Status-Bubble pro Linie
+- Störungsanzeige, SEV-Badge, swap_times
+- Sensor-Auswahl als ankreuzbare Liste mit Sortier-Widget
 
 ---
 
 ## Installation
 
-1. Badge oben anklicken **oder** in HA: **Einstellungen → Add-ons → Add-on Store → ⋮ → Repositories**
-   → `https://github.com/Melle79/mvg-abfahrten` hinzufügen
+1. Badge oben anklicken **oder** manuell: **Einstellungen → Add-ons → Add-on Store → ⋮ → Repositories** → `https://github.com/Melle79/mvg-abfahrten` hinzufügen
 2. **MVG Abfahrten** installieren und starten
 3. Über die Seitenleiste (**MVG**) öffnen
 
 ---
 
-## Bedienung
-
-### Suche
-Haltestelle eingeben, Abfahrten erscheinen automatisch. 60s-Countdown in der Fußzeile zeigt wann die nächste Aktualisierung kommt.
-
-### Abfahrtspläne
-1. Tab **Pläne** öffnen → **+ Neuer Plan**
-2. **Name** eingeben
-3. **+ Haltestelle hinzufügen** – Haltestelle suchen und auswählen
-4. Optional: **Verkehrsmittel**, **Linien** (Chips), **Richtung** (H/R mit Endziel-Vorschau) wählen
-5. Weitere Haltestellen hinzufügen (z. B. S-Bahn + Bus-Haltestelle kombinieren)
-6. **Speichern**
-
-Die Kacheln-Übersicht zeigt die nächsten Abfahrten aller Einträge zeitlich sortiert. Klick auf eine Kachel öffnet die Vollansicht.
-
----
-
-## Dashboard-Karte
-
-### Ressource registrieren (einmalig)
-**Einstellungen → Dashboards → ⋮ → Ressourcen → Hinzufügen**
-- URL: `http://<ha-host>:8099/card.js`
-- Typ: **JavaScript-Modul**
-
-*(Erfordert aktivierten „Erweiterten Modus" im Benutzerprofil)*
-
-### Karte hinzufügen
-Im Dashboard: **Karte hinzufügen → MVG Abfahrten**
-
-### Karten-Optionen (visueller Editor)
+## Add-on konfigurieren
 
 | Option | Standard | Beschreibung |
 |---|---|---|
-| `plan_ids` | — | Abfahrtspläne (Mehrfachauswahl) |
-| `layout` | `tabs` | `tabs` oder `list` (untereinander) |
-| `design` | `auto` | `auto` (HA-Theme) oder `board` (Anzeigetafel) |
-| `show_title` | `true` | Titel anzeigen |
-| `show_clock` | `true` | Uhrzeit anzeigen |
-| `show_station` | `true` | Haltestellenname unter Ziel anzeigen |
-| `show_filter` | `true` | Fahrtrichtung unter Plan-Tabs anzeigen |
-| `show_ticker` | `false` | Störungstext als Laufschrift neben der Uhrzeit |
-| `limit` | `8` | Anzahl Abfahrten (1–20) |
-| `refresh` | `60` | Aktualisierungsintervall in Sekunden |
-| `api_url` | auto | API-URL (Standard: `http://<ha-host>:8099`) |
+| `cache_ttl` | 65 | Cache-Dauer in Sekunden (10–300) |
+| `default_limit` | 12 | Standardanzahl Abfahrten (1–80) |
+| `ha_ip` | — | IP des HA-Hosts (z. B. `192.168.0.222`) – wird in die Karte eingesetzt, damit sie auch extern funktioniert |
+| `mqtt_enabled` | `true` | MQTT-Sensoren aktivieren |
+| `mqtt_host` | auto | MQTT-Broker-Host (leer = automatische Erkennung via Mosquitto-Add-on) |
+| `mqtt_port` | 1883 | MQTT-Port |
+| `mqtt_user` | — | MQTT-Benutzername |
+| `mqtt_password` | — | MQTT-Passwort |
+| `mqtt_publish_interval` | 60 | Publish-Intervall in Sekunden (20–300) |
 
-### YAML-Beispiel (Plan-Modus)
+---
+
+## Dashboard-Karten
+
+### Ressourcen
+Beide Karten werden beim Add-on-Start **automatisch als Lovelace-Ressourcen registriert** – kein manuelles Eintragen nötig.
+
+| Ressource | Karte |
+|---|---|
+| `/local/mvg-abfahrten-card.js` | API-Karte |
+| `/local/mvg-abfahrten-sensor-card.js` | Sensor-Karte |
+
+### API-Karte – YAML-Beispiel
 ```yaml
 type: custom:mvg-abfahrten-card
+api_url: http://192.168.0.222:8099
 plan_ids:
   - abc12345
   - def67890
 layout: tabs
 show_filter: true
-show_ticker: true
+show_status: true
+show_ticker: ticker
 limit: 8
 ```
 
-### YAML-Beispiel (klassisch mit Favoriten)
+### Sensor-Karte – YAML-Beispiel
 ```yaml
-type: custom:mvg-abfahrten-card
-favorites: true
-layout: list
-design: board
-show_title: true
-show_clock: true
-limit: 10
+type: custom:mvg-abfahrten-sensor-card
+entities:
+  - sensor.mvg_abfahrten_mvg_waldstrasse
+  - sensor.mvg_abfahrten_mvg_neubiberg
+layout: tabs
+show_filter: true
+show_status: true
+limit: 4
 ```
 
----
+### Karten-Optionen
 
-## Add-on-Optionen
+| Option | API-Karte | Sensor-Karte | Beschreibung |
+|---|:---:|:---:|---|
+| `plan_ids` / `entities` | ✓ | ✓ | Pläne / Sensoren (Mehrfachauswahl) |
+| `layout` | ✓ | ✓ | `tabs` oder `list` |
+| `design` | ✓ | ✓ | `auto` (HA-Theme) oder `board` (Anzeigetafel) |
+| `show_title` | ✓ | ✓ | Titel anzeigen |
+| `show_clock` | ✓ | ✓ | Uhrzeit anzeigen |
+| `show_station` | ✓ | ✓ | Haltestellenname unter Ziel |
+| `show_filter` | ✓ | ✓ | Linienübersicht unter Tabs |
+| `show_status` | ✓ | ✓ | Status-Bubble (🟢 Live · 🟠 Veraltet · 🔴 Keine Daten) |
+| `show_ticker` | ✓ | ✓ | `off` (Info-Symbol) oder `ticker` (Laufschrift) |
+| `swap_times` | ✓ | ✓ | Uhrzeit groß rechts statt Minuten |
+| `limit` | ✓ | ✓ | Anzahl Abfahrten (1–20) |
+| `refresh` | ✓ | — | Aktualisierungsintervall in Sekunden |
+| `api_url` | ✓ | — | API-URL des Add-ons (Pflichtfeld bei Nabu Casa) |
 
-| Option | Standard | Beschreibung |
-|---|---|---|
-| `cache_ttl` | 45 | Cache-Dauer für Abfahrten in Sekunden (10–300) |
-| `default_limit` | 12 | Standardanzahl Abfahrten (1–80) |
-
-Port **8099** stellt API und Karte im LAN bereit (ohne Authentifizierung – nur im Heimnetz verwenden).
+### Demo
+Eine interaktive Demo aller Konfigurationsmöglichkeiten der Sensor-Karte ist im laufenden Add-on unter `/sensor-card-demo.html` verfügbar.
 
 ---
 
 ## Hinweise
 
 - Basiert auf der **inoffiziellen MVG-API** – nur für private, nicht-kommerzielle Nutzung
-- Die MVG-API liefert für manche Haltestellen nur ein Verkehrsmittel obwohl mehrere fahren → in diesem Fall separate Haltestellen-Einträge im Plan anlegen (z. B. S-Bahn-Haltestelle + Bus-Haltestelle)
-- Abfahrtspläne werden unter `/data/plans.json` im Add-on gespeichert
+- Die MVG-API liefert für manche Haltestellen nur ein Verkehrsmittel obwohl mehrere fahren → in diesem Fall separate Einträge im Plan anlegen (z. B. S-Bahn-Haltestelle + Bus-Haltestelle)
+- Port **8099** stellt API und App im LAN bereit (ohne Authentifizierung – nur im Heimnetz verwenden)
+- Abfahrtspläne werden unter `/data/plans.json` gespeichert
 
 ---
 
