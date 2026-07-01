@@ -142,7 +142,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1><b>MVG</b> Abfahrtspläne <span id="appVersion" style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px"></span></h1>
+    <h1><b>MVG</b> Abfahrtspläne</h1>
     <nav style="display:flex;gap:8px">
       <a href="./" style="padding:6px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:13px;text-decoration:none">🔍 Suche</a>
       <a href="./plans" style="padding:6px 14px;border-radius:8px;background:var(--amber);color:#000;font-weight:700;font-size:13px;text-decoration:none">📋 Pläne</a>
@@ -957,10 +957,14 @@ plan_ids:\n${ids}`;
 
   // ---------------------------------------------------------------- Start
   loadPlans();
-  api("config").then(cfg => {
-    if (cfg.version && $("appVersion")) $("appVersion").textContent = `v${cfg.version}`;
-  }).catch(() => {});
 })();
 </script>
+
+<footer style="text-align:center;padding:20px 16px;font-size:11px;color:var(--muted);border-top:1px solid var(--line);margin-top:16px">
+  Echtzeit-Daten: <a href="https://www.mvg.de" target="_blank" style="color:var(--muted)">MVG / MVV</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/Melle79/mvg-abfahrten" target="_blank" style="color:var(--muted)">MVG Abfahrten</a>
+  &nbsp;·&nbsp; v2.3.24
+</footer>
 </body>
 </html>
