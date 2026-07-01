@@ -132,6 +132,20 @@ def index():
     return resp
 
 
+@app.get("/sensor-card-demo.html")
+def sensor_card_demo():
+    resp = make_response(send_from_directory(WWW_DIR, "sensor-card-demo.html"))
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@app.get("/sensor-card.js")
+def sensor_card_js():
+    resp = make_response(send_from_directory(WWW_DIR, "sensor-card.js"))
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 @app.get("/card.js")
 def card_js():
     resp = make_response(send_from_directory(WWW_DIR, "card.js"))
@@ -179,7 +193,7 @@ def _register_lovelace_resource():
     if not token:
         log.warning("Kein SUPERVISOR_TOKEN – Ressourcen nicht registriert")
         return
-    version = "2.3.23"
+    version = "2.3.24"
 
     def _upsert(ws, resources, match_substr, url, msg_id):
         existing = next((r for r in resources if match_substr in r.get("url", "")), None)
@@ -256,7 +270,7 @@ def api_config():
         "default_limit": DEFAULT_LIMIT,
         "cache_ttl": CACHE_TTL,
         "api_url": f"http://{host}:8099",
-        "version": "2.3.23",
+        "version": "2.3.24",
     })
 
 

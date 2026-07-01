@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MVG Abfahrtspläne</title>
 <style>
-  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-15-09 */
+  /* Abfahrtspläne v1.0.0 – Cache: 2026-06-30-01 */
   :root {
     --bg: #0C141F; --panel: #131F30; --panel-2: #0F1A29;
     --ink: #EDF2F8; --muted: #7E92AB; --amber: #FFB300;
@@ -142,7 +142,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1><b>MVG</b> Abfahrtspläne</h1>
+    <h1><b>MVG</b> Abfahrtspläne <span id="appVersion" style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px"></span></h1>
     <nav style="display:flex;gap:8px">
       <a href="./" style="padding:6px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--line);color:var(--muted);font-size:13px;text-decoration:none">🔍 Suche</a>
       <a href="./plans" style="padding:6px 14px;border-radius:8px;background:var(--amber);color:#000;font-weight:700;font-size:13px;text-decoration:none">📋 Pläne</a>
@@ -957,6 +957,9 @@ plan_ids:\n${ids}`;
 
   // ---------------------------------------------------------------- Start
   loadPlans();
+  api("config").then(cfg => {
+    if (cfg.version && $("appVersion")) $("appVersion").textContent = `v${cfg.version}`;
+  }).catch(() => {});
 })();
 </script>
 </body>
