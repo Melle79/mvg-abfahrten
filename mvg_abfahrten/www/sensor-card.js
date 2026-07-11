@@ -1,4 +1,4 @@
-/* MVG Abfahrten – Sensor-Karte (v2.3.23)
+/* MVG Abfahrten – Sensor-Karte (v2.3.28)
  *
  * Liest direkt hass.states['sensor.mvg_abfahrten_mvg_<plan>'] und dessen
  * Attribute (departures-Array). Kein fetch(), kein api_url, kein
@@ -25,7 +25,7 @@
 (function () {
   if (customElements.get("mvg-abfahrten-sensor-card")) return;
 
-  const CARD_VERSION = "2.3.23";
+  const CARD_VERSION = "2.3.28";
   console.info(`%c MVG-ABFAHRTEN-SENSOR-CARD %c v${CARD_VERSION} `,
     "color:#fff;background:#0E84B5;font-weight:700;",
     "color:#0E84B5;background:transparent;font-weight:700;");
