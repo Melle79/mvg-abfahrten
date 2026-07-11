@@ -25,7 +25,7 @@
 (function () {
   if (customElements.get("mvg-abfahrten-sensor-card")) return;
 
-  const CARD_VERSION = "2.3.28";
+  const CARD_VERSION = "2.3.29";
   console.info(`%c MVG-ABFAHRTEN-SENSOR-CARD %c v${CARD_VERSION} `,
     "color:#fff;background:#0E84B5;font-weight:700;",
     "color:#0E84B5;background:transparent;font-weight:700;");
@@ -49,8 +49,9 @@
   ];
 
   const STYLE = `
-    :host { display:block; }
-    ha-card { padding: 0; overflow: hidden; }
+    :host { display:block; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    ha-card { padding: 0; overflow: hidden; -webkit-text-size-adjust: 100%; }
+    ha-card * { max-height: 1000000px; }
     ha-card.board {
       background: #14171c; color: #f2f2f2;
       --primary-text-color: #f2f2f2; --secondary-text-color: #9aa0a8;
