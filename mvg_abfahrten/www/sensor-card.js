@@ -91,8 +91,10 @@
       min-width:38px; height:24px; padding:0 8px; border-radius:6px;
       font-size:13px; font-weight:800; color:#fff;
     }
-    .to { font-size:14.5px; font-weight:500; display:flex; align-items:baseline; gap:6px; }
-    .to-dest { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: var(--primary-text-color); }
+    .to { font-size:14.5px; font-weight:500; display:flex; align-items:baseline; gap:6px; overflow:hidden; }
+    .to-dest { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: var(--primary-text-color); }
+    .to .platform { flex-shrink:0; }
+    .to .min { flex-shrink:0; overflow:visible; }
     .station-name { font-size:11px; color: var(--secondary-text-color, #999); margin-right:4px; }
     .platform { font-size:12px; color: var(--secondary-text-color, #999); flex-shrink:0; }
     .min { text-align:right; color: var(--accent-color, #ff9800); font-size:18px; font-weight:700; flex-shrink:0; min-width:54px; }
@@ -149,9 +151,12 @@
       this._activeTab = 0;
       this._popup = null;
       if (this._clockTimer) clearInterval(this._clockTimer);
+      if (this._refreshTimer) clearInterval(this._refreshTimer);
       if (this._config.show_clock) {
         this._clockTimer = setInterval(() => this._updateClock(), 1000);
       }
+      // Minuten live halten: alle 30s neu rendern auch ohne Sensor-Update
+      this._refreshTimer = setInterval(() => { if (this._hass) this._render(); }, 30000);
     }
 
     getCardSize() { return 4; }
@@ -226,7 +231,11 @@
 
     _formatMin(dep, swapTimes) {
       if (dep.cancelled) return `<span class="min"><span class="cancelled-text">entfällt</span></span>`;
-      const m = dep.minutes;
+      // minutes live aus realtime berechnen (schlägt gespeicherten, möglicherweise veralteten Wert)
+      let m = dep.minutes;
+      if (dep.realtime) {
+        m = Math.max(0, Math.round((dep.realtime / 1000 - Date.now() / 1000) / 60));
+      }
       if (swapTimes) {
         const timeTxt = this._fmtTime(dep.realtime || dep.planned);
         const delayPart = dep.delay > 0 ? `<small class="delay">+${dep.delay}</small>` : "";
@@ -238,10 +247,10 @@
     }
 
     _formatMetaTime(dep, swapTimes) {
-      // Im Normalmodus: geplante Uhrzeit + Verspätung + SEV; im swap-Modus: Minuten klein + SEV
       const sevPart = dep.sev ? ` <span class="sev">SEV</span>` : "";
       if (swapTimes) {
-        const m = dep.minutes;
+        let m = dep.minutes;
+        if (dep.realtime) m = Math.max(0, Math.round((dep.realtime / 1000 - Date.now() / 1000) / 60));
         const txt = m === null || m === undefined ? "" : (m <= 0 ? "jetzt" : `${m} min`);
         return `${txt}${sevPart}`;
       }
@@ -270,7 +279,8 @@
         ${this._badge(dep.line, dep.transport_type)}
         <div>
           <div class="to">
-            <span class="to-dest">${esc(dep.destination || "")}${infoBadge}</span>
+            <span class="to-dest">${esc(dep.destination || "")}</span>
+            ${infoBadge}
             ${platTxt ? `<span class="platform">${platTxt}</span>` : ""}
             ${this._formatMin(dep, swapTimes)}
           </div>
@@ -372,6 +382,7 @@
 
     disconnectedCallback() {
       if (this._clockTimer) clearInterval(this._clockTimer);
+      if (this._refreshTimer) clearInterval(this._refreshTimer);
     }
   }
 
