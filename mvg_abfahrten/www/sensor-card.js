@@ -91,10 +91,10 @@
       min-width:38px; height:24px; padding:0 8px; border-radius:6px;
       font-size:13px; font-weight:800; color:#fff;
     }
-    .to { font-size:14.5px; font-weight:500; display:flex; align-items:baseline; gap:6px; overflow:hidden; }
+    .to { font-size:14.5px; font-weight:500; display:flex; align-items:baseline; gap:6px; }
     .to-dest { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: var(--primary-text-color); }
     .to .platform { flex-shrink:0; }
-    .to .min { flex-shrink:0; overflow:visible; }
+    .to .min { flex-shrink:0; }
     .station-name { font-size:11px; color: var(--secondary-text-color, #999); margin-right:4px; }
     .platform { font-size:12px; color: var(--secondary-text-color, #999); flex-shrink:0; }
     .min { text-align:right; color: var(--accent-color, #ff9800); font-size:18px; font-weight:700; flex-shrink:0; min-width:54px; }
