@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="240" viewBox="0 0 640 240">
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#262b32"/>
+      <stop offset="1" stop-color="#14171b"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f353d"/>
+      <stop offset="1" stop-color="#1b1f24"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Anzeigetafel-Panel -->
+  <rect x="0" y="0" width="640" height="240" rx="34" fill="url(#panel)"/>
+  <rect x="1.5" y="1.5" width="637" height="237" rx="32.5" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="3"/>
+
+  <!-- Kachel links: eine Abfahrtszeile -->
+  <rect x="34" y="34" width="152" height="172" rx="30" fill="url(#tile)" stroke="#3a4149" stroke-width="2"/>
+  <circle cx="64" cy="66" r="8" fill="#5cc94a"/>
+  <rect x="80" y="60" width="78" height="12" rx="6" fill="#4b525b"/>
+  <rect x="58" y="98" width="56" height="36" rx="11" fill="#0E84B5"/>
+  <text x="86" y="125" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#ffffff" text-anchor="middle">S5</text>
+  <text x="150" y="127" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" font-weight="700" fill="#FBC85C" text-anchor="middle">4</text>
+  <rect x="58" y="146" width="104" height="2" fill="#3a4149"/>
+  <rect x="58" y="156" width="56" height="36" rx="11" fill="#1A6A3C"/>
+  <text x="86" y="183" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#ffffff" text-anchor="middle">212</text>
+  <text x="146" y="185" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="32" font-weight="700" fill="#FBC85C" text-anchor="middle">12</text>
+
+  <!-- Wortmarke -->
+  <text x="222" y="122" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="52" font-weight="700" fill="#ffffff">MVG <tspan fill="#FBC85C">Abfahrten</tspan></text>
+  <text x="224" y="160" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="21" font-weight="500" fill="#8b929c" letter-spacing="0.5">Abfahrtsmonitor · Home Assistant</text>
+</svg>

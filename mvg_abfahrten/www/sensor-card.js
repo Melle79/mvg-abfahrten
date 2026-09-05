@@ -25,7 +25,7 @@
 (function () {
   if (customElements.get("mvg-abfahrten-sensor-card")) return;
 
-  const CARD_VERSION = "2.3.29";
+  const CARD_VERSION = "2.3.30";
   console.info(`%c MVG-ABFAHRTEN-SENSOR-CARD %c v${CARD_VERSION} `,
     "color:#fff;background:#0E84B5;font-weight:700;",
     "color:#0E84B5;background:transparent;font-weight:700;");

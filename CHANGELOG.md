@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.3.30 (2026-09-05)
+
+### Neu
+- **Add-on-Icon** (`icon.png`) und **Store-Logo** (`logo.png`) im Stil der Anzeigetafel-Karte: Live-Punkt, Linien-Badges in den Verkehrsmittelfarben (S-Bahn `#0E84B5`, Bus `#1A6A3C`), amberfarbene Minutenanzeige
+- SVG-Quelle des Logos unter `branding/logo.svg` — jederzeit neu renderbar
+
 ## v2.2.67 (2026-06-15)
 
 ### Fixes & Verbesserungen
