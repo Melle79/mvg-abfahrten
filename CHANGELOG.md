@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.3.31 (2026-09-05)
+
+### Fixes
+- **Demo-Seite war über Ingress nicht erreichbar** — der Knopf „Demo aller Optionen ansehen" in den Abfahrtsplänen zeigte auf `/sensor-card-demo.html`. Absolute Pfade landen unter Ingress auf der HA-Wurzel statt im Add-on → 404. Jetzt relativ (`./sensor-card-demo.html`) wie alle anderen Aufrufe der Oberfläche
+- **Demo-Seite blieb leer** — sie lud `mvg-abfahrten-sensor-card.js`, diese Datei gibt es im Add-on nicht (sie heißt dort `sensor-card.js`). Die Karten wurden dadurch nie registriert
+
 ## v2.3.30 (2026-09-05)
 
 ### Neu
